@@ -1,0 +1,36 @@
+{
+  "name": "@compose-market/sdk",
+  "version": "0.1.0",
+  "description": "Official Compose.Market SDK for Compose keys, x402 facilitator access, model discovery, and inference APIs.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "clean": "rm -f index.js index.d.ts",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "test": "npm run build && node --import tsx --test tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "express": "^5.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

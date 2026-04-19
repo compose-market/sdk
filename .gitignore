@@ -1,0 +1,9 @@
+node_modules
+index.js
+index.d.ts
+.env
+
+tests
+
+.DS_Store
+**/.DS_Store
