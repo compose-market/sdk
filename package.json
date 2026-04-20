@@ -1,7 +1,24 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official Compose.Market SDK for Compose keys, x402 facilitator access, model discovery, and inference APIs.",
+  "keywords": [
+    "x402",
+    "facilitator",
+    "a2a",
+    "agentic-economy",
+    "decentralized-inference"
+  ],
+  "homepage": "https://github.com/compose-market/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/compose-market/sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/compose-market/sdk.git"
+  },
+  "license": "MIT",
+  "author": "jabyl",
   "type": "module",
   "exports": {
     ".": {
@@ -11,12 +28,15 @@
     }
   },
   "main": "./index.js",
-  "module": "./index.js",
   "types": "./index.d.ts",
+  "directories": {
+    "test": "tests"
+  },
   "files": [
     "index.js",
     "index.d.ts"
   ],
+  "sideEffects": false,
   "scripts": {
     "clean": "rm -f index.js index.d.ts",
     "build": "npm run clean && tsc -p tsconfig.json",
@@ -32,5 +52,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "module": "./index.js"
 }
