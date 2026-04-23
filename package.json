@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
   "keywords": [
     "compose",

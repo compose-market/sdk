@@ -158,3 +158,35 @@ test("responses.stream yields output_text.delta events and resolves with receipt
         assert.deepEqual(final.response?.usage, { input_tokens: 5, output_tokens: 7, total_tokens: 12 });
     });
 });
+
+test("responses.stream yields partial-image + completed-image events", async () => {
+    const respId = "resp_img_1";
+    const frames: SSEFrame[] = [
+        { data: JSON.stringify({ type: "response.image_generation_call.partial_image", response_id: respId, model: "gpt-image-1", partial_image_index: 0, partial_image_b64: "AAA" }) },
+        { data: JSON.stringify({ type: "response.image_generation_call.partial_image", response_id: respId, model: "gpt-image-1", partial_image_index: 1, partial_image_b64: "BBB" }) },
+        { data: JSON.stringify({ type: "response.image_generation_call.completed", response_id: respId, model: "gpt-image-1", image_b64: "CCC", mime_type: "image/png", revised_prompt: "cat" }) },
+        { data: JSON.stringify({ type: "response.completed", response_id: respId, model: "gpt-image-1", finish_reason: "stop", usage: { input_tokens: 5, output_tokens: 7, total_tokens: 12 } }) },
+        { data: "[DONE]" },
+    ];
+
+    await withStreamingServer(frames, async (sdk) => {
+        const stream = sdk.inference.responses.stream({
+            model: "gpt-image-1",
+            input: "draw a cat",
+            modalities: ["image"],
+        });
+
+        const events = [];
+        for await (const event of stream) {
+            events.push(event);
+        }
+
+        assert.equal(events[0].type, "response.image_generation_call.partial_image");
+        assert.equal(events[1].type, "response.image_generation_call.partial_image");
+        assert.equal(events[2].type, "response.image_generation_call.completed");
+
+        const final = await stream.final();
+        assert.equal(final.response?.id, respId);
+        assert.equal(final.response?.status, "completed");
+    });
+});
