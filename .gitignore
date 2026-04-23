@@ -1,9 +1,9 @@
 node_modules
-index.js
-index.d.ts
+dist
+*.tsbuildinfo
 .env
-
-tests
+.env.*
+!.env.example
 
 .DS_Store
 **/.DS_Store

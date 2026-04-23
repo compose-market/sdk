@@ -1,13 +1,18 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.1.1",
-  "description": "Official Compose.Market SDK for Compose keys, x402 facilitator access, model discovery, and inference APIs.",
+  "version": "0.4.2",
+  "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
   "keywords": [
+    "compose",
+    "compose-market",
     "x402",
+    "x402-v2",
     "facilitator",
-    "a2a",
+    "inference",
+    "openai-compatible",
     "agentic-economy",
-    "decentralized-inference"
+    "decentralized-inference",
+    "a2a"
   ],
   "homepage": "https://github.com/compose-market/sdk#readme",
   "bugs": {
@@ -18,40 +23,46 @@
     "url": "git+https://github.com/compose-market/sdk.git"
   },
   "license": "MIT",
-  "author": "jabyl",
+  "author": "Compose.Market",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
-      "import": "./index.js",
-      "default": "./index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
-  "main": "./index.js",
-  "types": "./index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "directories": {
     "test": "tests"
   },
   "files": [
-    "index.js",
-    "index.d.ts"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=20.6"
+  },
   "scripts": {
-    "clean": "rm -f index.js index.d.ts",
-    "build": "npm run clean && tsc -p tsconfig.json",
-    "test": "npm run build && node --import tsx --test tests/**/*.test.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "clean": "rm -rf dist",
+    "sync-version": "node scripts/sync-version.mjs",
+    "build": "npm run sync-version && npm run clean && tsc -p tsconfig.json",
+    "test": "npm run sync-version && node --import tsx --test tests/sdk.unit.test.ts tests/sdk.streaming.test.ts tests/sdk.contract.test.ts tests/sdk.session-events.test.ts tests/sdk.events.test.ts tests/sdk.runtime-streams.test.ts",
+    "test:build": "npm run build && npm test",
+    "typecheck": "npm run sync-version && tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "npm run test:build"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
-    "express": "^5.2.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "module": "./index.js"
+  }
 }
