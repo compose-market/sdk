@@ -12,6 +12,7 @@ import type {
     ComposeReceipt,
     SessionBudgetSnapshot,
     SessionInvalidReason,
+    X402PaymentSigner,
 } from "../types/index.js";
 import { extractReceiptFromResponse } from "../streaming/receipt.js";
 import { extractSessionBudgetFromResponse } from "../streaming/budget.js";
@@ -28,6 +29,7 @@ export interface InstrumentedResult<T> {
 export interface InferenceContext {
     getWalletMaybe(): { address: string | null; chainId: number | null };
     getTokenMaybe(): string | null;
+    getX402SignerMaybe?(): X402PaymentSigner | null;
     events: ComposeEventBus;
 }
 

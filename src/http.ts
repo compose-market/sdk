@@ -154,6 +154,14 @@ function normalizeUserAddress(value: string): string {
     return trimmed;
 }
 
+function normalizeAtomicAmount(value: string, fieldName: string): string {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed) || BigInt(trimmed) <= 0n) {
+        throw new BadRequestError({ message: `${fieldName} must be a positive integer string` });
+    }
+    return trimmed.replace(/^0+(?=\d)/, "");
+}
+
 export function buildHeaders(input: HeaderBagInput & {
     defaultHeaders: Record<string, string>;
     userAgent: string;
@@ -189,7 +197,7 @@ export function buildHeaders(input: HeaderBagInput & {
     }
 
     if (input.x402MaxAmountWei) {
-        headers.set("x-x402-max-amount-wei", input.x402MaxAmountWei);
+        headers.set("x-x402-max-amount-wei", normalizeAtomicAmount(input.x402MaxAmountWei, "x402MaxAmountWei"));
     }
 
     if (input.idempotencyKey) {
@@ -284,34 +292,41 @@ export class HttpClient {
     }
 
     request<T>(config: RequestOptions): APIPromise<T> {
-        // The promise is built lazily: `execute()` only runs when the caller
-        // awaits (or calls `.asResponse()` / `.withResponse()`). Awaiting the
-        // wrapper directly consumes the body; calling `.asResponse()` leaves
-        // the body intact so the caller can stream it.
-        let cachedJson: Promise<{ data: T; response: Response }> | null = null;
-        let cachedStream: Promise<{ data: T; response: Response }> | null = null;
+        // The promise is built lazily and backed by one network execution.
+        // Parsing uses a cloned response, so `.withResponse()` can expose the
+        // original response without forcing a second paid request.
+        let cachedResponse: Promise<Response> | null = null;
+        let cachedParsed: Promise<{ data: T; response: Response }> | null = null;
 
-        const runJson = (): Promise<{ data: T; response: Response }> => {
-            if (!cachedJson) cachedJson = this.execute<T>(config);
-            return cachedJson;
+        const runResponse = (): Promise<Response> => {
+            if (!cachedResponse) cachedResponse = this.executeRaw(config);
+            return cachedResponse;
         };
-        const runStream = (): Promise<{ data: T; response: Response }> => {
-            if (!cachedStream) cachedStream = this.execute<T>({ ...config, expectStream: true });
-            return cachedStream;
+        const runParsed = (): Promise<{ data: T; response: Response }> => {
+            if (!cachedParsed) {
+                cachedParsed = (async () => {
+                    const response = await runResponse();
+                    const data = config.expectStream
+                        ? (undefined as unknown as T)
+                        : await this.parseResponseBody<T>(response.clone());
+                    return { data, response };
+                })();
+            }
+            return cachedParsed;
         };
 
         const wrapper: APIPromise<T> = {
-            then: (onFulfilled, onRejected) => runJson().then(({ data }) => data).then(onFulfilled, onRejected),
-            catch: (onRejected) => runJson().then(({ data }) => data).catch(onRejected),
-            finally: (onFinally) => runJson().then(({ data }) => data).finally(onFinally),
-            asResponse: async (): Promise<Response> => (await runStream()).response,
-            withResponse: async (): Promise<{ data: T; response: Response }> => runJson(),
+            then: (onFulfilled, onRejected) => runParsed().then(({ data }) => data).then(onFulfilled, onRejected),
+            catch: (onRejected) => runParsed().then(({ data }) => data).catch(onRejected),
+            finally: (onFinally) => runParsed().then(({ data }) => data).finally(onFinally),
+            asResponse: async (): Promise<Response> => runResponse(),
+            withResponse: async (): Promise<{ data: T; response: Response }> => runParsed(),
         };
 
         return wrapper;
     }
 
-    private async execute<T>(config: RequestOptions): Promise<{ data: T; response: Response }> {
+    private async executeRaw(config: RequestOptions): Promise<Response> {
         const query = buildQueryString(config.query);
         const url = `${this.options.baseUrl}${config.path}${query}`;
         const bodyType: "json" | "form-data" | "raw" = config.bodyType
@@ -371,8 +386,7 @@ export class HttpClient {
             clearTimeout(timeoutHandle);
 
             if (response.ok) {
-                const data = config.expectStream ? (undefined as unknown as T) : await this.parseResponseBody<T>(response);
-                return { data, response };
+                return response;
             }
 
             const errorBody = await this.safeReadJson(response);

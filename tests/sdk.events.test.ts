@@ -301,7 +301,7 @@ test("storage adapter persists Compose Key tokens across SDK instances", async (
             chainId: 43114,
             storage,
         });
-        await sdk1.keys.create({ purpose: "session", budgetUsd: 5, durationHours: 1 });
+        await sdk1.keys.create({ purpose: "session", budgetUsd: "5", durationHours: 1 });
         assert.equal(sdk1.keys.currentToken(), "compose-persisted-jwt");
 
         // A brand-new SDK instance with the same wallet+chain should re-hydrate

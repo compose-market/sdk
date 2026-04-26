@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.5.0
+
+Root-cause SDK generation, modality catalog, and local build version-sync pass.
+
+### Highlights
+
+- Added the generated modality surface to the inference contract and package exports:
+  - `@compose-market/sdk/inference/modality` for the generated Speakeasy resource.
+  - `sdk.models.modalities.list()`, `.get(modality)`, `.operations(modality)`, and `.models(modality, operation, filters)` on the orchestration client.
+- Added modality-aware model selection to `sdk.models.search({ operation, ... })` and the Arazzo model discovery workflow.
+- Kept realtime inference SSE in the OpenAPI contract while using Speakeasy envelope responses so receipt/payment/request headers remain typed.
+- Expanded `.speakeasy/tests.arazzo.yaml` for modality discovery and realtime stream coverage, including video SSE.
+- Fixed `scripts/sync-version.mjs` so `package.json` is the single source of truth for root lockfile, OpenAPI specs, Arazzo, Speakeasy generation config, generated package metadata, generated JSR metadata, generated Speakeasy locks, and `src/version.ts`.
+- Added the generated `@compose-market/sdk/inference/modality` subpath export and verified the published package surface resolves from Node.
+
+### Tests
+
+- `npm test` - 52 passing tests.
+- `npm run typecheck`
+- `npm run build`
+- `node --input-type=module -e '...'` import check for `@compose-market/sdk`, `/x402`, `/inference`, `/inference/modality`, and `/agentic`.
+- `npm pack --dry-run --cache /tmp/compose-npm-cache`
+
+---
+
+## 0.4.3
+
+OpenAPI/Arazzo contract freeze plus production payment-safety pass.
+
+### Highlights
+
+- Added canonical Speakeasy-ready contracts:
+  - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/x402.openapi.yaml` for x402 settlement, Compose Keys, sessions, payments, and facilitator operations.
+  - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/inference.openapi.yaml` for model discovery, inference, and realtime inference streams.
+  - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/agentic.openapi.yaml` for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
+  - `/Users/jabyl/Downloads/compose-market/packages/sdk/.speakeasy/tests.arazzo.yaml` for model discovery, Compose Key session lifecycle, Compose Key inference, raw x402 challenge/retry, streaming inference frames, and runtime agent/workflow loops.
+- Added `.speakeasy/workflow.yaml` and `.speakeasy/gen.yaml` so the SDK repo is ready for Speakeasy generation once the CLI is authenticated.
+- Generated and exported Speakeasy TypeScript clients:
+  - `@compose-market/sdk/x402`, `/x402/keys`, `/x402/session`, and `/x402/payments` for x402 settlement, Compose Keys, session state, payments, and facilitator operations.
+  - `@compose-market/sdk/inference` for model discovery, inference, and realtime streams.
+  - `@compose-market/sdk/agentic` plus `/agentic/agent`, `/agentic/workflow`, `/agentic/memory`, and `/agentic/tools`.
+  - Generated schema and operation types under `/inference/schemas`, `/inference/operations`, `/agentic/schemas`, and `/agentic/operations`.
+- Root `npm run build` now compiles the hand-written orchestration SDK plus both generated clients before publish.
+- Hardened money types: Compose Key atomic amounts are strings end to end; `budgetUsd` is now an exact decimal string and `budgetWei` is a positive integer string.
+- Added explicit inference payment modes:
+  - `auto` uses Compose Key first, then raw x402 challenge/sign/retry when a signer is available.
+  - `composeKey` disables raw x402 fallback.
+  - `x402` suppresses Compose Key auth and uses raw x402.
+- Added provider-agnostic `x402Signer` support on the SDK constructor and per-call options.
+- Added x402 payment payload encoding helpers for `PAYMENT-SIGNATURE`.
+- Fixed the lazy `APIPromise` execution path so `.withResponse()` and `await` share one HTTP request instead of risking duplicate paid calls.
+
+### Tests
+
+- `npm run typecheck`
+- `npm test` — 51 passing tests, including raw x402 negotiation and payment-mode coverage.
+- `npm run build`
+- `speakeasy validate openapi` and `speakeasy lint openapi` pass for both OpenAPI documents.
+- `speakeasy lint arazzo` passes for `.speakeasy/tests.arazzo.yaml`.
+- `speakeasy run -y --skip-upload-spec --skip-testing --output console --target x402` passes and generated `generated/x402`.
+- `speakeasy run -y --skip-upload-spec --skip-testing --output console --target inference` passes and generated `generated/inference`.
+- `speakeasy run -y --skip-upload-spec --skip-testing --output console --target agentic` passes and generated `generated/agentic`.
+
+### Speakeasy generation notes
+
+- Speakeasy's automatic generated Arazzo tests are disabled because the SDK owns hand-authored multi-source Arazzo workflows.
+- `inferSSEOverload` is disabled in Speakeasy generation because Speakeasy currently emits invalid TypeScript overloads for SSE-capable operations that also document receipt headers. The generated clients expose the canonical response union/envelope shape, while the hand-written `ComposeSDK` keeps ergonomic streaming helpers.
+
+---
+
 ## 0.4.0
 
 Runtime streams + unified tool-call broadcasting. Enables web/ to consume agent + workflow SSE through typed resources instead of hand-rolled `parseEventStream` loops.

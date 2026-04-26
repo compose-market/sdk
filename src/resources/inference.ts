@@ -1,4 +1,4 @@
-import type { HttpClient } from "../http.js";
+import type { HttpClient, RequestOptions } from "../http.js";
 import type {
     AudioSpeechCreateParams,
     AudioTranscriptionCreateParams,
@@ -11,18 +11,23 @@ import type {
     EmbeddingsResponse,
     ImagesGenerateParams,
     ImagesResponse,
+    ComposePaymentMode,
     ResponseObject,
     ResponseStreamEvent,
     ResponsesCreateParams,
     SessionBudgetSnapshot,
     SessionInvalidReason,
+    X402PaymentSignature,
+    X402PaymentSigner,
     VideoGenerateParams,
+    VideoGenerateResponse,
     VideoJobStatus,
     VideoStatusStreamEvent,
 } from "../types/index.js";
-import { BadRequestError, ComposeError } from "../errors.js";
+import { AuthenticationError, BadRequestError, ComposeError, ComposePaymentRequiredError } from "../errors.js";
 import { parseSSEStream } from "../streaming/sse.js";
 import { parseReceiptEvent } from "../streaming/receipt.js";
+import { encodePaymentSignature } from "./x402.js";
 import {
     instrumentBillableResponse,
     type InferenceContext,
@@ -36,7 +41,16 @@ export interface ComposeCallOptions {
     idempotencyKey?: string;
     composeRunId?: string;
     x402MaxAmountWei?: string;
-    paymentSignature?: string;
+    paymentSignature?: X402PaymentSignature;
+    /**
+     * Payment path for this call.
+     * - auto: use Compose Key first when present, otherwise negotiate raw x402.
+     * - composeKey: require the Compose Key path and do not fall back to x402.
+     * - x402: suppress Compose Key auth and negotiate raw x402.
+     */
+    paymentMode?: ComposePaymentMode;
+    /** Per-call signer used to answer a PAYMENT-REQUIRED challenge. */
+    x402Signer?: X402PaymentSigner;
     /** Override the Compose Key for this call. Passing `null` forces the raw x402 path. */
     composeKey?: string | null;
     /** Override the end-user wallet address for this call. */
@@ -95,7 +109,9 @@ function buildCallHeaders(
     // When the caller explicitly passes `composeKey: null`, force the raw x402
     // path by suppressing the instance-level token. Any other value (string or
     // undefined) falls back to the instance token.
-    const tokenResolved = options && "composeKey" in options
+    const tokenResolved = options?.paymentMode === "x402"
+        ? null
+        : options && "composeKey" in options
         ? options.composeKey
         : ctxToken;
 
@@ -103,11 +119,135 @@ function buildCallHeaders(
         userAddress: options?.userAddress ?? ctxWallet.address ?? undefined,
         chainId: options?.chainId ?? ctxWallet.chainId ?? undefined,
         composeKey: tokenResolved ?? undefined,
-        paymentSignature: options?.paymentSignature,
+        paymentSignature: options?.paymentSignature ? encodePaymentSignature(options.paymentSignature) : undefined,
         x402MaxAmountWei: options?.x402MaxAmountWei,
         idempotencyKey: options?.idempotencyKey,
         composeRunId: options?.composeRunId,
     };
+}
+
+function resolvePaymentMode(options: ComposeCallOptions | undefined): ComposePaymentMode {
+    return options?.paymentMode ?? "auto";
+}
+
+function resolveX402Signer(ctx: InferenceContext, options: ComposeCallOptions | undefined): X402PaymentSigner | null {
+    return options?.x402Signer ?? ctx.getX402SignerMaybe?.() ?? null;
+}
+
+async function buildX402RetryConfig(
+    error: unknown,
+    config: RequestOptions,
+    ctx: InferenceContext,
+    options: ComposeCallOptions | undefined,
+): Promise<RequestOptions | null> {
+    if (!(error instanceof ComposePaymentRequiredError) || !error.paymentRequired) {
+        return null;
+    }
+    if (resolvePaymentMode(options) === "composeKey") {
+        return null;
+    }
+    const signer = resolveX402Signer(ctx, options);
+    if (!signer) {
+        return null;
+    }
+
+    const wallet = ctx.getWalletMaybe();
+    const signed = await signer({
+        paymentRequired: error.paymentRequired,
+        paymentRequiredHeader: error.paymentRequiredHeader,
+        method: config.method,
+        path: config.path,
+        url: error.paymentRequired.resource.url,
+        body: config.body,
+        userAddress: options?.userAddress ?? wallet.address,
+        chainId: options?.chainId ?? wallet.chainId,
+        maxAmountWei: options?.x402MaxAmountWei,
+    });
+
+    return {
+        ...config,
+        headers: {
+            ...(config.headers ?? {}),
+            composeKey: null,
+            paymentSignature: encodePaymentSignature(signed),
+        },
+    };
+}
+
+function shouldRetryInvalidComposeKeyAsX402(
+    error: unknown,
+    ctx: InferenceContext,
+    options: ComposeCallOptions | undefined,
+): boolean {
+    return error instanceof AuthenticationError
+        && resolvePaymentMode(options) === "auto"
+        && Boolean(ctx.getTokenMaybe())
+        && Boolean(resolveX402Signer(ctx, options));
+}
+
+function suppressComposeKey(config: RequestOptions): RequestOptions {
+    return {
+        ...config,
+        headers: {
+            ...(config.headers ?? {}),
+            composeKey: null,
+            paymentSignature: undefined,
+        },
+    };
+}
+
+async function requestJsonWithPayment<T>(
+    client: HttpClient,
+    ctx: InferenceContext,
+    config: RequestOptions,
+    options: ComposeCallOptions | undefined,
+): Promise<{ data: T; response: Response }> {
+    try {
+        return await client.request<T>(config).withResponse();
+    } catch (error) {
+        const retryConfig = await buildX402RetryConfig(error, config, ctx, options);
+        if (retryConfig) return client.request<T>(retryConfig).withResponse();
+
+        if (shouldRetryInvalidComposeKeyAsX402(error, ctx, options)) {
+            const challengeConfig = suppressComposeKey(config);
+            try {
+                return await client.request<T>(challengeConfig).withResponse();
+            } catch (challengeError) {
+                const signedRetryConfig = await buildX402RetryConfig(challengeError, challengeConfig, ctx, options);
+                if (signedRetryConfig) return client.request<T>(signedRetryConfig).withResponse();
+                throw challengeError;
+            }
+        }
+
+        throw error;
+    }
+}
+
+async function requestResponseWithPayment<T>(
+    client: HttpClient,
+    ctx: InferenceContext,
+    config: RequestOptions,
+    options: ComposeCallOptions | undefined,
+): Promise<Response> {
+    try {
+        return await client.request<T>(config).asResponse();
+    } catch (error) {
+        const retryConfig = await buildX402RetryConfig(error, config, ctx, options);
+        if (retryConfig) return client.request<T>(retryConfig).asResponse();
+
+        if (shouldRetryInvalidComposeKeyAsX402(error, ctx, options)) {
+            const challengeConfig = suppressComposeKey(config);
+            try {
+                return await client.request<T>(challengeConfig).asResponse();
+            } catch (challengeError) {
+                const signedRetryConfig = await buildX402RetryConfig(challengeError, challengeConfig, ctx, options);
+                if (signedRetryConfig) return client.request<T>(signedRetryConfig).asResponse();
+                throw challengeError;
+            }
+        }
+
+        throw error;
+    }
 }
 
 /**
@@ -259,14 +399,14 @@ class ChatCompletionsNamespace {
                 message: "Pass stream: true only to chat.completions.stream(). Use create() for non-streaming calls.",
             });
         }
-        const { data, response } = await this.client.request<ChatCompletion>({
+        const { data, response } = await requestJsonWithPayment<ChatCompletion>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/chat/completions",
             body: { ...params, stream: false },
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
 
         return toComposeCompletion(this.ctx, response, data);
     }
@@ -286,7 +426,7 @@ async function* streamChatCompletions(
     params: ChatCompletionsCreateParams,
     options: ComposeCallOptions | undefined,
 ): AsyncGenerator<ChatCompletionChunk, ChatCompletionFinalResult, void> {
-    const response = await client.request<unknown>({
+    const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/chat/completions",
         body: { ...params, stream: true },
@@ -294,7 +434,7 @@ async function* streamChatCompletions(
         signal: options?.signal,
         timeoutMs: options?.timeoutMs,
         expectStream: true,
-    }).asResponse();
+    }, options);
 
     if (!response.body) {
         throw new ComposeError({
@@ -488,14 +628,14 @@ class ResponsesNamespace {
                 message: "Pass stream: true only to responses.stream(). Use create() for non-streaming calls.",
             });
         }
-        const { data, response } = await this.client.request<ResponseObject>({
+        const { data, response } = await requestJsonWithPayment<ResponseObject>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/responses",
             body: { ...params, stream: false },
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 
@@ -544,7 +684,7 @@ async function* streamResponses(
     params: ResponsesCreateParams,
     options: ComposeCallOptions | undefined,
 ): AsyncGenerator<ResponseStreamEvent, ResponsesStreamFinalResult, void> {
-    const response = await client.request<unknown>({
+    const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/responses",
         body: { ...params, stream: true },
@@ -552,7 +692,7 @@ async function* streamResponses(
         signal: options?.signal,
         timeoutMs: options?.timeoutMs,
         expectStream: true,
-    }).asResponse();
+    }, options);
 
     if (!response.body) {
         throw new ComposeError({ code: "upstream_error", message: "Streaming response had no body" });
@@ -714,14 +854,14 @@ class EmbeddingsNamespace {
     ) {}
 
     async create(params: EmbeddingsCreateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<EmbeddingsResponse>> {
-        const { data, response } = await this.client.request<EmbeddingsResponse>({
+        const { data, response } = await requestJsonWithPayment<EmbeddingsResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/embeddings",
             body: params,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 }
@@ -737,26 +877,26 @@ class ImagesNamespace {
     ) {}
 
     async generate(params: ImagesGenerateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<ImagesResponse>> {
-        const { data, response } = await this.client.request<ImagesResponse>({
+        const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/images/generations",
             body: params,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 
     async edit(params: ImagesGenerateParams & { image?: string }, options?: ComposeCallOptions): Promise<ComposeCompletion<ImagesResponse>> {
-        const { data, response } = await this.client.request<ImagesResponse>({
+        const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/images/edits",
             body: params,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 }
@@ -783,7 +923,7 @@ class AudioNamespace {
         budget: SessionBudgetSnapshot | null;
         sessionInvalidReason: SessionInvalidReason | null;
     }> {
-        const response = await this.client.request<unknown>({
+        const response = await requestResponseWithPayment<unknown>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/audio/speech",
             body: params,
@@ -791,7 +931,7 @@ class AudioNamespace {
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
             expectStream: true,
-        }).asResponse();
+        }, options);
 
         // No JSON body to mirror; receipt comes from the header only.
         const result = instrumentBillableResponse(this.ctx, response, undefined);
@@ -836,7 +976,7 @@ class AudioNamespace {
                 form.append(key, typeof value === "string" ? value : JSON.stringify(value));
             }
 
-            const { data, response } = await this.client.request<AudioTranscriptionResponse>({
+            const { data, response } = await requestJsonWithPayment<AudioTranscriptionResponse>(this.client, this.ctx, {
                 method: "POST",
                 path: "/v1/audio/transcriptions",
                 rawBody: form,
@@ -844,18 +984,18 @@ class AudioNamespace {
                 headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
                 signal: options?.signal,
                 timeoutMs: options?.timeoutMs,
-            }).withResponse();
+            }, options);
             return toComposeCompletion(this.ctx, response, data);
         }
 
-        const { data, response } = await this.client.request<AudioTranscriptionResponse>({
+        const { data, response } = await requestJsonWithPayment<AudioTranscriptionResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/audio/transcriptions",
             body: params,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 }
@@ -870,15 +1010,15 @@ class VideosNamespace {
         private readonly ctx: InferenceContext,
     ) {}
 
-    async generate(params: VideoGenerateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<{ job_id?: string; id?: string } & Record<string, unknown>>> {
-        const { data, response } = await this.client.request<{ job_id?: string; id?: string } & Record<string, unknown>>({
+    async generate(params: VideoGenerateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<VideoGenerateResponse>> {
+        const { data, response } = await requestJsonWithPayment<VideoGenerateResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/videos/generations",
             body: params,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
-        }).withResponse();
+        }, options);
         return toComposeCompletion(this.ctx, response, data);
     }
 

@@ -1,0 +1,1561 @@
+---
+openapi: 3.1.0
+info:
+  title: Compose Inference
+  version: 0.5.0
+  summary: Model discovery, inference, and realtime inference stream contracts.
+  description: 'Canonical contract for Compose model discovery, serverless inference,
+    and realtime inference streams. Payment and session primitives are owned by the
+    Compose x402 contract.
+
+'
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+- url: https://api.compose.market
+  x-speakeasy-server-id: inference
+  description: Production inference endpoint
+- url: http://127.0.0.1:3000
+  x-speakeasy-server-id: local
+  description: Local inference development endpoint
+tags:
+- name: health
+- name: models
+- name: modality
+- name: inference
+security: []
+paths:
+  "/health":
+    get:
+      tags:
+      - health
+      operationId: health_check
+      responses:
+        '200':
+          description: API service health.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HealthResponse"
+  "/v1/models":
+    get:
+      tags:
+      - models
+      operationId: models_list
+      parameters:
+      - "$ref": "#/components/parameters/ProviderQuery"
+      - "$ref": "#/components/parameters/ModalityQuery"
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      responses:
+        '200':
+          description: Curated model list.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModelListResponse"
+  "/v1/models/all":
+    get:
+      tags:
+      - models
+      operationId: models_list_all
+      responses:
+        '200':
+          description: Full extended model catalog.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModelListResponse"
+  "/v1/models/search":
+    post:
+      tags:
+      - models
+      operationId: models_search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ModelSearchRequest"
+      responses:
+        '200':
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModelSearchResponse"
+  "/v1/modalities":
+    get:
+      tags:
+      - modality
+      operationId: modality_list
+      responses:
+        '200':
+          description: Catalog of canonical modality groups, operations, model counts, and native pricing unit shapes.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModalityListResponse"
+  "/v1/modalities/{modality}":
+    get:
+      tags:
+      - modality
+      operationId: modality_get
+      parameters:
+      - "$ref": "#/components/parameters/ModalityPath"
+      responses:
+        '200':
+          description: Catalog entry for one canonical modality.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModalityCatalogEntry"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/modalities/{modality}/operations":
+    get:
+      tags:
+      - modality
+      operationId: modality_operations_list
+      parameters:
+      - "$ref": "#/components/parameters/ModalityPath"
+      responses:
+        '200':
+          description: Operations available for one canonical modality.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/OperationListResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/modalities/{modality}/operations/{operation}/models":
+    get:
+      tags:
+      - modality
+      operationId: modality_operation_models_list
+      parameters:
+      - "$ref": "#/components/parameters/ModalityPath"
+      - "$ref": "#/components/parameters/OperationPath"
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - "$ref": "#/components/parameters/ProviderQuery"
+      - name: streaming
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      responses:
+        '200':
+          description: Cursor-paginated models that expose the requested canonical modality operation.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/OperationModelsResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/models/{model}":
+    get:
+      tags:
+      - models
+      operationId: models_get
+      parameters:
+      - "$ref": "#/components/parameters/ModelPath"
+      - "$ref": "#/components/parameters/ProviderQuery"
+      responses:
+        '200':
+          description: Model card.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Model"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/models/{model}/params":
+    get:
+      tags:
+      - models
+      operationId: models_params_get
+      parameters:
+      - "$ref": "#/components/parameters/ModelPath"
+      - "$ref": "#/components/parameters/ProviderQuery"
+      responses:
+        '200':
+          description: Provider-specific generation parameters.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ModelParamsResponse"
+  "/v1/chat/completions":
+    post:
+      tags:
+      - inference
+      operationId: inference_chat_completions_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      - "$ref": "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ChatCompletionsCreateRequest"
+      responses:
+        '200':
+          description: Chat completion or SSE stream when `stream` is true.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+            PAYMENT-RESPONSE:
+              "$ref": "#/components/headers/PaymentResponse"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ChatCompletion"
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/ChatCompletionStream"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/responses":
+    post:
+      tags:
+      - inference
+      operationId: inference_responses_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      - "$ref": "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ResponsesCreateRequest"
+      responses:
+        '200':
+          description: Response object or SSE stream when `stream` is true.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+            PAYMENT-RESPONSE:
+              "$ref": "#/components/headers/PaymentResponse"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ResponseObject"
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/ResponseEventStream"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/responses/{responseId}":
+    get:
+      tags:
+      - inference
+      operationId: inference_responses_get
+      parameters:
+      - "$ref": "#/components/parameters/ResponseIdPath"
+      responses:
+        '200':
+          description: Stored response object.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ResponseObject"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/responses/{responseId}/input_items":
+    get:
+      tags:
+      - inference
+      operationId: inference_responses_input_items_list
+      parameters:
+      - "$ref": "#/components/parameters/ResponseIdPath"
+      responses:
+        '200':
+          description: Stored input items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - object
+                - data
+                properties:
+                  object:
+                    const: list
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  "/v1/responses/{responseId}/cancel":
+    post:
+      tags:
+      - inference
+      operationId: inference_responses_cancel
+      parameters:
+      - "$ref": "#/components/parameters/ResponseIdPath"
+      responses:
+        '200':
+          description: Cancelled response object.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ResponseObject"
+  "/v1/embeddings":
+    post:
+      tags:
+      - inference
+      operationId: inference_embeddings_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/EmbeddingsCreateRequest"
+      responses:
+        '200':
+          description: Embedding response.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/EmbeddingsResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/images/generations":
+    post:
+      tags:
+      - inference
+      operationId: inference_images_generate
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ImagesGenerateRequest"
+      responses:
+        '200':
+          description: Image generation response.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ImagesResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/images/edits":
+    post:
+      tags:
+      - inference
+      operationId: inference_images_edit
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - "$ref": "#/components/schemas/ImagesGenerateRequest"
+              - type: object
+                properties:
+                  image:
+                    type: string
+      responses:
+        '200':
+          description: Image edit response.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ImagesResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/audio/speech":
+    post:
+      tags:
+      - inference
+      operationId: inference_audio_speech_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AudioSpeechCreateRequest"
+      responses:
+        '200':
+          description: Audio bytes.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+  "/v1/audio/transcriptions":
+    post:
+      tags:
+      - inference
+      operationId: inference_audio_transcriptions_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AudioTranscriptionCreateRequest"
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - model
+              - file
+              properties:
+                model:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                language:
+                  type: string
+                response_format:
+                  type: string
+      responses:
+        '200':
+          description: Transcription result.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AudioTranscriptionResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/videos/generations":
+    post:
+      tags:
+      - inference
+      operationId: inference_videos_generate
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/VideoGenerateRequest"
+      responses:
+        '200':
+          description: Completed video generation result.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VideoGenerateResponse"
+        '202':
+          description: Accepted asynchronous video generation job.
+          headers:
+            X-Compose-Receipt:
+              "$ref": "#/components/headers/ComposeReceipt"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VideoGenerateResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/v1/videos/{videoId}":
+    get:
+      tags:
+      - inference
+      operationId: inference_videos_get
+      parameters:
+      - "$ref": "#/components/parameters/VideoIdPath"
+      responses:
+        '200':
+          description: Video job status.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VideoJobStatus"
+  "/v1/videos/{videoId}/stream":
+    get:
+      tags:
+      - inference
+      operationId: inference_videos_stream
+      parameters:
+      - "$ref": "#/components/parameters/VideoIdPath"
+      - name: pollIntervalMs
+        in: query
+        schema:
+          type: integer
+          minimum: 250
+      - name: timeoutMs
+        in: query
+        schema:
+          type: integer
+          minimum: 1000
+      responses:
+        '200':
+          description: Server-sent video status frames.
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/VideoStatusEventStream"
+  "/api/inference":
+    post:
+      tags:
+      - inference
+      operationId: inference_legacy_create
+      security:
+      - ComposeKeyAuth: []
+      - X402Payment: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Legacy inference response.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  securitySchemes:
+    ComposeKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: compose-key
+      description: "`Authorization: Bearer compose-<jwt>`."
+    X402Payment:
+      type: apiKey
+      in: header
+      name: PAYMENT-SIGNATURE
+      description: Base64-url x402 v2 `PaymentPayload`.
+  parameters:
+    SessionUserAddressHeaderOptional:
+      name: x-session-user-address
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    ChainIdHeaderOptional:
+      name: x-chain-id
+      in: header
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    X402MaxAmountWeiHeader:
+      name: x-x402-max-amount-wei
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/AtomicAmount"
+    IdempotencyKeyHeader:
+      name: x-idempotency-key
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+    ProviderQuery:
+      name: provider
+      in: query
+      required: false
+      schema:
+        "$ref": "#/components/schemas/ModelProvider"
+    ModalityQuery:
+      name: modality
+      in: query
+      required: false
+      schema:
+        "$ref": "#/components/schemas/CanonicalModality"
+    ModalityPath:
+      name: modality
+      in: path
+      required: true
+      schema:
+        "$ref": "#/components/schemas/CanonicalModality"
+    OperationPath:
+      name: operation
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9][a-z0-9-]*$"
+        minLength: 1
+    ModelPath:
+      name: model
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ResponseIdPath:
+      name: responseId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    VideoIdPath:
+      name: videoId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  headers:
+    PaymentRequired:
+      description: Base64-url encoded x402 v2 PaymentRequired object.
+      schema:
+        type: string
+    PaymentResponse:
+      description: Base64-url encoded x402 settlement response.
+      schema:
+        type: string
+    ComposeReceipt:
+      description: Base64-url encoded Compose receipt.
+      schema:
+        type: string
+  responses:
+    ErrorResponse:
+      description: Compose error response.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - "$ref": "#/components/schemas/ErrorEnvelope"
+            - "$ref": "#/components/schemas/LegacyError"
+    PaymentRequiredResponse:
+      description: x402 payment challenge.
+      headers:
+        PAYMENT-REQUIRED:
+          "$ref": "#/components/headers/PaymentRequired"
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - "$ref": "#/components/schemas/PaymentRequired"
+            - "$ref": "#/components/schemas/ErrorEnvelope"
+  schemas:
+    AtomicAmount:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Non-negative integer amount in USDC atomic units.
+      examples:
+      - '1000000'
+    WalletAddress:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+      examples:
+      - '0x1111111111111111111111111111111111111111'
+    ChainNetwork:
+      type: string
+      pattern: "^eip155:[0-9]+$"
+      examples:
+      - eip155:43113
+    HealthResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+        timestamp:
+          type: string
+    ErrorEnvelope:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    LegacyError:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    PaymentRequirements:
+      type: object
+      required:
+      - scheme
+      - network
+      - amount
+      - asset
+      - payTo
+      - maxTimeoutSeconds
+      properties:
+        scheme:
+          type: string
+          enum:
+          - exact
+          - upto
+        network:
+          "$ref": "#/components/schemas/ChainNetwork"
+        amount:
+          "$ref": "#/components/schemas/AtomicAmount"
+        asset:
+          "$ref": "#/components/schemas/WalletAddress"
+        payTo:
+          "$ref": "#/components/schemas/WalletAddress"
+        maxTimeoutSeconds:
+          type: integer
+          minimum: 1
+        extra:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    PaymentRequired:
+      type: object
+      required:
+      - x402Version
+      - resource
+      - accepts
+      properties:
+        x402Version:
+          const: 2
+        error:
+          type: string
+        resource:
+          type: object
+          required:
+          - url
+          properties:
+            url:
+              type: string
+              format: uri
+            description:
+              type: string
+            mimeType:
+              type: string
+        accepts:
+          type: array
+          minItems: 1
+          items:
+            "$ref": "#/components/schemas/PaymentRequirements"
+        extensions:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    ModelProvider:
+      type: string
+      enum:
+      - gemini
+      - openai
+      - fireworks
+      - asicloud
+      - hugging face
+      - aiml
+      - vertex
+      - cloudflare
+      - deepgram
+      - elevenlabs
+      - cartesia
+      - roboflow
+    CanonicalModality:
+      type: string
+      enum:
+      - text
+      - image
+      - audio
+      - video
+      - embedding
+    PricingUnit:
+      type: object
+      required:
+      - unitKey
+      - entries
+      - valueKeys
+      properties:
+        unitKey:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+        header:
+          type: string
+        entries:
+          type: object
+          additionalProperties:
+            type: number
+        valueKeys:
+          type: array
+          items:
+            type: string
+        default:
+          type: boolean
+    ModelOperationCapability:
+      type: object
+      required:
+      - modality
+      - operation
+      - sourceTypes
+      - input
+      - output
+      - pricingUnits
+      - streamable
+      properties:
+        modality:
+          "$ref": "#/components/schemas/CanonicalModality"
+        operation:
+          type: string
+          minLength: 1
+        sourceTypes:
+          type: array
+          items:
+            type: string
+        input:
+          type: array
+          items:
+            type: string
+        output:
+          type: array
+          items:
+            type: string
+        pricingUnits:
+          type: array
+          items:
+            "$ref": "#/components/schemas/PricingUnit"
+        streamable:
+          type: boolean
+    OperationCatalogEntry:
+      type: object
+      required:
+      - operation
+      - modelCount
+      - sourceTypes
+      - pricingUnits
+      properties:
+        operation:
+          type: string
+          minLength: 1
+        modelCount:
+          type: integer
+          minimum: 0
+        sourceTypes:
+          type: array
+          items:
+            type: string
+        pricingUnits:
+          type: array
+          items:
+            "$ref": "#/components/schemas/PricingUnit"
+    ModalityCatalogEntry:
+      type: object
+      required:
+      - modality
+      - operations
+      - modelCount
+      - pricingUnits
+      properties:
+        modality:
+          "$ref": "#/components/schemas/CanonicalModality"
+        operations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/OperationCatalogEntry"
+        modelCount:
+          type: integer
+          minimum: 0
+        pricingUnits:
+          type: array
+          items:
+            "$ref": "#/components/schemas/PricingUnit"
+    ModalityListResponse:
+      type: object
+      required:
+      - object
+      - data
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ModalityCatalogEntry"
+    OperationListResponse:
+      type: object
+      required:
+      - object
+      - data
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/OperationCatalogEntry"
+    Model:
+      type: object
+      required:
+      - modelId
+      - provider
+      properties:
+        modelId:
+          type: string
+        name:
+          type:
+          - string
+          - 'null'
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+        type:
+          oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+          - type: 'null'
+        description:
+          type:
+          - string
+          - 'null'
+        input: {}
+        output: {}
+        contextWindow: {}
+        pricing: {}
+        maxOutputTokens:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+        ownedBy:
+          type: string
+        createdAt:
+          oneOf:
+          - type: string
+          - type: integer
+        available:
+          type: boolean
+        availableFrom:
+          type: array
+          items:
+            type: string
+        hfInferenceProvider:
+          type: string
+        hfProviderId:
+          type: string
+    ModelListResponse:
+      type: object
+      required:
+      - object
+      - data
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Model"
+    ModelSearchRequest:
+      type: object
+      properties:
+        q:
+          type: string
+        modality:
+          "$ref": "#/components/schemas/CanonicalModality"
+        operation:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]*$"
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+        priceMaxPerMTok:
+          type: number
+        contextWindowMin:
+          type: integer
+        streaming:
+          type: boolean
+        cursor:
+          type:
+          - string
+          - 'null'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+    ModelSearchResponse:
+      type: object
+      required:
+      - object
+      - data
+      - total
+      - next_cursor
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Model"
+        total:
+          type: integer
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    OperationModel:
+      allOf:
+      - "$ref": "#/components/schemas/Model"
+      - type: object
+        required:
+        - operations
+        properties:
+          operations:
+            type: array
+            items:
+              "$ref": "#/components/schemas/ModelOperationCapability"
+    OperationModelsResponse:
+      type: object
+      required:
+      - object
+      - data
+      - total
+      - next_cursor
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/OperationModel"
+        total:
+          type: integer
+          minimum: 0
+        next_cursor:
+          type:
+          - string
+          - 'null'
+    ModelParamsResponse:
+      type: object
+      required:
+      - modelId
+      - params
+      - defaults
+      properties:
+        modelId:
+          type: string
+        type:
+          type:
+          - string
+          - 'null'
+        provider:
+          type:
+          - string
+          - 'null'
+        params:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        defaults:
+          type: object
+          additionalProperties: true
+    ChatCompletionsCreateRequest:
+      type: object
+      required:
+      - model
+      - messages
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+        stream:
+          type: boolean
+        messages:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ChatMessage"
+        temperature:
+          type: number
+        max_tokens:
+          type: integer
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tool_choice: {}
+    ChatMessage:
+      type: object
+      required:
+      - role
+      - content
+      additionalProperties: true
+      properties:
+        role:
+          type: string
+          enum:
+          - system
+          - user
+          - assistant
+          - tool
+        content:
+          oneOf:
+          - type: string
+          - type: 'null'
+          - type: array
+            items:
+              type: object
+              additionalProperties: true
+        name:
+          type: string
+        tool_call_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ChatCompletion:
+      type: object
+      required:
+      - id
+      - object
+      - created
+      - model
+      - choices
+      - usage
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        object:
+          const: chat.completion
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    ChatCompletionStream:
+      description: SSE frames carrying chat completion chunks plus `compose.receipt`
+        and `compose.error`.
+      type: string
+    ResponsesCreateRequest:
+      type: object
+      required:
+      - model
+      - input
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        input: {}
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+        stream:
+          type: boolean
+        modalities:
+          type: array
+          items:
+            type: string
+            enum:
+            - text
+            - image
+            - audio
+            - video
+        instructions:
+          type: string
+        previous_response_id:
+          type: string
+    ResponseObject:
+      type: object
+      required:
+      - id
+      - object
+      - created_at
+      - status
+      - model
+      - output
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        object:
+          const: response
+        created_at:
+          type: integer
+        status:
+          type: string
+          enum:
+          - completed
+          - in_progress
+          - failed
+          - cancelled
+        model:
+          type: string
+        output:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          additionalProperties: true
+        previous_response_id:
+          type: string
+        job_id:
+          type: string
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    ResponseEventStream:
+      description: SSE frames for text deltas, reasoning deltas, tool calls, partial
+        images, completion, `compose.receipt`, and `compose.error`.
+      type: string
+    EmbeddingsCreateRequest:
+      type: object
+      required:
+      - model
+      - input
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        input:
+          oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+        dimensions:
+          type: integer
+    EmbeddingsResponse:
+      type: object
+      required:
+      - object
+      - data
+      - model
+      - usage
+      additionalProperties: true
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        model:
+          type: string
+        usage:
+          type: object
+          additionalProperties: true
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    ImagesGenerateRequest:
+      type: object
+      required:
+      - model
+      - prompt
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        n:
+          type: integer
+        size:
+          type: string
+        quality:
+          type: string
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+    ImagesResponse:
+      type: object
+      required:
+      - created
+      - data
+      additionalProperties: true
+      properties:
+        created:
+          type: integer
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    AudioSpeechCreateRequest:
+      type: object
+      required:
+      - model
+      - input
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        input:
+          type: string
+        voice:
+          type: string
+        response_format:
+          type: string
+        speed:
+          type: number
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+    AudioTranscriptionCreateRequest:
+      type: object
+      required:
+      - model
+      - file
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        file:
+          type: string
+        filename:
+          type: string
+        language:
+          type: string
+        response_format:
+          type: string
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+    AudioTranscriptionResponse:
+      type: object
+      required:
+      - text
+      additionalProperties: true
+      properties:
+        text:
+          type: string
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    VideoGenerateRequest:
+      type: object
+      required:
+      - model
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        duration:
+          type: integer
+        aspect_ratio:
+          type: string
+        resolution:
+          type: string
+        image_url:
+          type: string
+        provider:
+          "$ref": "#/components/schemas/ModelProvider"
+    VideoGenerateResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        object:
+          const: video.generation
+        status:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        job_id:
+          type: string
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        compose_receipt:
+          "$ref": "#/components/schemas/ComposeReceiptBody"
+    VideoJobStatus:
+      type: object
+      required:
+      - id
+      - object
+      - status
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        object:
+          const: video.generation
+        status:
+          type: string
+          enum:
+          - queued
+          - processing
+          - completed
+          - failed
+        url:
+          type: string
+        error:
+          type: string
+        progress:
+          type: number
+    VideoStatusEventStream:
+      description: SSE frames named `compose.video.status`, `compose.error`, and `done`.
+      type: string
+    ComposeReceiptBody:
+      type: object
+      additionalProperties: true
+      properties:
+        subject:
+          type: string
+        line_items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ComposeReceiptLineItem"
+        provider_amount_wei:
+          "$ref": "#/components/schemas/AtomicAmount"
+        platform_fee_wei:
+          "$ref": "#/components/schemas/AtomicAmount"
+        final_amount_wei:
+          "$ref": "#/components/schemas/AtomicAmount"
+        tx_hash:
+          type: string
+        network:
+          "$ref": "#/components/schemas/ChainNetwork"
+        settled_at:
+          type: integer
+    ComposeReceiptLineItem:
+      type: object
+      required:
+      - key
+      - unit
+      - quantity
+      - amount_wei
+      additionalProperties: true
+      properties:
+        key:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+        unit_price_usd:
+          type: number
+        amount_wei:
+          "$ref": "#/components/schemas/AtomicAmount"

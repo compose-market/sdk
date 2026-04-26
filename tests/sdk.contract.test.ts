@@ -153,6 +153,7 @@ test("models.search POSTs the filter body and forwards cursor pagination", async
         assert.deepEqual(body, {
             q: "gpt",
             modality: "text",
+            operation: "chat",
             provider: "openai",
             limit: 10,
             cursor: "20",
@@ -169,12 +170,141 @@ test("models.search POSTs the filter body and forwards cursor pagination", async
         const result = await sdk.models.search({
             q: "gpt",
             modality: "text",
+            operation: "chat",
             provider: "openai",
             limit: 10,
             cursor: "20",
         });
         assert.equal(result.total, 123);
         assert.equal(result.next_cursor, "30");
+    } finally {
+        await server.close();
+    }
+});
+
+test("models.modalities exposes canonical modality and operation routes", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/v1/modalities") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, {
+                object: "list",
+                data: [
+                    {
+                        modality: "text",
+                        operations: [
+                            {
+                                operation: "chat",
+                                modelCount: 1,
+                                sourceTypes: ["chat-completions"],
+                                pricingUnits: [
+                                    {
+                                        unitKey: "input_tokens",
+                                        unit: "usd_per_1m_tokens",
+                                        entries: { input_tokens: 0.4 },
+                                        valueKeys: ["input_tokens"],
+                                        default: true,
+                                    },
+                                ],
+                            },
+                        ],
+                        modelCount: 1,
+                        pricingUnits: [],
+                    },
+                ],
+            });
+            return;
+        }
+
+        if (req.path === "/v1/modalities/text") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, {
+                modality: "text",
+                operations: [],
+                modelCount: 1,
+                pricingUnits: [],
+            });
+            return;
+        }
+
+        if (req.path === "/v1/modalities/text/operations") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, {
+                object: "list",
+                data: [{ operation: "chat", modelCount: 1, sourceTypes: ["chat-completions"], pricingUnits: [] }],
+            });
+            return;
+        }
+
+        assert.equal(req.path, "/v1/modalities/text/operations/chat/models");
+        assert.equal(req.method, "GET");
+        assert.equal(req.query.get("provider"), "openai");
+        assert.equal(req.query.get("streaming"), "true");
+        assert.equal(req.query.get("limit"), "5");
+        sendJson(res, 200, {
+            object: "list",
+            data: [
+                {
+                    modelId: "gpt-4.1-mini",
+                    name: "GPT 4.1 Mini",
+                    provider: "openai",
+                    type: "chat-completions",
+                    description: null,
+                    input: ["text"],
+                    output: ["text"],
+                    contextWindow: null,
+                    pricing: null,
+                    operations: [
+                        {
+                            modality: "text",
+                            operation: "chat",
+                            sourceTypes: ["chat-completions"],
+                            input: ["text"],
+                            output: ["text"],
+                            pricingUnits: [],
+                            streamable: true,
+                        },
+                    ],
+                },
+            ],
+            total: 1,
+            next_cursor: null,
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const modalities = await sdk.models.modalities.list();
+        assert.equal(modalities.data[0].modality, "text");
+
+        const text = await sdk.models.modalities.get("text");
+        assert.equal(text.modelCount, 1);
+
+        const operations = await sdk.models.modalities.operations("text");
+        assert.equal(operations.data[0].operation, "chat");
+
+        const models = await sdk.models.modalities.models("text", "chat", {
+            provider: "openai",
+            streaming: true,
+            limit: 5,
+        });
+        assert.equal(models.data[0].operations[0].streamable, true);
+        assert.equal(models.total, 1);
+    } finally {
+        await server.close();
+    }
+});
+
+test("APIPromise withResponse and await share one HTTP execution", async () => {
+    const server = await startMockServer((_req, res) => {
+        sendJson(res, 200, { object: "list", data: [] });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const request = sdk.models.list();
+        const withResponse = await request.withResponse();
+        const data = await request;
+        assert.equal(withResponse.response.status, 200);
+        assert.equal(data.object, "list");
+        assert.equal(server.calls.length, 1);
     } finally {
         await server.close();
     }
@@ -218,7 +348,7 @@ test("keys.create converts budgetUsd to 6-decimal USDC wei and sets the canonica
         assert.equal(req.headers["x-session-user-address"], WALLET);
         assert.equal(req.headers["x-chain-id"], "43114");
         const body = JSON.parse(req.body);
-        assert.equal(body.budgetLimit, 10_000_000); // $10 * 1_000_000
+        assert.equal(body.budgetLimit, "10000000"); // $10 * 1_000_000
         assert.equal(body.purpose, "session");
         assert.equal(typeof body.expiresAt, "number");
         assert.ok(body.expiresAt > Date.now());
@@ -239,7 +369,7 @@ test("keys.create converts budgetUsd to 6-decimal USDC wei and sets the canonica
         const sdk = new ComposeSDK({ baseUrl: server.baseUrl, userAddress: WALLET, chainId: 43114 });
         const created = await sdk.keys.create({
             purpose: "session",
-            budgetUsd: 10,
+            budgetUsd: "10",
             durationHours: 24,
         });
         assert.equal(created.keyId, "key_abc");
@@ -266,7 +396,7 @@ test("keys.create surfaces insufficient_balance 402 as ComposePaymentRequiredErr
         const sdk = new ComposeSDK({ baseUrl: server.baseUrl, userAddress: WALLET, chainId: 43114 });
         let caught: unknown;
         try {
-            await sdk.keys.create({ purpose: "session", budgetUsd: 10, durationHours: 1 });
+            await sdk.keys.create({ purpose: "session", budgetUsd: "10", durationHours: 1 });
         } catch (err) {
             caught = err;
         }
@@ -420,6 +550,105 @@ test("x402 PAYMENT-REQUIRED header decoders round-trip", () => {
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const decoded = sdk.x402.decodePaymentRequired(encoded);
     assert.deepEqual(decoded, original);
+});
+
+test("inference auto-negotiates raw x402 when no Compose Key is present", async () => {
+    const paymentRequired = {
+        x402Version: 2 as const,
+        resource: { url: "https://api.compose.market/v1/chat/completions", description: "test", mimeType: "application/json" },
+        accepts: [{
+            scheme: "upto",
+            network: "eip155:43113",
+            amount: "1000000",
+            asset: "0x5425890298aed601595a70AB815c96711a31Bc65",
+            payTo: "0x0000000000000000000000000000000000000402",
+            maxTimeoutSeconds: 300,
+        }],
+    };
+    const paymentRequiredHeader = Buffer.from(JSON.stringify(paymentRequired), "utf-8").toString("base64")
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    let signerCalls = 0;
+
+    const server = await startMockServer((req, res) => {
+        if (server.calls.length === 1) {
+            assert.equal(req.headers.authorization, undefined);
+            assert.equal(req.headers["payment-signature"], undefined);
+            assert.equal(req.headers["x-x402-max-amount-wei"], "1000000");
+            sendJson(res, 402, paymentRequired, { "PAYMENT-REQUIRED": paymentRequiredHeader });
+            return;
+        }
+
+        assert.equal(req.headers.authorization, undefined);
+        assert.ok(req.headers["payment-signature"]);
+        const decoded = JSON.parse(Buffer.from(req.headers["payment-signature"].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8"));
+        assert.equal(decoded.x402Version, 2);
+        assert.equal(decoded.accepted.scheme, "upto");
+        sendJson(res, 200, {
+            id: "chatcmpl-x402",
+            object: "chat.completion",
+            created: 1,
+            model: "gpt-4.1-mini",
+            choices: [{ index: 0, message: { role: "assistant", content: "paid" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        });
+    });
+
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            x402Signer: (challenge) => {
+                signerCalls += 1;
+                assert.deepEqual(challenge.paymentRequired, paymentRequired);
+                assert.equal(challenge.paymentRequiredHeader, paymentRequiredHeader);
+                assert.equal(challenge.method, "POST");
+                assert.equal(challenge.path, "/v1/chat/completions");
+                assert.equal(challenge.maxAmountWei, "1000000");
+                return {
+                    x402Version: 2,
+                    accepted: challenge.paymentRequired.accepts[0],
+                    payload: { authorization: "signed-test" },
+                    resource: challenge.paymentRequired.resource,
+                };
+            },
+        });
+        const result = await sdk.inference.chat.completions.create(
+            { model: "gpt-4.1-mini", messages: [{ role: "user", content: "hi" }] },
+            { x402MaxAmountWei: "1000000" },
+        );
+        assert.equal(result.data.id, "chatcmpl-x402");
+        assert.equal(result.data.choices[0].message.content, "paid");
+        assert.equal(signerCalls, 1);
+        assert.equal(server.calls.length, 2);
+    } finally {
+        await server.close();
+    }
+});
+
+test("paymentMode x402 suppresses an instance Compose Key", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.headers.authorization, undefined);
+        assert.equal(req.headers["payment-signature"], "already-signed");
+        sendJson(res, 200, {
+            id: "chatcmpl-manual-x402",
+            object: "chat.completion",
+            created: 1,
+            model: "gpt-4.1-mini",
+            choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl, composeKey: "compose-jwt-abc", chainId: 43113, userAddress: WALLET });
+        const result = await sdk.inference.chat.completions.create(
+            { model: "gpt-4.1-mini", messages: [{ role: "user", content: "hi" }] },
+            { paymentMode: "x402", paymentSignature: "already-signed", x402MaxAmountWei: "1000000" },
+        );
+        assert.equal(result.data.id, "chatcmpl-manual-x402");
+    } finally {
+        await server.close();
+    }
 });
 
 // ---------------------------------------------------------------------------

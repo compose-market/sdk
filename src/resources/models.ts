@@ -1,14 +1,66 @@
 import type { APIPromise, HttpClient } from "../http.js";
 import type {
+    CanonicalModality,
+    ModalityCatalogEntry,
+    ModalityListResponse,
     Model,
     ModelListResponse,
+    OperationListResponse,
+    OperationModelsInput,
+    OperationModelsResponse,
     ModelParamsResponse,
     ModelSearchInput,
     ModelSearchResponse,
 } from "../types/index.js";
 
-export class ModelsResource {
+export class ModelModalitiesResource {
     constructor(private readonly client: HttpClient) {}
+
+    /**
+     * Canonical modality catalog derived from the model registry source of
+     * truth: model type, input/output shapes, and pricing unit metadata.
+     */
+    list(): APIPromise<ModalityListResponse> {
+        return this.client.request<ModalityListResponse>({
+            method: "GET",
+            path: "/v1/modalities",
+        });
+    }
+
+    get(modality: CanonicalModality): APIPromise<ModalityCatalogEntry> {
+        return this.client.request<ModalityCatalogEntry>({
+            method: "GET",
+            path: `/v1/modalities/${encodeURIComponent(modality)}`,
+        });
+    }
+
+    operations(modality: CanonicalModality): APIPromise<OperationListResponse> {
+        return this.client.request<OperationListResponse>({
+            method: "GET",
+            path: `/v1/modalities/${encodeURIComponent(modality)}/operations`,
+        });
+    }
+
+    models(
+        modality: CanonicalModality,
+        operation: string,
+        input: OperationModelsInput = {},
+    ): APIPromise<OperationModelsResponse> {
+        const query: Record<string, string | number | boolean | null | undefined> = { ...input };
+        return this.client.request<OperationModelsResponse>({
+            method: "GET",
+            path: `/v1/modalities/${encodeURIComponent(modality)}/operations/${encodeURIComponent(operation)}/models`,
+            query,
+        });
+    }
+}
+
+export class ModelsResource {
+    readonly modalities: ModelModalitiesResource;
+
+    constructor(private readonly client: HttpClient) {
+        this.modalities = new ModelModalitiesResource(client);
+    }
 
     /**
      * List the curated ~612-model set. Use `listAll()` for the 45k+ catalog.
@@ -35,7 +87,7 @@ export class ModelsResource {
 
     /**
      * Cursor-paginated search across the full catalog with filters for
-     * modality, provider, price ceiling, context window minimum, and
+     * modality, operation, provider, price ceiling, context window minimum, and
      * streaming support.
      */
     search(input: ModelSearchInput = {}): APIPromise<ModelSearchResponse> {

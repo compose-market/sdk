@@ -208,7 +208,7 @@ test("ComposeSDK constructor accepts a valid EVM address and normalizes casing",
 test("ComposeSDK throws BadRequestError when a billable call is attempted with no wallet context", async () => {
     const sdk = new ComposeSDK({ baseUrl: "http://127.0.0.1:1" });
     await assert.rejects(
-        () => sdk.keys.create({ purpose: "session", budgetUsd: 1, durationHours: 1 }),
+        () => sdk.keys.create({ purpose: "session", budgetUsd: "1", durationHours: 1 }),
         (err: unknown) => err instanceof BadRequestError,
     );
 });

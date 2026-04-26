@@ -1,0 +1,95 @@
+speakeasyVersion: 1.761.9
+sources:
+    agentic:
+        sourceNamespace: agentic
+        sourceRevisionDigest: sha256:166edf874bff05825dc3a0a1129cbe76e8b71d2aab66919d03a51f12bb5b55b1
+        sourceBlobDigest: sha256:ae0191325224b2bdf0673a43b3d0ac95ac51227bebdfdbc52c5428e34a162a97
+        tags:
+            - latest
+            - 0.5.0
+    inference:
+        sourceNamespace: inference
+        sourceRevisionDigest: sha256:837c455232ff3a8f4202930292037a94b99020ed7543dc384a07c36054cf9d1b
+        sourceBlobDigest: sha256:0f758675c99855222bb9f55bf5051fc2114960d5f4c539a56756e3a21844023c
+        tags:
+            - latest
+            - 0.5.0
+    x402:
+        sourceNamespace: x-402
+        sourceRevisionDigest: sha256:d75248cab726d974b356d94a9e1b2534af3bdc7ded5b0d48ac3d20b3b555ea1f
+        sourceBlobDigest: sha256:dd13b2d86f929273f446316518e8f376c8c1c43d39eacb4192385c3a03ee3ae0
+        tags:
+            - latest
+            - 0.5.0
+targets:
+    agentic:
+        source: agentic
+        sourceNamespace: agentic
+        sourceRevisionDigest: sha256:166edf874bff05825dc3a0a1129cbe76e8b71d2aab66919d03a51f12bb5b55b1
+        sourceBlobDigest: sha256:ae0191325224b2bdf0673a43b3d0ac95ac51227bebdfdbc52c5428e34a162a97
+        codeSamplesNamespace: agentic-typescript-code-samples
+        codeSamplesRevisionDigest: sha256:68de2e4c3967c0c321f2d1c29159749ba1e7e4e5746acb307f9c2d58ac83ab22
+    inference:
+        source: inference
+        sourceNamespace: inference
+        sourceRevisionDigest: sha256:837c455232ff3a8f4202930292037a94b99020ed7543dc384a07c36054cf9d1b
+        sourceBlobDigest: sha256:0f758675c99855222bb9f55bf5051fc2114960d5f4c539a56756e3a21844023c
+        codeSamplesNamespace: inference-typescript-code-samples
+        codeSamplesRevisionDigest: sha256:a33839ac6f26211fe4313c419e9132d28ed7142cd788d607253629a51250c910
+    x402:
+        source: x402
+        sourceNamespace: x-402
+        sourceRevisionDigest: sha256:d75248cab726d974b356d94a9e1b2534af3bdc7ded5b0d48ac3d20b3b555ea1f
+        sourceBlobDigest: sha256:dd13b2d86f929273f446316518e8f376c8c1c43d39eacb4192385c3a03ee3ae0
+        codeSamplesNamespace: x-402-typescript-code-samples
+        codeSamplesRevisionDigest: sha256:e6ff79d34224f803e3f9e7db26c2eef92089f79d865c77ea5b7f0680ee0dba73
+workflow:
+    workflowVersion: 1.0.0
+    speakeasyVersion: latest
+    sources:
+        agentic:
+            inputs:
+                - location: ./specs/agentic.openapi.yaml
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/agentic
+        inference:
+            inputs:
+                - location: ./specs/inference.openapi.yaml
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/inference
+        x402:
+            inputs:
+                - location: ./specs/x402.openapi.yaml
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/x-402
+    targets:
+        agentic:
+            target: typescript
+            source: agentic
+            output: ./generated/agentic
+            codeSamples:
+                registry:
+                    location: registry.speakeasyapi.dev/compose-market/compose-market/agentic-typescript-code-samples
+                labelOverride:
+                    fixedValue: Typescript (SDK)
+                blocking: false
+        inference:
+            target: typescript
+            source: inference
+            output: ./generated/inference
+            codeSamples:
+                registry:
+                    location: registry.speakeasyapi.dev/compose-market/compose-market/inference-typescript-code-samples
+                labelOverride:
+                    fixedValue: Typescript (SDK)
+                blocking: false
+        x402:
+            target: typescript
+            source: x402
+            output: ./generated/x402
+            codeSamples:
+                registry:
+                    location: registry.speakeasyapi.dev/compose-market/compose-market/x-402-typescript-code-samples
+                labelOverride:
+                    fixedValue: Typescript (SDK)
+                blocking: false

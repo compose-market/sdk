@@ -1,0 +1,415 @@
+arazzo: 1.0.1
+info:
+  title: Compose SDK Agent-First Workflows
+  summary: E2E workflow contracts for the Compose SDK, inference, x402, and agentic loops.
+  version: 0.5.0
+sourceDescriptions:
+  - name: x402
+    url: ../specs/x402.openapi.yaml
+    type: openapi
+  - name: inference
+    url: ../specs/inference.openapi.yaml
+    type: openapi
+  - name: agentic
+    url: ../specs/agentic.openapi.yaml
+    type: openapi
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_API_TEST_URL; https://api.compose.market"
+workflows:
+  - workflowId: model_discovery_select
+    summary: List, search, and fetch provider-specific parameters for a model.
+    inputs:
+      type: object
+      properties:
+        query:
+          type: string
+          examples: ["gpt-4.1-mini"]
+        modality:
+          type: string
+          examples: ["text"]
+        operation:
+          type: string
+          examples: ["chat"]
+    steps:
+      - stepId: list_modalities
+        operationId: $sourceDescriptions.inference.modality_list
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: list_modality_operations
+        operationId: $sourceDescriptions.inference.modality_operations_list
+        parameters:
+          - name: modality
+            in: path
+            value: "$inputs.modality"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: list_operation_models
+        operationId: $sourceDescriptions.inference.modality_operation_models_list
+        parameters:
+          - name: modality
+            in: path
+            value: "$inputs.modality"
+          - name: operation
+            in: path
+            value: "$inputs.operation"
+          - name: limit
+            in: query
+            value: 5
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: list_curated_models
+        operationId: $sourceDescriptions.inference.models_list
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          firstModelId: $response.body#/data/0/modelId
+      - stepId: search_models
+        operationId: $sourceDescriptions.inference.models_search
+        requestBody:
+          contentType: application/json
+          payload:
+            q: "$inputs.query"
+            modality: "$inputs.modality"
+            operation: "$inputs.operation"
+            limit: 5
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          selectedModelId: $response.body#/data/0/modelId
+      - stepId: get_model
+        operationId: $sourceDescriptions.inference.models_get
+        parameters:
+          - name: model
+            in: path
+            value: $steps.search_models.outputs.selectedModelId
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: get_model_params
+        operationId: $sourceDescriptions.inference.models_params_get
+        parameters:
+          - name: model
+            in: path
+            value: $steps.search_models.outputs.selectedModelId
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: compose_key_session_lifecycle
+    summary: Create a wallet-scoped Compose Key session and observe active session state.
+    inputs:
+      type: object
+      properties:
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+        budgetLimit:
+          type: string
+          examples: ["1000000"]
+        expiresAt:
+          type: integer
+          examples: [4102444800000]
+    steps:
+      - stepId: create_session_key
+        operationId: $sourceDescriptions.x402.compose_keys_create
+        parameters:
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            purpose: session
+            budgetLimit: "$inputs.budgetLimit"
+            expiresAt: "$inputs.expiresAt"
+            chainId: "$inputs.chainId"
+            name: arazzo-session
+        successCriteria:
+          - condition: $statusCode == 201
+        outputs:
+          composeKey: $response.body#/token
+          keyId: $response.body#/keyId
+      - stepId: get_active_session
+        operationId: $sourceDescriptions.x402.session_get_active
+        parameters:
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: revoke_session_key
+        operationId: $sourceDescriptions.x402.compose_keys_revoke
+        parameters:
+          - name: keyId
+            in: path
+            value: $steps.create_session_key.outputs.keyId
+          - name: Authorization
+            in: header
+            value: "Bearer $steps.create_session_key.outputs.composeKey"
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: paid_inference_with_compose_key
+    summary: Execute a paid chat completion with a reusable Compose Key.
+    inputs:
+      type: object
+      properties:
+        composeKey:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_COMPOSE_KEY"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+        model:
+          type: string
+          examples: ["gpt-4.1-mini"]
+    steps:
+      - stepId: chat_completion
+        operationId: $sourceDescriptions.inference.inference_chat_completions_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.model"
+            stream: false
+            messages:
+              - role: user
+                content: "Return exactly: ok"
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: raw_x402_challenge_retry
+    summary: Discover an x402 challenge, create a signed payment payload externally, and retry.
+    inputs:
+      type: object
+      properties:
+        model:
+          type: string
+          examples: ["gpt-4.1-mini"]
+        chainId:
+          type: integer
+          examples: [43113]
+        maxAmountWei:
+          type: string
+          examples: ["1000000"]
+        paymentSignature:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_PAYMENT_SIGNATURE"]
+    steps:
+      - stepId: request_challenge
+        operationId: $sourceDescriptions.inference.inference_chat_completions_create
+        parameters:
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+          - name: x-x402-max-amount-wei
+            in: header
+            value: "$inputs.maxAmountWei"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.model"
+            stream: false
+            messages:
+              - role: user
+                content: "Return exactly: ok"
+        successCriteria:
+          - condition: $statusCode == 402
+        outputs:
+          paymentRequired: $response.header.PAYMENT-REQUIRED
+      - stepId: retry_with_payment
+        operationId: $sourceDescriptions.inference.inference_chat_completions_create
+        parameters:
+          - name: PAYMENT-SIGNATURE
+            in: header
+            value: "$inputs.paymentSignature"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+          - name: x-x402-max-amount-wei
+            in: header
+            value: "$inputs.maxAmountWei"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.model"
+            stream: false
+            messages:
+              - role: user
+                content: "Return exactly: ok"
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: streaming_inference_realtime_frames
+    summary: Stream chat and Responses API frames, including reasoning, tool calls, partial images, receipts, and errors.
+    inputs:
+      type: object
+      properties:
+        composeKey:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_COMPOSE_KEY"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+        textModel:
+          type: string
+          examples: ["gpt-4.1-mini"]
+        imageModel:
+          type: string
+          examples: ["gpt-image-1"]
+        videoId:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_VIDEO_ID"]
+    steps:
+      - stepId: stream_chat_frames
+        operationId: $sourceDescriptions.inference.inference_chat_completions_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.textModel"
+            stream: true
+            messages:
+              - role: user
+                content: "Think briefly, then return exactly: stream ok"
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.header.Content-Type != "application/json"
+      - stepId: stream_response_frames
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.textModel"
+            stream: true
+            input: "Return exactly: response stream ok"
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.header.Content-Type != "application/json"
+      - stepId: stream_video_status_frames
+        operationId: $sourceDescriptions.inference.inference_videos_stream
+        parameters:
+          - name: videoId
+            in: path
+            value: "$inputs.videoId"
+          - name: timeoutMs
+            in: query
+            value: 1000
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.header.Content-Type != "application/json"
+  - workflowId: runtime_agent_workflow_loop
+    summary: Run agent and workflow streams against the Compose agentic service.
+    x-speakeasy-test-server:
+      baseUrl: "x-env: COMPOSE_RUNTIME_TEST_URL; https://runtime.compose.market"
+    inputs:
+      type: object
+      properties:
+        composeKey:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_COMPOSE_KEY"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+        agentWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+        workflowWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_WORKFLOW_WALLET"]
+        threadId:
+          type: string
+          examples: ["arazzo-thread"]
+    steps:
+      - stepId: stream_agent
+        operationId: $sourceDescriptions.agentic.agents_stream_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-active
+            in: header
+            value: "true"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-session-budget-remaining
+            in: header
+            value: "1000000"
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "Return exactly: agent stream ok"
+            threadId: "$inputs.threadId"
+            userAddress: "$inputs.userAddress"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: stream_workflow
+        operationId: $sourceDescriptions.agentic.workflows_chat_stream
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-active
+            in: header
+            value: "true"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-session-budget-remaining
+            in: header
+            value: "1000000"
+          - name: walletAddress
+            in: path
+            value: "$inputs.workflowWallet"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "Run one step and return exactly: workflow stream ok"
+            threadId: "$inputs.threadId"
+            userAddress: "$inputs.userAddress"
+        successCriteria:
+          - condition: $statusCode == 200

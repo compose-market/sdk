@@ -9,46 +9,67 @@ import { BadRequestError } from "../errors.js";
 
 export interface KeyCreateParams {
     purpose: ComposeKeyPurpose;
-    budgetUsd?: number;
-    budgetWei?: number | string;
+    /** Decimal USD amount, serialized exactly to 6-decimal USDC atomic units. */
+    budgetUsd?: string;
+    /** 6-decimal USDC atomic amount. Must be a base-10 integer string. */
+    budgetWei?: string;
     durationHours?: number;
     expiresAt?: number;
     chainId?: number;
     name?: string;
 }
 
-function toBudgetWei(input: Pick<KeyCreateParams, "budgetUsd" | "budgetWei">): number {
-    const hasUsd = typeof input.budgetUsd === "number";
-    const hasWei = typeof input.budgetWei === "number" || typeof input.budgetWei === "string";
+function assertPositiveAtomicString(value: string, fieldName: string): string {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+        throw new BadRequestError({ message: `${fieldName} must be a positive integer string` });
+    }
+    if (BigInt(trimmed) <= 0n) {
+        throw new BadRequestError({ message: `${fieldName} must be a positive integer string` });
+    }
+    return trimmed.replace(/^0+(?=\d)/, "");
+}
+
+function usdDecimalToAtomicString(value: string): string {
+    const trimmed = value.trim();
+    const match = /^(0|[1-9]\d*)(?:\.(\d{1,6}))?$/.exec(trimmed);
+    if (!match) {
+        throw new BadRequestError({
+            message: "budgetUsd must be a positive decimal string with at most 6 fractional digits",
+        });
+    }
+    const whole = BigInt(match[1]);
+    const fractional = (match[2] ?? "").padEnd(6, "0");
+    const atomic = whole * 1_000_000n + BigInt(fractional || "0");
+    if (atomic <= 0n) {
+        throw new BadRequestError({
+            message: "budgetUsd must be a positive decimal string with at most 6 fractional digits",
+        });
+    }
+    return atomic.toString();
+}
+
+function toBudgetWei(input: Pick<KeyCreateParams, "budgetUsd" | "budgetWei">): string {
+    const hasUsd = input.budgetUsd !== undefined;
+    const hasWei = input.budgetWei !== undefined;
 
     if (Number(hasUsd) + Number(hasWei) !== 1) {
         throw new BadRequestError({ message: "provide exactly one of budgetUsd or budgetWei" });
     }
 
     if (hasUsd) {
-        const usd = input.budgetUsd!;
-        if (!Number.isFinite(usd) || usd <= 0) {
-            throw new BadRequestError({ message: "budgetUsd must be a positive number" });
+        if (typeof input.budgetUsd !== "string") {
+            throw new BadRequestError({
+                message: "budgetUsd must be a positive decimal string with at most 6 fractional digits",
+            });
         }
-        return Math.round(usd * 1_000_000);
+        return usdDecimalToAtomicString(input.budgetUsd);
     }
 
-    if (typeof input.budgetWei === "number") {
-        if (!Number.isInteger(input.budgetWei) || input.budgetWei <= 0) {
-            throw new BadRequestError({ message: "budgetWei must be a positive integer" });
-        }
-        return input.budgetWei;
-    }
-
-    const trimmed = String(input.budgetWei).trim();
-    if (!/^\d+$/.test(trimmed)) {
+    if (typeof input.budgetWei !== "string") {
         throw new BadRequestError({ message: "budgetWei must be a positive integer string" });
     }
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new BadRequestError({ message: "budgetWei must be a positive integer string" });
-    }
-    return parsed;
+    return assertPositiveAtomicString(input.budgetWei, "budgetWei");
 }
 
 function resolveExpiresAt(input: Pick<KeyCreateParams, "durationHours" | "expiresAt">): number {

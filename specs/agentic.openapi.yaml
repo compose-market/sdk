@@ -1,0 +1,1272 @@
+---
+openapi: 3.1.0
+info:
+  title: Compose Agentic
+  version: 0.5.0
+  summary: Agent, workflow, memory, workspace, tool, MCP, and mesh execution contracts.
+  description: |
+    Canonical contract for Compose agentic loops: agents, workflows, memory,
+    workspace indexing, MCP/GOAT tool execution, and mesh-local execution helpers.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+- url: https://runtime.compose.market
+  x-speakeasy-server-id: agentic
+  description: Production agentic endpoint
+- url: http://127.0.0.1:8787
+  x-speakeasy-server-id: local
+  description: Local agentic development endpoint
+tags:
+- name: health
+- name: agents
+- name: workflows
+- name: workspace
+- name: memory
+- name: tools
+- name: mesh
+security: []
+paths:
+  "/health":
+    get:
+      tags:
+      - health
+      operationId: runtime_health_check
+      responses:
+        '200':
+          description: Runtime health.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/status":
+    get:
+      tags:
+      - health
+      operationId: runtime_status_get
+      responses:
+        '200':
+          description: Cheap runtime readiness/status payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/agent/{walletAddress}/chat":
+    post:
+      tags:
+      - agents
+      operationId: agents_chat_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AgentChatRequest"
+      responses:
+        '200':
+          description: Completed agent execution.
+          headers:
+            x-compose-run-id:
+              "$ref": "#/components/headers/ComposeRunId"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentChatResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+        '503':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/agent/{walletAddress}/stream":
+    post:
+      tags:
+      - agents
+      operationId: agents_stream_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AgentChatRequest"
+      responses:
+        '200':
+          description: Agent SSE stream carrying thinking, text, tool, error, and
+            done frames.
+          headers:
+            x-compose-run-id:
+              "$ref": "#/components/headers/ComposeRunId"
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/AgentEventStream"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/agent/{walletAddress}/responses":
+    post:
+      tags:
+      - agents
+      operationId: agents_responses_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Dynamic Responses API result executed through the agent model.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/agent/{walletAddress}/runs/{runId}/state":
+    get:
+      tags:
+      - agents
+      operationId: agents_runs_state_get
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      - name: threadId
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Durable agent run state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/execute":
+    post:
+      tags:
+      - workflows
+      operationId: workflows_execute
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - payload
+              properties:
+                payload:
+                  "$ref": "#/components/schemas/WorkflowExecutePayload"
+      responses:
+        '200':
+          description: Workflow execution result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/prices":
+    get:
+      tags:
+      - workflows
+      operationId: workflows_prices_get
+      responses:
+        '200':
+          description: Runtime workflow price constants.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: number
+  "/workflow/{walletAddress}/chat":
+    post:
+      tags:
+      - workflows
+      operationId: workflows_chat_stream
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/WorkflowChatRequest"
+      responses:
+        '200':
+          description: Workflow SSE stream carrying start, step, agent, progress,
+            tool, result, error, and done frames.
+          headers:
+            x-compose-run-id:
+              "$ref": "#/components/headers/ComposeRunId"
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/WorkflowEventStream"
+  "/workflow/{walletAddress}/stop":
+    post:
+      tags:
+      - workflows
+      operationId: workflows_stop
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                threadId:
+                  type: string
+                runId:
+                  type: string
+      responses:
+        '200':
+          description: Workflow cancellation accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - runId
+                properties:
+                  success:
+                    type: boolean
+                  runId:
+                    type: string
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/{walletAddress}/runs/{runId}/state":
+    get:
+      tags:
+      - workflows
+      operationId: workflows_runs_state_get
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      responses:
+        '200':
+          description: Durable workflow run state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/{walletAddress}/runs/{runId}/approval":
+    post:
+      tags:
+      - workflows
+      operationId: workflows_runs_approval_signal
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - stepKey
+              - status
+              properties:
+                stepKey:
+                  type: string
+                status:
+                  type: string
+                  enum:
+                  - approved
+                  - rejected
+                approver:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Approval signal accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                properties:
+                  success:
+                    type: boolean
+  "/workflow/{id}/run":
+    post:
+      tags:
+      - workflows
+      operationId: workflows_run_alias
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/WorkflowChatRequest"
+      responses:
+        '200':
+          description: Alias for `/workflow/{walletAddress}/chat`.
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/WorkflowEventStream"
+  "/api/workspace/index":
+    post:
+      tags:
+      - workspace
+      operationId: workspace_index
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - agentWallet
+              - documents
+              properties:
+                agentWallet:
+                  "$ref": "#/components/schemas/WalletAddress"
+                documents:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        '200':
+          description: Workspace index result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/api/workspace/search":
+    post:
+      tags:
+      - workspace
+      operationId: workspace_search
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - agentWallet
+              - query
+              properties:
+                agentWallet:
+                  "$ref": "#/components/schemas/WalletAddress"
+                query:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: Workspace search result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  "/api/memory/add":
+    post:
+      tags:
+      - memory
+      operationId: memory_add
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryAddRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/search":
+    post:
+      tags:
+      - memory
+      operationId: memory_search
+      requestBody:
+        "$ref": "#/components/requestBodies/MemorySearchRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/{agentWallet}":
+    get:
+      tags:
+      - memory
+      operationId: memory_list
+      parameters:
+      - name: agentWallet
+        in: path
+        required: true
+        schema:
+          "$ref": "#/components/schemas/WalletAddress"
+      - name: userAddress
+        in: query
+        schema:
+          "$ref": "#/components/schemas/WalletAddress"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonAnyResponse"
+  "/api/memory/vector-search":
+    post:
+      tags:
+      - memory
+      operationId: memory_vector_search
+      requestBody:
+        "$ref": "#/components/requestBodies/VectorSearchRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/vector-index":
+    post:
+      tags:
+      - memory
+      operationId: memory_vector_index
+      requestBody:
+        "$ref": "#/components/requestBodies/VectorIndexRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/transcript-store":
+    post:
+      tags:
+      - memory
+      operationId: memory_transcript_store
+      requestBody:
+        "$ref": "#/components/requestBodies/TranscriptStoreRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/transcript-get/{id}":
+    get:
+      tags:
+      - memory
+      operationId: memory_transcript_get
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum:
+          - sessionId
+          - threadId
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/rerank":
+    post:
+      tags:
+      - memory
+      operationId: memory_rerank
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - query
+              - documents
+              properties:
+                query:
+                  type: string
+                documents:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                topK:
+                  type: integer
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/layers/search":
+    post:
+      tags:
+      - memory
+      operationId: memory_layers_search
+      requestBody:
+        "$ref": "#/components/requestBodies/MemorySearchRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/api/memory/stats/{agentWallet}":
+    get:
+      tags:
+      - memory
+      operationId: memory_stats_get
+      parameters:
+      - name: agentWallet
+        in: path
+        required: true
+        schema:
+          "$ref": "#/components/schemas/WalletAddress"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/goat/status":
+    get:
+      tags:
+      - tools
+      operationId: tools_goat_status
+      security:
+      - RuntimeBearerAuth: []
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/goat/plugins":
+    get:
+      tags:
+      - tools
+      operationId: tools_goat_plugins_list
+      security:
+      - RuntimeBearerAuth: []
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/goat/tools":
+    get:
+      tags:
+      - tools
+      operationId: tools_goat_list
+      security:
+      - RuntimeBearerAuth: []
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/goat/plugins/{pluginId}":
+    get:
+      tags:
+      - tools
+      operationId: tools_goat_plugin_get
+      security:
+      - RuntimeBearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/PluginIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/goat/plugins/{pluginId}/tools/{toolName}":
+    get:
+      tags:
+      - tools
+      operationId: tools_goat_tool_get
+      security:
+      - RuntimeBearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/PluginIdPath"
+      - "$ref": "#/components/parameters/ToolNamePath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+    post:
+      tags:
+      - tools
+      operationId: tools_goat_tool_execute
+      security:
+      - RuntimeBearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/PluginIdPath"
+      - "$ref": "#/components/parameters/ToolNamePath"
+      requestBody:
+        "$ref": "#/components/requestBodies/ToolExecuteRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcp/inspect":
+    post:
+      tags:
+      - tools
+      operationId: tools_mcp_inspect
+      security:
+      - RuntimeBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - serverId
+              - candidates
+              properties:
+                serverId:
+                  type: string
+                candidates:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcp/spawn":
+    post:
+      tags:
+      - tools
+      operationId: tools_mcp_spawn
+      security:
+      - RuntimeBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - serverId
+              properties:
+                serverId:
+                  type: string
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcp/servers/{serverId}/tools":
+    get:
+      tags:
+      - tools
+      operationId: tools_mcp_tools_list
+      security:
+      - RuntimeBearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcp/servers/{serverId}/tools/{toolName}":
+    post:
+      tags:
+      - tools
+      operationId: tools_mcp_tool_execute
+      security:
+      - RuntimeBearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      - "$ref": "#/components/parameters/ToolNamePath"
+      requestBody:
+        "$ref": "#/components/requestBodies/ToolExecuteRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/runtime/execute":
+    post:
+      tags:
+      - tools
+      operationId: tools_runtime_execute
+      security:
+      - RuntimeBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - source
+              - toolName
+              properties:
+                source:
+                  type: string
+                  enum:
+                  - goat
+                  - mcp
+                pluginId:
+                  type: string
+                serverId:
+                  type: string
+                toolName:
+                  type: string
+                args:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/tools/execute":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_tools_execute
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/MeshToolExecuteRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/memory":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_memory_execute
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/hai/register":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_hai_register
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - agentWallet
+              - userAddress
+              - deviceId
+              properties:
+                agentWallet:
+                  "$ref": "#/components/schemas/WalletAddress"
+                userAddress:
+                  "$ref": "#/components/schemas/WalletAddress"
+                deviceId:
+                  type: string
+                haiId:
+                  type:
+                  - string
+                  - 'null'
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/reputation/summary":
+    get:
+      tags:
+      - mesh
+      operationId: mesh_reputation_summary_get
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      - name: agentWallet
+        in: query
+        required: true
+        schema:
+          "$ref": "#/components/schemas/WalletAddress"
+      - name: baseDir
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/synapse/anchor":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_synapse_anchor
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        "$ref": "#/components/requestBodies/JsonObjectRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/filecoin/pin":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_filecoin_pin
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        "$ref": "#/components/requestBodies/JsonObjectRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mesh/conclave/run":
+    post:
+      tags:
+      - mesh
+      operationId: mesh_conclave_run
+      parameters:
+      - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
+      requestBody:
+        "$ref": "#/components/requestBodies/JsonObjectRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+components:
+  securitySchemes:
+    RuntimeBearerAuth:
+      type: http
+      scheme: bearer
+      description: Runtime internal bearer token.
+  headers:
+    ComposeRunId:
+      description: Runtime run identifier.
+      schema:
+        type: string
+  parameters:
+    WalletAddressPath:
+      name: walletAddress
+      in: path
+      required: true
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    RunIdPath:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+    PluginIdPath:
+      name: pluginId
+      in: path
+      required: true
+      schema:
+        type: string
+    ServerIdPath:
+      name: serverId
+      in: path
+      required: true
+      schema:
+        type: string
+    ToolNamePath:
+      name: toolName
+      in: path
+      required: true
+      schema:
+        type: string
+    SessionUserAddressHeaderOptional:
+      name: x-session-user-address
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    SessionActiveHeader:
+      name: x-session-active
+      in: header
+      required: false
+      schema:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+    SessionBudgetRemainingHeader:
+      name: x-session-budget-remaining
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/AtomicAmount"
+    LocalRuntimeTokenHeader:
+      name: x-compose-local-runtime-token
+      in: header
+      required: false
+      schema:
+        type: string
+  requestBodies:
+    JsonObjectRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    MemoryAddRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - messages
+            properties:
+              messages:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+              agentWallet:
+                "$ref": "#/components/schemas/WalletAddress"
+              agent_id:
+                type: string
+              userAddress:
+                "$ref": "#/components/schemas/WalletAddress"
+              user_id:
+                type: string
+              runId:
+                type: string
+              metadata:
+                type: object
+                additionalProperties: true
+              enableGraph:
+                type: boolean
+    MemorySearchRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - query
+            properties:
+              query:
+                type: string
+              agentWallet:
+                "$ref": "#/components/schemas/WalletAddress"
+              agent_id:
+                type: string
+              userAddress:
+                "$ref": "#/components/schemas/WalletAddress"
+              user_id:
+                type: string
+              threadId:
+                type: string
+              runId:
+                type: string
+              limit:
+                type: integer
+              layers:
+                type: array
+                items:
+                  type: string
+              filters:
+                type: object
+                additionalProperties: true
+              rerank:
+                type: boolean
+    VectorSearchRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - query
+            - agentWallet
+            properties:
+              query:
+                type: string
+              queryEmbedding:
+                type: array
+                items:
+                  type: number
+              agentWallet:
+                "$ref": "#/components/schemas/WalletAddress"
+              userAddress:
+                "$ref": "#/components/schemas/WalletAddress"
+              threadId:
+                type: string
+              limit:
+                type: integer
+              threshold:
+                type: number
+    VectorIndexRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - content
+            - embedding
+            - agentWallet
+            - source
+            properties:
+              content:
+                type: string
+              embedding:
+                type: array
+                items:
+                  type: number
+              agentWallet:
+                "$ref": "#/components/schemas/WalletAddress"
+              userAddress:
+                "$ref": "#/components/schemas/WalletAddress"
+              threadId:
+                type: string
+              source:
+                type: string
+                enum:
+                - session
+                - knowledge
+                - pattern
+                - archive
+                - fact
+              metadata:
+                type: object
+                additionalProperties: true
+    TranscriptStoreRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - sessionId
+            - threadId
+            - agentWallet
+            - messages
+            - tokenCount
+            properties:
+              sessionId:
+                type: string
+              threadId:
+                type: string
+              agentWallet:
+                "$ref": "#/components/schemas/WalletAddress"
+              userAddress:
+                "$ref": "#/components/schemas/WalletAddress"
+              messages:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+              tokenCount:
+                type: integer
+              summary:
+                type: string
+              summaryEmbedding:
+                type: array
+                items:
+                  type: number
+              metadata:
+                type: object
+                additionalProperties: true
+    ToolExecuteRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              args:
+                type: object
+                additionalProperties: true
+  responses:
+    ErrorResponse:
+      description: Runtime error response.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    JsonObjectResponse:
+      description: JSON object response.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    JsonAnyResponse:
+      description: JSON response.
+      content:
+        application/json:
+          schema: {}
+  schemas:
+    WalletAddress:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+    AtomicAmount:
+      type: string
+      pattern: "^[0-9]+$"
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          oneOf:
+          - type: string
+          - type: object
+            additionalProperties: true
+        code:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+    AgentChatRequest:
+      type: object
+      required:
+      - message
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+          minLength: 1
+        threadId:
+          type: string
+        composeRunId:
+          type: string
+        workflowWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        userAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        attachment:
+          type: object
+          additionalProperties: true
+        sessionGrants:
+          type: array
+          items:
+            type: string
+        cloudPermissions:
+          type: array
+          items:
+            type: string
+        backpackAccounts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    AgentChatResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        walletAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        name:
+          type: string
+        model:
+          type: string
+        runId:
+          type: string
+        success:
+          type: boolean
+        output: {}
+        usage:
+          type: object
+          additionalProperties: true
+    AgentEventStream:
+      description: SSE frames for `thinking_start`, `thinking_end`, OpenAI-style text
+        chunks, `tool_start`, `tool_end`, `error`, and `done`.
+      type: string
+    WorkflowExecutePayload:
+      type: object
+      required:
+      - walletAddress
+      additionalProperties: true
+      properties:
+        walletAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        id:
+          type: string
+        input: {}
+        message:
+          type: string
+        threadId:
+          type: string
+    WorkflowChatRequest:
+      type: object
+      required:
+      - message
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+        threadId:
+          type: string
+        image:
+          type: string
+        audio:
+          type: string
+        attachment:
+          type: object
+          additionalProperties: true
+        continuous:
+          type: boolean
+        composeRunId:
+          type: string
+        lastEventIndex:
+          type: integer
+    WorkflowEventStream:
+      description: SSE frames named `start`, `step`, `agent`, `progress`, `tool_start`,
+        `tool_end`, `result`, `error`, `complete`, and `done`.
+      type: string
+    MeshToolExecuteRequest:
+      type: object
+      required:
+      - agentWallet
+      - toolName
+      - haiId
+      - threadId
+      properties:
+        agentWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        userAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        workflowWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        toolName:
+          type: string
+          enum:
+          - search_memory
+          - save_memory
+          - search_all_memory
+        args:
+          type: object
+          additionalProperties: true
+        haiId:
+          type: string
+        threadId:
+          type: string

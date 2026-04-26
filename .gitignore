@@ -4,6 +4,12 @@ dist
 .env
 .env.*
 !.env.example
+generated/agentic/node_modules
+generated/inference/node_modules
+generated/x402/node_modules
+generated/agentic/examples/node_modules
+generated/inference/examples/node_modules
+generated/x402/examples/node_modules
 
 .DS_Store
 **/.DS_Store

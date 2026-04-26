@@ -82,6 +82,24 @@ export interface PaymentPayload {
     extensions?: Record<string, unknown> | null;
 }
 
+export type X402PaymentSignature = string | PaymentPayload;
+
+export interface X402PaymentRequest {
+    paymentRequired: PaymentRequired;
+    paymentRequiredHeader: string | null;
+    method: string;
+    path: string;
+    url: string;
+    body?: unknown;
+    userAddress?: string | null;
+    chainId?: number | null;
+    maxAmountWei?: string;
+}
+
+export type X402PaymentSigner = (request: X402PaymentRequest) => X402PaymentSignature | Promise<X402PaymentSignature>;
+
+export type ComposePaymentMode = "auto" | "composeKey" | "x402";
+
 export interface SettleResponse {
     success: boolean;
     errorReason?: string;
@@ -150,10 +168,10 @@ export interface ComposeKeyCreateResponse {
 export interface ComposeKeyRecord {
     keyId: string;
     purpose: ComposeKeyPurpose;
-    budgetLimit: number;
-    budgetUsed: number;
-    budgetReserved?: number;
-    budgetRemaining: number;
+    budgetLimit: string;
+    budgetUsed: string;
+    budgetReserved?: string;
+    budgetRemaining: string;
     createdAt: number;
     expiresAt: number;
     revokedAt?: number;
@@ -283,6 +301,51 @@ export type ModelProvider =
     | "cartesia"
     | "roboflow";
 
+export type CanonicalModality = "text" | "image" | "audio" | "video" | "embedding";
+
+export interface PricingUnit {
+    unitKey: string;
+    unit?: string;
+    header?: string;
+    entries: Record<string, number>;
+    valueKeys: string[];
+    default?: boolean;
+}
+
+export interface ModelOperationCapability {
+    modality: CanonicalModality;
+    operation: string;
+    sourceTypes: string[];
+    input: string[];
+    output: string[];
+    pricingUnits: PricingUnit[];
+    streamable: boolean;
+}
+
+export interface OperationCatalogEntry {
+    operation: string;
+    modelCount: number;
+    sourceTypes: string[];
+    pricingUnits: PricingUnit[];
+}
+
+export interface ModalityCatalogEntry {
+    modality: CanonicalModality;
+    operations: OperationCatalogEntry[];
+    modelCount: number;
+    pricingUnits: PricingUnit[];
+}
+
+export interface ModalityListResponse {
+    object: "list";
+    data: ModalityCatalogEntry[];
+}
+
+export interface OperationListResponse {
+    object: "list";
+    data: OperationCatalogEntry[];
+}
+
 /**
  * Canonical Compose model card. This is exactly what `/v1/models`,
  * `/v1/models/all`, `/v1/models/search`, and `/v1/models/:id` return — one
@@ -315,7 +378,8 @@ export interface ModelListResponse {
 
 export interface ModelSearchInput {
     q?: string;
-    modality?: "text" | "image" | "audio" | "video" | "embedding";
+    modality?: CanonicalModality;
+    operation?: string;
     provider?: ModelProvider;
     priceMaxPerMTok?: number;
     contextWindowMin?: number;
@@ -327,6 +391,25 @@ export interface ModelSearchInput {
 export interface ModelSearchResponse {
     object: "list";
     data: Model[];
+    total: number;
+    next_cursor: string | null;
+}
+
+export type OperationModel = Model & {
+    operations: ModelOperationCapability[];
+};
+
+export interface OperationModelsInput {
+    q?: string;
+    provider?: ModelProvider;
+    streaming?: boolean;
+    cursor?: string | null;
+    limit?: number;
+}
+
+export interface OperationModelsResponse {
+    object: "list";
+    data: OperationModel[];
     total: number;
     next_cursor: string | null;
 }
@@ -586,6 +669,18 @@ export interface VideoGenerateParams {
     resolution?: string;
     image_url?: string;
     provider?: ModelProvider;
+    [key: string]: unknown;
+}
+
+export interface VideoGenerateResponse {
+    id?: string;
+    object?: "video.generation";
+    status?: string;
+    created?: number;
+    model?: string;
+    job_id?: string;
+    data?: Array<{ url?: string; b64_json?: string; base64?: string; duration?: number; [key: string]: unknown }>;
+    compose_receipt?: Record<string, unknown>;
     [key: string]: unknown;
 }
 

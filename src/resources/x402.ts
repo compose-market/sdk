@@ -23,6 +23,30 @@ function base64UrlDecode(value: string): string {
     return Buffer.from(normalized + padding, "base64").toString("utf-8");
 }
 
+function base64UrlEncode(value: string): string {
+    if (typeof Buffer !== "undefined") {
+        return Buffer.from(value, "utf-8").toString("base64")
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+    }
+    const bytes = new TextEncoder().encode(value);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return globalThis.btoa(binary)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
+
+export function encodePaymentPayload(payload: PaymentPayload): string {
+    return base64UrlEncode(JSON.stringify(payload));
+}
+
+export function encodePaymentSignature(value: string | PaymentPayload): string {
+    return typeof value === "string" ? value : encodePaymentPayload(value);
+}
+
 export class FacilitatorResource {
     constructor(private readonly client: HttpClient) {}
 
@@ -78,6 +102,14 @@ export class X402Resource {
      */
     decodePaymentResponse(headerValue: string): SettleResponse {
         return JSON.parse(base64UrlDecode(headerValue)) as SettleResponse;
+    }
+
+    /**
+     * Encode a signed x402 `PaymentPayload` for the PAYMENT-SIGNATURE header.
+     * If a signer already returned a string, this returns it unchanged.
+     */
+    encodePaymentSignature(value: string | PaymentPayload): string {
+        return encodePaymentSignature(value);
     }
 
     /**

@@ -18,8 +18,9 @@
  *   - Webhook signature verification (HMAC-SHA256, Stripe-style header).
  *
  * Design:
- *   - Zero runtime dependencies. Uses platform `fetch`, WebCrypto, TextDecoder,
- *     ReadableStream. Works in Node 20+, Bun, Deno, Cloudflare Workers, browsers.
+ *   - The orchestration client uses platform `fetch`, WebCrypto, TextDecoder,
+ *     and ReadableStream. Generated OpenAPI subpath clients use Speakeasy's
+ *     Zod-backed runtime validation.
  *   - Identity is whatever the integrator already has. The SDK does NOT call a
  *     wallet, does NOT request signatures, does NOT run KYC. The end-user's
  *     wallet address — produced by whatever auth stack the integrator already
@@ -54,6 +55,7 @@ import {
     type ComposeStorage,
 } from "./storage.js";
 import { SDK_VERSION } from "./version.js";
+import type { X402PaymentSigner } from "./types/index.js";
 
 export * from "./types/index.js";
 export * from "./errors.js";
@@ -96,6 +98,7 @@ export type { WorkflowResource } from "./resources/workflow.js";
 export { decodeReceiptHeader, extractReceiptFromResponse, parseReceiptEvent } from "./streaming/receipt.js";
 export { parseSSEStream } from "./streaming/sse.js";
 export { extractSessionBudgetFromResponse } from "./streaming/budget.js";
+export { encodePaymentPayload, encodePaymentSignature } from "./resources/x402.js";
 export { createMemoryStorage } from "./storage.js";
 
 /**
@@ -154,6 +157,13 @@ export interface ComposeSDKOptions {
      * persisted token at once (e.g. after a breaking server auth change).
      */
     tokenScope?: string;
+    /**
+     * Provider-agnostic x402 signer. The SDK calls this only after receiving a
+     * real PAYMENT-REQUIRED challenge, then retries the request with the
+     * returned PAYMENT-SIGNATURE. Integrators can back this with Thirdweb,
+     * Privy, Dynamic, a browser wallet, a server wallet, or any other signer.
+     */
+    x402Signer?: X402PaymentSigner;
 }
 
 const DEFAULT_RETRY: RetryPolicy = {
@@ -221,6 +231,7 @@ export class ComposeSDK {
     private userAddress: string | null;
     private chainId: number | null;
     private composeKey: string | null;
+    private readonly x402Signer: X402PaymentSigner | null;
     private readonly rawFetch: FetchLike;
     private readonly userAgent: string;
 
@@ -254,6 +265,7 @@ export class ComposeSDK {
 
         this.rawFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
         this.userAgent = userAgent;
+        this.x402Signer = options.x402Signer ?? null;
 
         this.http = new HttpClient({
             baseUrl: this.baseUrl,
@@ -318,6 +330,7 @@ export class ComposeSDK {
         this.inference = new InferenceResource(this.http, {
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
+            getX402SignerMaybe: () => this.x402Signer,
             events: this.events,
         });
         this.x402 = new X402Resource(this.http);
