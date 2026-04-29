@@ -11,6 +11,11 @@ sources:
             - location: ./specs/inference.openapi.yaml
         registry:
             location: registry.speakeasyapi.dev/compose-market/compose-market/inference
+    memory:
+        inputs:
+            - location: ./specs/memory.openapi.yaml
+        registry:
+            location: registry.speakeasyapi.dev/compose-market/compose-market/memory
     x402:
         inputs:
             - location: ./specs/x402.openapi.yaml
@@ -34,6 +39,16 @@ targets:
         codeSamples:
             registry:
                 location: registry.speakeasyapi.dev/compose-market/compose-market/inference-typescript-code-samples
+            labelOverride:
+                fixedValue: Typescript (SDK)
+            blocking: false
+    memory:
+        target: typescript
+        source: memory
+        output: ./generated/memory
+        codeSamples:
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/memory-typescript-code-samples
             labelOverride:
                 fixedValue: Typescript (SDK)
             blocking: false

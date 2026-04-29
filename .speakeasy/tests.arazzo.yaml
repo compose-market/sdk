@@ -2,7 +2,7 @@ arazzo: 1.0.1
 info:
   title: Compose SDK Agent-First Workflows
   summary: E2E workflow contracts for the Compose SDK, inference, x402, and agentic loops.
-  version: 0.5.0
+  version: 0.6.6
 sourceDescriptions:
   - name: x402
     url: ../specs/x402.openapi.yaml
@@ -12,6 +12,9 @@ sourceDescriptions:
     type: openapi
   - name: agentic
     url: ../specs/agentic.openapi.yaml
+    type: openapi
+  - name: memory
+    url: ../specs/memory.openapi.yaml
     type: openapi
 x-speakeasy-test-server:
   baseUrl: "x-env: COMPOSE_API_TEST_URL; https://api.compose.market"
@@ -411,5 +414,94 @@ workflows:
             message: "Run one step and return exactly: workflow stream ok"
             threadId: "$inputs.threadId"
             userAddress: "$inputs.userAddress"
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: agent_memory_turn
+    summary: Recall memory, record the turn, and save a durable fact.
+    x-speakeasy-test-server:
+      baseUrl: "x-env: COMPOSE_MEMORY_TEST_URL; https://runtime.compose.market"
+    inputs:
+      type: object
+      properties:
+        agentWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        threadId:
+          type: string
+          examples: ["memory-arazzo-thread"]
+        query:
+          type: string
+          examples: ["What matters before answering?"]
+    steps:
+      - stepId: pre_turn
+        operationId: $sourceDescriptions.memory.context_assemble
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            query: "$inputs.query"
+            layers: ["working", "graph", "vectors"]
+            budget:
+              maxCharacters: 2400
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          contextId: $response.body#/contextId
+      - stepId: post_turn
+        operationId: $sourceDescriptions.memory.turn_record
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            contextId: $steps.pre_turn.outputs.contextId
+            userMessage: "$inputs.query"
+            assistantMessage: "Memory ok"
+            totalTokens: 0
+            toolEvents:
+              - name: search_memory
+                status: completed
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: remember_fact
+        operationId: $sourceDescriptions.memory.remember
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            content: "Memory workflow verified."
+            type: fact
+            retention: pinned
+            confidence: 1
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: memory_eval_gate
+    summary: Run a small memory retrieval evaluation gate.
+    x-speakeasy-test-server:
+      baseUrl: "x-env: COMPOSE_MEMORY_TEST_URL; https://runtime.compose.market"
+    inputs:
+      type: object
+      properties:
+        agentWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+    steps:
+      - stepId: eval_memory
+        operationId: $sourceDescriptions.memory.evals_run
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            testCases:
+              - query: "Arazzo memory workflow"
+                expected: "workflow"
         successCriteria:
           - condition: $statusCode == 200
