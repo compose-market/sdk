@@ -102,6 +102,30 @@ export interface APIPromise<T> extends PromiseLike<T> {
 }
 
 const RETRYABLE_STATUSES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+export const SDK_CLIENT_HEADER = "x-compose-sdk";
+
+export function isBrowserLikeRuntime(): boolean {
+    const root = globalThis as typeof globalThis & {
+        WorkerGlobalScope?: new (...args: never[]) => unknown;
+        self?: unknown;
+    };
+    const workerLike = typeof root.WorkerGlobalScope !== "undefined" && root.self instanceof root.WorkerGlobalScope;
+    const navigatorLike = typeof navigator !== "undefined" && "serviceWorker" in navigator;
+    const windowLike = typeof window === "object" && typeof window.document !== "undefined";
+    return workerLike || navigatorLike || windowLike;
+}
+
+export function applySdkClientHeaders(headers: Headers, userAgent: string): void {
+    if (isBrowserLikeRuntime()) {
+        headers.delete("User-Agent");
+        headers.set(SDK_CLIENT_HEADER, userAgent);
+        return;
+    }
+
+    if (!headers.has("User-Agent")) {
+        headers.set("User-Agent", userAgent);
+    }
+}
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -154,7 +178,7 @@ function normalizeUserAddress(value: string): string {
     return trimmed;
 }
 
-function normalizeAtomicAmount(value: string, fieldName: string): string {
+export function normalizeAtomicAmount(value: string, fieldName: string): string {
     const trimmed = value.trim();
     if (!/^\d+$/.test(trimmed) || BigInt(trimmed) <= 0n) {
         throw new BadRequestError({ message: `${fieldName} must be a positive integer string` });
@@ -212,8 +236,6 @@ export function buildHeaders(input: HeaderBagInput & {
         headers.set("x-request-id", input.requestId);
     }
 
-    headers.set("User-Agent", input.userAgent);
-
     if (input.extra) {
         for (const [key, value] of Object.entries(input.extra)) {
             if (typeof value === "string" && value.length > 0) {
@@ -222,10 +244,16 @@ export function buildHeaders(input: HeaderBagInput & {
         }
     }
 
+    applySdkClientHeaders(headers, input.userAgent);
+
     return headers;
 }
 
 function parseErrorBody(body: unknown): { code: ComposeErrorCode; message: string; details?: Record<string, unknown> } {
+    if (typeof body === "string") {
+        const message = body.trim().slice(0, 1_000);
+        return { code: "internal_error" as ComposeErrorCode, message: message || "Request failed" };
+    }
     if (body && typeof body === "object") {
         const envelope = body as ComposeErrorEnvelope;
         if (envelope.error && typeof envelope.error === "object") {
@@ -254,7 +282,7 @@ function parseErrorBody(body: unknown): { code: ComposeErrorCode; message: strin
     return { code: "internal_error" as ComposeErrorCode, message: "Request failed" };
 }
 
-function extractPaymentRequired(body: unknown, header: string | null): PaymentRequired | null {
+export function extractPaymentRequired(body: unknown, header: string | null): PaymentRequired | null {
     if (typeof header === "string" && header.length > 0) {
         try {
             const normalized = header.replace(/-/g, "+").replace(/_/g, "/");
@@ -390,7 +418,10 @@ export class HttpClient {
             }
 
             const errorBody = await this.safeReadJson(response);
-            const parsed = parseErrorBody(errorBody);
+            const parsedError = parseErrorBody(errorBody);
+            const parsed = response.status === 429 && parsedError.code === "internal_error"
+                ? { ...parsedError, code: "rate_limited" as ComposeErrorCode }
+                : parsedError;
             const requestId = response.headers.get("x-request-id") ?? response.headers.get("X-Request-Id") ?? undefined;
             const retryAfterHeader = response.headers.get("retry-after");
             const retryAfter = retryAfterHeader ? Math.max(0, parseInt(retryAfterHeader, 10)) : undefined;

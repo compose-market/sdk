@@ -13,9 +13,14 @@
  *     live session-budget updates emitted on every response.
  *   - x402 facilitator access (supported / chains / verify / settle) and typed
  *     decoders for PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-Compose-Receipt.
+ *   - Agent-first runtime memory loop (`sdk.memory.context`,
+ *     `sdk.memory.recordTurn`, `sdk.memory.remember`, `sdk.memory.loop`) for
+ *     compact pre-turn recall, post-turn persistence, and durable facts.
  *   - SSE session events (`sdk.session.events`) for budget depletion and
  *     expiry notifications, dispatched on the typed event bus as well.
  *   - Webhook signature verification (HMAC-SHA256, Stripe-style header).
+ *   - Feedback/reputation submission and summaries for x402 flows, endpoints,
+ *     models, agents, and workflows without coupling feedback to settlement.
  *
  * Design:
  *   - The orchestration client uses platform `fetch`, WebCrypto, TextDecoder,
@@ -35,7 +40,15 @@
  *     provided (browser `localStorage` is auto-detected).
  */
 
-import { HttpClient, type FetchLike, type HttpClientOptions, type RetryPolicy } from "./http.js";
+import {
+    applySdkClientHeaders,
+    extractPaymentRequired,
+    HttpClient,
+    normalizeAtomicAmount,
+    type FetchLike,
+    type HttpClientOptions,
+    type RetryPolicy,
+} from "./http.js";
 import { KeysResource } from "./resources/keys.js";
 import { ModelsResource } from "./resources/models.js";
 import { InferenceResource } from "./resources/inference.js";
@@ -44,7 +57,10 @@ import { WebhooksResource } from "./resources/webhooks.js";
 import { SessionEventsResource, type SessionEventsOptions } from "./resources/session-events.js";
 import { AgentResource } from "./resources/agent.js";
 import { WorkflowResource } from "./resources/workflow.js";
+import { MemoryResource } from "./resources/memory.js";
+import { FeedbackResource } from "./resources/feedback.js";
 import { instrumentBillableResponse } from "./resources/instrumentation.js";
+import { encodePaymentSignature } from "./resources/x402.js";
 import { BadRequestError } from "./errors.js";
 import { createEventBus, type ComposeEventBus, type ComposeEventName, type ComposeEventListener } from "./events.js";
 import {
@@ -56,6 +72,7 @@ import {
 } from "./storage.js";
 import { SDK_VERSION } from "./version.js";
 import type { X402PaymentSigner } from "./types/index.js";
+import type { ComposeCallOptions } from "./resources/inference.js";
 
 export * from "./types/index.js";
 export * from "./errors.js";
@@ -94,11 +111,19 @@ export type { ComposeStorage } from "./storage.js";
 export type { SessionEventsOptions } from "./resources/session-events.js";
 export type { AgentResource } from "./resources/agent.js";
 export type { WorkflowResource } from "./resources/workflow.js";
+export type { MemoryResource } from "./resources/memory.js";
+export type { FeedbackResource } from "./resources/feedback.js";
 
 export { decodeReceiptHeader, extractReceiptFromResponse, parseReceiptEvent } from "./streaming/receipt.js";
 export { parseSSEStream } from "./streaming/sse.js";
 export { extractSessionBudgetFromResponse } from "./streaming/budget.js";
-export { encodePaymentPayload, encodePaymentSignature } from "./resources/x402.js";
+export {
+    createPrivateKeyX402EvmSigner,
+    createPrivateKeyX402EvmWallet,
+    createX402EvmSigner,
+    encodePaymentPayload,
+    encodePaymentSignature,
+} from "./resources/x402.js";
 export { createMemoryStorage } from "./storage.js";
 
 /**
@@ -208,6 +233,8 @@ export class ComposeSDK {
     readonly session: SessionEventsNamespace;
     readonly agent: AgentResource;
     readonly workflow: WorkflowResource;
+    readonly memory: MemoryResource;
+    readonly feedback: FeedbackResource;
 
     readonly wallets: {
         attach: (input: { address: string; chainId: number }) => void;
@@ -333,8 +360,12 @@ export class ComposeSDK {
             getX402SignerMaybe: () => this.x402Signer,
             events: this.events,
         });
-        this.x402 = new X402Resource(this.http);
+        this.x402 = new X402Resource(this.http, (input, init) => this.fetch(input, { ...(init ?? {}), paymentMode: "x402" } as RequestInit & ComposeCallOptions));
         this.webhooks = new WebhooksResource();
+        this.feedback = new FeedbackResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
         this.session = new SessionEventsNamespace(
             new SessionEventsResource(this.http, this.events),
             getWalletMaybe,
@@ -343,13 +374,19 @@ export class ComposeSDK {
         const agentWorkflowContext = {
             baseUrl: this.baseUrl,
             fetch: this.rawFetch,
+            http: this.http,
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
+            getX402SignerMaybe: () => this.x402Signer,
             events: this.events,
             userAgent,
         };
         this.agent = new AgentResource(agentWorkflowContext);
         this.workflow = new WorkflowResource(agentWorkflowContext);
+        this.memory = new MemoryResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
     }
 
     private persistToken(token: string): void {
@@ -370,7 +407,7 @@ export class ComposeSDK {
     /**
      * Drop-in `fetch` wrapper that attaches the canonical Compose header
      * contract (`Authorization`, `x-session-user-address`, `x-chain-id`,
-     * `User-Agent`) on every request and emits `budget` / `sessionInvalid` /
+     * SDK client headers) on every request and emits `budget` / `sessionInvalid` /
      * `receipt` events on every response via the SDK event bus.
      *
      * Use this when you need to hit a Compose endpoint that isn't covered
@@ -383,18 +420,55 @@ export class ComposeSDK {
      * replacement; the budget event extraction is a no-op when the response
      * doesn't carry `x-session-budget-*` headers.
      */
-    async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-        const headers = new Headers(init?.headers);
-        if (!headers.has("User-Agent")) headers.set("User-Agent", this.userAgent);
-        if (this.composeKey && !headers.has("Authorization")) {
-            headers.set("Authorization", `Bearer ${this.composeKey}`);
+    async fetch(input: RequestInfo | URL, init: RequestInit & ComposeCallOptions = {}): Promise<Response> {
+        const {
+            x402MaxAmountWei,
+            paymentSignature,
+            paymentMode = "auto",
+            x402Signer,
+            composeKey,
+            userAddress,
+            chainId,
+            idempotencyKey,
+            composeRunId,
+            timeoutMs: _timeoutMs,
+            ...fetchInit
+        } = init;
+        void _timeoutMs;
+
+        const headers = new Headers(fetchInit.headers);
+        const resolvedX402MaxAmountWei = x402MaxAmountWei
+            ?? headers.get("x-x402-max-amount-wei")
+            ?? undefined;
+        const token = paymentMode === "x402"
+            ? null
+            : "composeKey" in init
+                ? composeKey
+                : this.composeKey;
+        if (token && !headers.has("Authorization")) {
+            headers.set("Authorization", `Bearer ${token}`);
         }
-        if (this.userAddress && !headers.has("x-session-user-address")) {
-            headers.set("x-session-user-address", this.userAddress);
+        const resolvedUserAddress = userAddress ? normalizeUserAddress(userAddress) : this.userAddress;
+        if (resolvedUserAddress && !headers.has("x-session-user-address")) {
+            headers.set("x-session-user-address", resolvedUserAddress);
         }
-        if (this.chainId !== null && !headers.has("x-chain-id")) {
-            headers.set("x-chain-id", String(this.chainId));
+        const resolvedChainId = chainId === undefined ? this.chainId : normalizeChainId(chainId);
+        if (resolvedChainId !== null && !headers.has("x-chain-id")) {
+            headers.set("x-chain-id", String(resolvedChainId));
         }
+        if (paymentSignature && !headers.has("PAYMENT-SIGNATURE")) {
+            headers.set("PAYMENT-SIGNATURE", encodePaymentSignature(paymentSignature));
+        }
+        if (resolvedX402MaxAmountWei && !headers.has("x-x402-max-amount-wei")) {
+            headers.set("x-x402-max-amount-wei", normalizeAtomicAmount(resolvedX402MaxAmountWei, "x402MaxAmountWei"));
+        }
+        if (idempotencyKey && !headers.has("x-idempotency-key")) {
+            headers.set("x-idempotency-key", idempotencyKey);
+        }
+        if (composeRunId && !headers.has("x-compose-run-id")) {
+            headers.set("x-compose-run-id", composeRunId);
+        }
+        applySdkClientHeaders(headers, this.userAgent);
 
         // Support absolute URLs, relative paths, and Request objects alike.
         let resolvedInput: RequestInfo | URL = input;
@@ -404,7 +478,35 @@ export class ComposeSDK {
                 : `${this.baseUrl}${input.startsWith("/") ? input : `/${input}`}`;
         }
 
-        const response = await this.rawFetch(resolvedInput, { ...init, headers });
+        const response = await this.rawFetch(resolvedInput, { ...fetchInit, headers });
+
+        const signer = x402Signer ?? this.x402Signer;
+        if (response.status === 402 && paymentMode !== "composeKey" && signer) {
+            const paymentRequiredHeader = response.headers.get("payment-required") ?? response.headers.get("PAYMENT-REQUIRED");
+            const paymentRequired = extractPaymentRequired(await safeReadJson(response.clone()), paymentRequiredHeader);
+            if (paymentRequired) {
+                const resolvedUrl = resolveUrlForFetchInput(this.baseUrl, resolvedInput);
+                const signed = await signer({
+                    paymentRequired,
+                    paymentRequiredHeader,
+                    method: resolveMethodForFetchInput(input, fetchInit),
+                    path: resolvePathForSigner(this.baseUrl, resolvedUrl),
+                    url: resolvedUrl,
+                    body: fetchInit.body,
+                    userAddress: resolvedUserAddress,
+                    chainId: resolvedChainId,
+                    maxAmountWei: resolvedX402MaxAmountWei
+                        ? normalizeAtomicAmount(resolvedX402MaxAmountWei, "x402MaxAmountWei")
+                        : undefined,
+                });
+                const retryHeaders = new Headers(headers);
+                retryHeaders.delete("Authorization");
+                retryHeaders.set("PAYMENT-SIGNATURE", encodePaymentSignature(signed));
+                const retryResponse = await this.rawFetch(resolvedInput, { ...fetchInit, headers: retryHeaders });
+                instrumentBillableResponse({ getWalletMaybe: () => ({ address: this.userAddress, chainId: this.chainId }), getTokenMaybe: () => this.composeKey, events: this.events }, retryResponse, undefined);
+                return retryResponse;
+            }
+        }
 
         // Emit budget/receipt/invalid events when the response carries the
         // relevant Compose headers. Pass `undefined` for the body since we
@@ -416,6 +518,38 @@ export class ComposeSDK {
 
         return response;
     }
+}
+
+async function safeReadJson(response: Response): Promise<unknown> {
+    try {
+        const text = await response.text();
+        if (!text) return null;
+        try {
+            return JSON.parse(text);
+        } catch {
+            return text;
+        }
+    } catch {
+        return null;
+    }
+}
+
+function resolveUrlForFetchInput(baseUrl: string, input: RequestInfo | URL): string {
+    if (typeof input === "string") return input.startsWith("http://") || input.startsWith("https://") ? input : `${baseUrl}${input.startsWith("/") ? input : `/${input}`}`;
+    if (input instanceof URL) return input.toString();
+    return input.url;
+}
+
+function resolvePathForSigner(baseUrl: string, resolvedUrl: string): string {
+    const parsed = new URL(resolvedUrl, baseUrl);
+    const base = new URL(baseUrl);
+    return parsed.origin === base.origin ? `${parsed.pathname}${parsed.search}` : parsed.toString();
+}
+
+function resolveMethodForFetchInput(input: RequestInfo | URL, init: RequestInit): string {
+    if (init.method) return init.method.toUpperCase();
+    if (typeof input !== "string" && !(input instanceof URL)) return input.method.toUpperCase();
+    return "GET";
 }
 
 /**

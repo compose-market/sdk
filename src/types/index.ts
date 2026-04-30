@@ -147,6 +147,103 @@ export interface FacilitatorChainsResponse {
 }
 
 // =============================================================================
+// Feedback / Reputation
+// =============================================================================
+
+export type FeedbackTargetType = "endpoint" | "x402" | "model" | "agent" | "workflow";
+
+export type FeedbackCategory =
+    | "general"
+    | "bug"
+    | "latency"
+    | "quality"
+    | "pricing"
+    | "settlement"
+    | "model_capability"
+    | "safety"
+    | "docs"
+    | "integration";
+
+export type FeedbackVerificationKind = "anonymous" | "wallet_header" | "compose_key";
+
+export interface FeedbackTarget {
+    type: FeedbackTargetType;
+    id: string;
+}
+
+export interface FeedbackContext {
+    requestId?: string;
+    paymentIntentId?: string;
+    composeRunId?: string;
+    chainId?: number;
+    modelId?: string;
+    provider?: string;
+    agentId?: string;
+    agentWallet?: string;
+    workflowId?: string;
+    endpoint?: {
+        method?: string;
+        path?: string;
+        url?: string;
+    };
+    receipt?: {
+        network?: string;
+        txHash?: string;
+        finalAmountWei?: string;
+    };
+    sdk?: {
+        name?: string;
+        version?: string;
+    };
+}
+
+export interface FeedbackSubmitInput {
+    target: FeedbackTarget;
+    category?: FeedbackCategory;
+    rating?: number;
+    message?: string;
+    labels?: string[];
+    context?: FeedbackContext;
+    metadata?: Record<string, unknown>;
+}
+
+export interface FeedbackSubmitResponse {
+    feedbackId: string;
+    target: FeedbackTarget;
+    verification: FeedbackVerificationKind;
+    createdAt: number;
+}
+
+export interface FeedbackRecord {
+    id: string;
+    target: FeedbackTarget;
+    category: FeedbackCategory;
+    rating?: number;
+    message?: string;
+    labels: string[];
+    context: FeedbackContext;
+    metadata: Record<string, unknown>;
+    verification: FeedbackVerificationKind;
+    createdAt: number;
+}
+
+export interface FeedbackListResponse {
+    object: "list";
+    data: FeedbackRecord[];
+}
+
+export interface FeedbackSummary {
+    target: FeedbackTarget;
+    count: number;
+    ratingCount: number;
+    ratingAverage: number | null;
+    ratings: Record<"1" | "2" | "3" | "4" | "5", number>;
+    categories: Record<FeedbackCategory, number>;
+    verification: Record<FeedbackVerificationKind, number>;
+    recent: FeedbackRecord[];
+}
+
+// =============================================================================
 // Compose Keys
 // =============================================================================
 
@@ -436,6 +533,37 @@ export interface ModelParamsResponse {
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
+export type ComposeAttachmentKind =
+    | "image"
+    | "audio"
+    | "video"
+    | "pdf"
+    | "file"
+    | "text"
+    | "json"
+    | "url";
+
+export interface ComposeAttachment {
+    type?: ComposeAttachmentKind | (string & { readonly __brand?: "ComposeAttachmentKind" });
+    url?: string;
+    uri?: string;
+    data?: string;
+    base64?: string;
+    mimeType?: string;
+    mime_type?: string;
+    contentType?: string;
+    content_type?: string;
+    name?: string;
+    filename?: string;
+    text?: string;
+    content?: string;
+    detail?: "auto" | "low" | "high";
+    metadata?: Record<string, unknown>;
+    [key: string]: unknown;
+}
+
+export type ComposeAttachmentInput = ComposeAttachment | string;
+
 export interface ChatMessageTextPart {
     type: "text";
     text: string;
@@ -492,6 +620,8 @@ export type ChatToolChoice =
 export interface ChatCompletionsCreateParams {
     model: string;
     messages: ChatMessage[];
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     stream?: boolean;
     temperature?: number;
     max_tokens?: number;
@@ -561,6 +691,8 @@ export interface ChatCompletionChunk {
 export interface ResponsesCreateParams {
     model: string;
     input: unknown;
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     modalities?: Array<"text" | "image" | "audio" | "video">;
     stream?: boolean;
     instructions?: string;
@@ -603,6 +735,8 @@ export type ResponseStreamEvent =
 export interface EmbeddingsCreateParams {
     model: string;
     input: string | string[];
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     dimensions?: number;
     provider?: ModelProvider;
     [key: string]: unknown;
@@ -623,6 +757,8 @@ export interface EmbeddingsResponse {
 export interface ImagesGenerateParams {
     model: string;
     prompt: string;
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     n?: number;
     size?: string;
     quality?: string;
@@ -639,6 +775,8 @@ export interface ImagesResponse {
 export interface AudioSpeechCreateParams {
     model: string;
     input: string;
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     voice?: string;
     response_format?: string;
     speed?: number;
@@ -649,6 +787,8 @@ export interface AudioSpeechCreateParams {
 export interface AudioTranscriptionCreateParams {
     model: string;
     file: string | Blob | File | Uint8Array;
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     filename?: string;
     language?: string;
     response_format?: string;
@@ -664,6 +804,8 @@ export interface AudioTranscriptionResponse {
 export interface VideoGenerateParams {
     model: string;
     prompt?: string;
+    attachments?: ComposeAttachmentInput[];
+    attachment?: ComposeAttachmentInput;
     duration?: number;
     aspect_ratio?: string;
     resolution?: string;
@@ -708,10 +850,13 @@ export type VideoStatusStreamEvent =
  */
 export type AgentRuntimeEvent =
     | { type: "text-delta"; delta: string }
+    | { type: "reasoning-delta"; delta: string }
+    | { type: "tool-args-delta"; id?: string; toolName?: string; argsDelta: string }
     | { type: "thinking-start"; message: string }
     | { type: "thinking-end" }
     | { type: "tool-start"; toolName: string; summary?: string; content?: string }
     | { type: "tool-end"; toolName: string; summary?: string; failed: boolean; error?: string }
+    | { type: "stopped"; reason: string }
     | { type: "error"; code?: string; message: string; details?: Record<string, unknown> }
     | { type: "done" };
 
@@ -722,7 +867,8 @@ export interface AgentStreamCreateParams {
     userAddress: string;
     cloudPermissions?: unknown;
     composeRunId?: string;
-    attachment?: unknown;
+    attachment?: ComposeAttachmentInput;
+    attachments?: ComposeAttachmentInput[];
 }
 
 export interface AgentStreamFinalResult {
@@ -757,7 +903,8 @@ export interface WorkflowStreamCreateParams {
     composeRunId?: string;
     continuous?: boolean;
     lastEventIndex?: number;
-    attachment?: unknown;
+    attachment?: ComposeAttachmentInput;
+    attachments?: ComposeAttachmentInput[];
 }
 
 export interface WorkflowStreamFinalResult {
@@ -768,4 +915,359 @@ export interface WorkflowStreamFinalResult {
     receipt: ComposeReceipt | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
+}
+
+// =============================================================================
+// Agent-first memory loop
+// =============================================================================
+
+export type AgentMemoryLayer = "working" | "scene" | "graph" | "patterns" | "archives" | "vectors";
+export type AgentMemoryLoopStep = "pre_turn" | "post_turn" | "remember";
+
+export interface AgentMemoryScopeInput {
+    agentWallet: string;
+    userAddress?: string;
+    threadId?: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    filters?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+}
+
+export interface AgentMemoryContextParams extends AgentMemoryScopeInput {
+    query: string;
+    layers?: AgentMemoryLayer[];
+    limit?: number;
+    maxItems?: number;
+    maxItemChars?: number;
+    budget?: {
+        maxCharacters?: number;
+        max_chars?: number;
+        maxContextCharacters?: number;
+        max_context_chars?: number;
+        mode?: "compact" | "balanced" | "recall";
+    };
+    includeRaw?: boolean;
+}
+
+export interface AgentMemoryTurnMessage {
+    role: "user" | "assistant" | "system" | "tool";
+    content: string;
+    timestamp?: number;
+    toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+}
+
+export interface AgentMemoryRecordTurnParams extends AgentMemoryScopeInput {
+    contextId?: string;
+    turnId?: string;
+    sessionId?: string;
+    messages?: AgentMemoryTurnMessage[];
+    toolEvents?: Array<{
+        name: string;
+        toolName?: string;
+        tool?: string;
+        args?: Record<string, unknown>;
+        input?: Record<string, unknown>;
+        result?: string;
+        output?: string;
+        status?: string;
+        timestamp?: number;
+    }>;
+    userMessage?: string;
+    assistantMessage?: string;
+    modelUsed?: string;
+    model?: string;
+    totalTokens?: number;
+    tokenCount?: number;
+    contextWindow?: number;
+    summary?: string;
+}
+
+export interface AgentMemoryRememberParams extends AgentMemoryScopeInput {
+    content: string;
+    type?: string;
+    scope?: string;
+    retention?: string;
+    conflictPolicy?: string;
+    confidence?: number;
+    enableGraph?: boolean;
+}
+
+export type AgentMemoryLoopParams =
+    | ({ step: "pre_turn" } & AgentMemoryContextParams)
+    | ({ step: "post_turn" } & AgentMemoryRecordTurnParams)
+    | ({ step: "remember" } & AgentMemoryRememberParams);
+
+export interface AgentMemoryCompactItem {
+    layer: string;
+    text: string;
+    id?: string;
+    score?: number;
+    source?: string;
+    createdAt?: number;
+}
+
+export interface AgentMemoryWorkflowEnvelope<TStep extends AgentMemoryLoopStep> {
+    v: "compose.agent_memory.v1";
+    step: TStep;
+    next: AgentMemoryLoopStep[];
+}
+
+export interface AgentMemoryContextResponse {
+    workflow: AgentMemoryWorkflowEnvelope<"pre_turn">;
+    contextId: string;
+    prompt: string | null;
+    items: AgentMemoryCompactItem[];
+    totals: Record<string, number>;
+    contextUsage: {
+        characters: number;
+        rawCharacters: number;
+        budgetCharacters?: number;
+        savedCharactersVsRaw: number;
+        items: number;
+    };
+    omitted: Record<string, number>;
+    raw?: Record<string, unknown[]>;
+}
+
+export interface AgentMemoryRecordTurnResponse {
+    workflow: AgentMemoryWorkflowEnvelope<"post_turn">;
+    success: true;
+    sessionId: string;
+    threadId: string;
+    turnId: string;
+    vectorId?: string;
+    stored: {
+        transcript: boolean;
+        working: boolean;
+        vector: boolean;
+    };
+}
+
+export interface AgentMemoryRememberResponse {
+    workflow: AgentMemoryWorkflowEnvelope<"remember">;
+    success: boolean;
+    graphSaved: boolean;
+    vectorSaved: boolean;
+    vectorId?: string;
+    memory?: {
+        id?: string;
+        text: string;
+        type: string;
+        retention?: string;
+        confidence?: number;
+        status: "active";
+    };
+}
+
+export type AgentMemoryLoopResponse =
+    | AgentMemoryContextResponse
+    | AgentMemoryRecordTurnResponse
+    | AgentMemoryRememberResponse;
+
+export interface LayeredSearchParams extends AgentMemoryScopeInput {
+    query: string;
+    layers?: AgentMemoryLayer[];
+    limit?: number;
+}
+
+export interface LayeredSearchResult {
+    query: string;
+    layers: Record<string, unknown[]>;
+    totals: Record<string, number>;
+}
+
+export type MemorySource = "session" | "knowledge" | "pattern" | "archive" | "fact";
+
+export interface SearchResult {
+    id: string;
+    vectorId?: string;
+    content: string;
+    score?: number;
+    source: MemorySource;
+    agentWallet: string;
+    userAddress?: string;
+    threadId?: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    decayScore?: number;
+    accessCount?: number;
+    createdAt?: number;
+}
+
+export interface MemoryVector {
+    vectorId: string;
+    id?: string;
+    content: string;
+    embedding?: number[];
+    score?: number;
+    source: MemorySource;
+    agentWallet: string;
+    userAddress?: string;
+    threadId?: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    scopeKind?: "global" | "local";
+    scopeId?: string;
+    decayScore: number;
+    accessCount: number;
+    createdAt: number;
+    lastAccessedAt: number;
+    updatedAt?: number;
+    metadata?: Record<string, unknown>;
+}
+
+export interface MemoryItemQuery {
+    agentWallet?: string;
+    userAddress?: string;
+}
+
+export interface MemoryItemUpdateParams extends MemoryItemQuery {
+    threadId?: string;
+    content?: string;
+    metadata?: Record<string, unknown>;
+    retention?: string;
+    confidence?: number;
+    status?: "active" | "superseded" | "archived";
+    filters?: Record<string, unknown>;
+}
+
+export interface MemoryItemDeleteParams extends MemoryItemQuery {
+    hardDelete?: boolean;
+}
+
+export interface MemoryJobCreateParams {
+    type: "consolidate" | "patterns_extract" | "archive_create" | "decay_update" | "cleanup";
+    execution?: "inline" | "temporal";
+    agentWallet?: string;
+    agentWallets?: string[];
+    timeRange?: { start: number; end: number };
+    dateRange?: { start: number; end: number };
+    confidenceThreshold?: number;
+    batchSize?: number;
+    halfLifeDays?: number;
+    olderThanDays?: number;
+    compress?: boolean;
+    syncToIpfs?: boolean;
+}
+
+export interface MemoryJobRecord {
+    jobId: string;
+    type: MemoryJobCreateParams["type"];
+    execution: "inline" | "temporal";
+    status: "running" | "completed" | "failed";
+    agentWallet?: string;
+    temporalWorkflowId?: string;
+    temporalRunId?: string;
+    data?: unknown;
+    error?: string;
+    createdAt: number;
+    completedAt?: number;
+}
+
+export interface MemoryEvalRunParams extends AgentMemoryScopeInput {
+    layers?: AgentMemoryLayer[];
+    testCases: Array<{ query: string; expected?: string; expectedMemoryId?: string }>;
+}
+
+export interface MemoryEvalRunResponse {
+    evalRunId: string;
+    status: "completed";
+    scores: {
+        recallAtK: number;
+        precisionAtK: number;
+        avgContextCharacters: number;
+        cases: number;
+    };
+    avgSearchLatencyMs: number;
+    results: Array<{
+        query: string;
+        hit: boolean;
+        returned: number;
+        contextCharacters: number;
+    }>;
+}
+
+export interface MemoryWorkflowStepManifest {
+    operationId: string;
+    method: "GET" | "POST" | "PATCH" | "DELETE";
+    path: string;
+    purpose?: string;
+}
+
+export interface MemoryWorkflowManifest {
+    id: string;
+    version: "compose.agent_memory.v1";
+    description: string;
+    loop?: "hot" | "durable" | "maintenance";
+    tokenPolicy?: "returns compact prompt only" | "returns metadata only";
+    steps: MemoryWorkflowStepManifest[];
+}
+
+export interface ProceduralPattern {
+    patternId: string;
+    agentWallet: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    patternType?: "workflow" | "decision" | "response" | "tool_sequence";
+    trigger?: { type: string; value: string; conditions?: Record<string, unknown> };
+    steps?: Array<{ action: string; params?: Record<string, unknown>; expectedOutcome?: string; order: number }>;
+    summary: string;
+    successRate?: number;
+    executionCount?: number;
+    lastExecuted?: number;
+    metadata?: Record<string, unknown>;
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+export interface LearnedSkill {
+    skillId: string;
+    name: string;
+    description: string;
+    category: string;
+    trigger?: Record<string, unknown>;
+    spawnConfig?: Record<string, unknown>;
+    successRate?: number;
+    usageCount?: number;
+    creator?: string;
+    agents?: string[];
+    tags?: string[];
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+export interface MemoryPatternValidation {
+    valid: boolean;
+    confidence: number;
+    occurrences: number;
+    successRate: number;
+    toolSequence: string[];
+}
+
+export interface MemoryScheduleStatus {
+    scheduleId: string;
+    paused: boolean;
+    lastRunAt?: number;
+    nextRunAt?: number;
+    note?: string;
+}
+
+export interface SessionMemory {
+    sessionId: string;
+    agentWallet: string;
+    userAddress?: string;
+    threadId?: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    workingMemory: {
+        context: string[];
+        entities: Record<string, unknown>;
+        state: Record<string, unknown>;
+    };
+    metadata?: Record<string, unknown>;
+    compressed: boolean;
+    createdAt: number;
+    expiresAt: number;
+    lastAccessedAt: number;
 }

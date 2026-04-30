@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.5.0",
+  "version": "0.6.7",
   "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
   "keywords": [
     "compose",
@@ -81,50 +81,80 @@
       "import": "./generated/x402/esm/sdk/payments.js",
       "default": "./generated/x402/esm/sdk/payments.js"
     },
-    "./agentic": {
-      "types": "./generated/agentic/esm/index.d.ts",
-      "import": "./generated/agentic/esm/index.js",
-      "default": "./generated/agentic/esm/index.js"
+    "./x402/feedback": {
+      "types": "./generated/x402/esm/sdk/feedback.d.ts",
+      "import": "./generated/x402/esm/sdk/feedback.js",
+      "default": "./generated/x402/esm/sdk/feedback.js"
     },
-    "./agentic/agent": {
-      "types": "./generated/agentic/esm/sdk/agents.d.ts",
-      "import": "./generated/agentic/esm/sdk/agents.js",
-      "default": "./generated/agentic/esm/sdk/agents.js"
+    "./x402/schemas": {
+      "types": "./generated/x402/esm/models/index.d.ts",
+      "import": "./generated/x402/esm/models/index.js",
+      "default": "./generated/x402/esm/models/index.js"
     },
-    "./agentic/workflow": {
-      "types": "./generated/agentic/esm/sdk/workflows.d.ts",
-      "import": "./generated/agentic/esm/sdk/workflows.js",
-      "default": "./generated/agentic/esm/sdk/workflows.js"
+    "./x402/operations": {
+      "types": "./generated/x402/esm/models/operations/index.d.ts",
+      "import": "./generated/x402/esm/models/operations/index.js",
+      "default": "./generated/x402/esm/models/operations/index.js"
     },
-    "./agentic/memory": {
-      "types": "./generated/agentic/esm/sdk/memory.d.ts",
-      "import": "./generated/agentic/esm/sdk/memory.js",
-      "default": "./generated/agentic/esm/sdk/memory.js"
+    "./memory": {
+      "types": "./generated/memory/esm/index.d.ts",
+      "import": "./generated/memory/esm/index.js",
+      "default": "./generated/memory/esm/index.js"
     },
-    "./agentic/tools": {
-      "types": "./generated/agentic/esm/sdk/tools.d.ts",
-      "import": "./generated/agentic/esm/sdk/tools.js",
-      "default": "./generated/agentic/esm/sdk/tools.js"
+    "./memory/framework": {
+      "types": "./generated/memory/esm/sdk/memory.d.ts",
+      "import": "./generated/memory/esm/sdk/memory.js",
+      "default": "./generated/memory/esm/sdk/memory.js"
     },
-    "./agentic/workspace": {
-      "types": "./generated/agentic/esm/sdk/workspace.d.ts",
-      "import": "./generated/agentic/esm/sdk/workspace.js",
-      "default": "./generated/agentic/esm/sdk/workspace.js"
+    "./memory/schemas": {
+      "types": "./generated/memory/esm/models/index.d.ts",
+      "import": "./generated/memory/esm/models/index.js",
+      "default": "./generated/memory/esm/models/index.js"
     },
-    "./agentic/mesh": {
-      "types": "./generated/agentic/esm/sdk/mesh.d.ts",
-      "import": "./generated/agentic/esm/sdk/mesh.js",
-      "default": "./generated/agentic/esm/sdk/mesh.js"
+    "./memory/operations": {
+      "types": "./generated/memory/esm/models/operations/index.d.ts",
+      "import": "./generated/memory/esm/models/operations/index.js",
+      "default": "./generated/memory/esm/models/operations/index.js"
     },
-    "./agentic/schemas": {
-      "types": "./generated/agentic/esm/models/index.d.ts",
-      "import": "./generated/agentic/esm/models/index.js",
-      "default": "./generated/agentic/esm/models/index.js"
+    "./manowar": {
+      "types": "./generated/manowar/esm/index.d.ts",
+      "import": "./generated/manowar/esm/index.js",
+      "default": "./generated/manowar/esm/index.js"
     },
-    "./agentic/operations": {
-      "types": "./generated/agentic/esm/models/operations/index.d.ts",
-      "import": "./generated/agentic/esm/models/operations/index.js",
-      "default": "./generated/agentic/esm/models/operations/index.js"
+    "./manowar/agent": {
+      "types": "./generated/manowar/esm/sdk/agents.d.ts",
+      "import": "./generated/manowar/esm/sdk/agents.js",
+      "default": "./generated/manowar/esm/sdk/agents.js"
+    },
+    "./manowar/workflow": {
+      "types": "./generated/manowar/esm/sdk/workflows.d.ts",
+      "import": "./generated/manowar/esm/sdk/workflows.js",
+      "default": "./generated/manowar/esm/sdk/workflows.js"
+    },
+    "./manowar/tools": {
+      "types": "./generated/manowar/esm/sdk/tools.d.ts",
+      "import": "./generated/manowar/esm/sdk/tools.js",
+      "default": "./generated/manowar/esm/sdk/tools.js"
+    },
+    "./manowar/workspace": {
+      "types": "./generated/manowar/esm/sdk/workspace.d.ts",
+      "import": "./generated/manowar/esm/sdk/workspace.js",
+      "default": "./generated/manowar/esm/sdk/workspace.js"
+    },
+    "./manowar/mesh": {
+      "types": "./generated/manowar/esm/sdk/mesh.d.ts",
+      "import": "./generated/manowar/esm/sdk/mesh.js",
+      "default": "./generated/manowar/esm/sdk/mesh.js"
+    },
+    "./manowar/schemas": {
+      "types": "./generated/manowar/esm/models/index.d.ts",
+      "import": "./generated/manowar/esm/models/index.js",
+      "default": "./generated/manowar/esm/models/index.js"
+    },
+    "./manowar/operations": {
+      "types": "./generated/manowar/esm/models/operations/index.d.ts",
+      "import": "./generated/manowar/esm/models/operations/index.js",
+      "default": "./generated/manowar/esm/models/operations/index.js"
     }
   },
   "main": "./dist/index.js",
@@ -143,12 +173,18 @@
     "generated/inference/src",
     "generated/inference/package.json",
     "generated/inference/README.md",
-    "generated/agentic/esm",
-    "generated/agentic/src",
-    "generated/agentic/package.json",
-    "generated/agentic/README.md",
+    "generated/memory/esm",
+    "generated/memory/src",
+    "generated/memory/package.json",
+    "generated/memory/README.md",
+    "generated/manowar/esm",
+    "generated/manowar/src",
+    "generated/manowar/package.json",
+    "generated/manowar/README.md",
     "specs",
     ".speakeasy/tests.arazzo.yaml",
+    ".speakeasy/memory.arazzo.yaml",
+    ".speakeasy/a2a.arazzo.yaml",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -162,8 +198,9 @@
     "sync-version": "node scripts/sync-version.mjs",
     "build:generated:x402": "npm --prefix generated/x402 install --ignore-scripts && npm --prefix generated/x402 run build",
     "build:generated:inference": "npm --prefix generated/inference install --ignore-scripts && npm --prefix generated/inference run build",
-    "build:generated:agentic": "npm --prefix generated/agentic install --ignore-scripts && npm --prefix generated/agentic run build",
-    "build:generated": "npm run build:generated:x402 && npm run build:generated:inference && npm run build:generated:agentic",
+    "build:generated:memory": "npm --prefix generated/memory install --ignore-scripts && npm --prefix generated/memory run build",
+    "build:generated:manowar": "npm --prefix generated/manowar install --ignore-scripts && npm --prefix generated/manowar run build",
+    "build:generated": "npm run build:generated:x402 && npm run build:generated:inference && npm run build:generated:memory && npm run build:generated:manowar",
     "build": "npm run sync-version && npm run clean && tsc -p tsconfig.json && npm run build:generated",
     "test": "npm run sync-version && node --import tsx --test tests/sdk.unit.test.ts tests/sdk.streaming.test.ts tests/sdk.contract.test.ts tests/sdk.session-events.test.ts tests/sdk.events.test.ts tests/sdk.runtime-streams.test.ts",
     "test:build": "npm run build && npm test",
@@ -176,7 +213,10 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "zod": "^4.0.0"
+    "@x402/core": "^2.11.0",
+    "@x402/evm": "^2.11.0",
+    "viem": "^2.48.4",
+    "zod": "^4.4.0"
   },
   "publishConfig": {
     "access": "public"

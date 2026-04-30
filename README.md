@@ -1,6 +1,6 @@
 # `@compose-market/sdk`
 
-Official Compose.Market SDK: Compose Keys, x402 v2 facilitator, 45k+ model catalog, and OpenAI-shaped streaming inference with typed cost receipts.
+Official Compose.Market SDK: Compose Keys, x402 v2 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed cost receipts, and feedback/reputation for endpoints, payment flows, models, agents, and workflows.
 
 [![npm](https://img.shields.io/npm/v/@compose-market/sdk.svg)](https://www.npmjs.com/package/@compose-market/sdk)
 [![license](https://img.shields.io/npm/l/@compose-market/sdk.svg)](./LICENSE)
@@ -77,18 +77,18 @@ The published package also exports generated clients for direct, contract-first 
 ```ts
 import { ComposeMarket as X402 } from "@compose-market/sdk/x402";
 import { ComposeMarket as Inference } from "@compose-market/sdk/inference";
-import { ComposeMarket as Agentic } from "@compose-market/sdk/agentic";
+import { ComposeMarket as Agentic } from "@compose-market/sdk/manowar";
 ```
 
 - `@compose-market/sdk/x402` exposes generated contracts for x402 settlement, reusable Compose Keys, session state, payments, and facilitator operations.
-- `@compose-market/sdk/x402/keys`, `@compose-market/sdk/x402/session`, and `@compose-market/sdk/x402/payments` expose generated payment/session resources directly.
+- `@compose-market/sdk/x402/keys`, `@compose-market/sdk/x402/session`, `@compose-market/sdk/x402/payments`, and `@compose-market/sdk/x402/feedback` expose generated payment/session/feedback resources directly.
 - `@compose-market/sdk/inference` exposes generated contracts for model discovery, inference, and realtime inference streams.
 - `@compose-market/sdk/inference/modality` exposes the generated modality catalog resource directly.
-- `@compose-market/sdk/agentic` exposes generated contracts for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
-- `@compose-market/sdk/agentic/agent`, `@compose-market/sdk/agentic/workflow`, `@compose-market/sdk/agentic/memory`, and `@compose-market/sdk/agentic/tools` expose generated agentic resources directly.
-- `@compose-market/sdk/inference/schemas`, `@compose-market/sdk/inference/operations`, `@compose-market/sdk/agentic/schemas`, and `@compose-market/sdk/agentic/operations` expose generated schema and operation types.
+- `@compose-market/sdk/manowar` exposes generated contracts for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
+- `@compose-market/sdk/manowar/agent`, `@compose-market/sdk/manowar/workflow`, `@compose-market/sdk/manowar/memory`, and `@compose-market/sdk/manowar/tools` expose generated manowar resources directly.
+- `@compose-market/sdk/inference/schemas`, `@compose-market/sdk/inference/operations`, `@compose-market/sdk/manowar/schemas`, and `@compose-market/sdk/manowar/operations` expose generated schema and operation types.
 
-The default `ComposeSDK` remains the higher-level orchestration surface: Compose Key first, raw x402 challenge/sign/retry fallback, typed receipts, streaming aggregation, storage, and event bus.
+The default `ComposeSDK` remains the higher-level orchestration surface: Compose Key first, raw x402 challenge/sign/retry fallback, typed receipts, streaming aggregation, storage, feedback, and event bus.
 
 ### Compose Keys
 
@@ -130,6 +130,17 @@ Every billable call resolves to `{ data, receipt, requestId, response }`. The re
 - `sdk.x402.facilitator.verify(body)` / `.settle(body)` — direct facilitator access.
 - `sdk.x402.decodePaymentRequired(headerValue)` / `.decodePaymentResponse(headerValue)` / `.decodeReceipt(headerValue)` — typed base64-url decoders for the three x402 v2 headers.
 - `sdk.x402.encodePaymentSignature(value)` / `encodePaymentSignature(value)` — encode a signed x402 `PaymentPayload` for `PAYMENT-SIGNATURE`.
+
+### Feedback
+
+Feedback is a side channel. It records reports against stable IDs without blocking inference, settlement, or runtime streams.
+
+- `sdk.feedback.submit({ target, rating, message, category, context })` — submit feedback for `endpoint`, `x402`, `model`, `agent`, or `workflow`.
+- `sdk.feedback.model(modelId, input)`, `.agent(agentId, input)`, `.workflow(workflowId, input)`, `.x402(targetId, input)`, `.endpoint(targetId, input)` — target-specific helpers.
+- `sdk.feedback.summary({ type, id })` — reputation summary with rating distribution and verification counts.
+- `sdk.feedback.list({ type, id })` — recent public feedback records.
+
+When a Compose Key is present, feedback is submitted as `compose_key` verified. Without a key, the SDK forwards attached wallet headers when available; otherwise feedback is anonymous. Feedback context can carry `requestId`, `paymentIntentId`, `composeRunId`, `modelId`, `provider`, receipt tx hash, and SDK version. Prompts and responses are never required.
 
 ### Webhooks
 
@@ -219,9 +230,9 @@ Not bundled:
 
 ## Contract generation
 
-The canonical OpenAPI contracts live in `specs/x402.openapi.yaml`, `specs/inference.openapi.yaml`, and `specs/agentic.openapi.yaml`. Speakeasy configuration lives in `.speakeasy/`, including the Arazzo workflow tests for model selection, Compose Key sessions, Compose Key inference, raw x402 challenge/retry, streaming frames, and agentic agent/workflow loops.
+The canonical OpenAPI contracts live in `specs/x402.openapi.yaml`, `specs/inference.openapi.yaml`, and `specs/manowar.openapi.yaml`. Speakeasy configuration lives in `.speakeasy/`, including the Arazzo workflow tests for model selection, Compose Key sessions, Compose Key inference, raw x402 challenge/retry, streaming frames, and manowar agent/workflow loops.
 
-Generated clients live under `generated/x402`, `generated/inference`, and `generated/agentic`. The root build compiles the hand-written orchestration client and all generated clients before publish.
+Generated clients live under `generated/x402`, `generated/inference`, and `generated/manowar`. The root build compiles the hand-written orchestration client and all generated clients before publish.
 
 Speakeasy generation keeps `text/event-stream` in the contracts and uses envelope responses so payment, receipt, and request headers remain part of the typed generated surface. The ergonomic streaming aggregation helpers live on the default `ComposeSDK` orchestration client.
 
@@ -233,7 +244,7 @@ Speakeasy generation keeps `text/event-stream` in the contracts and uses envelop
 - `specs/*.openapi.yaml` `info.version`.
 - `.speakeasy/tests.arazzo.yaml` `info.version`.
 - `.speakeasy/gen.yaml` TypeScript generation version.
-- Generated package metadata under `generated/x402`, `generated/inference`, and `generated/agentic`.
+- Generated package metadata under `generated/x402`, `generated/inference`, and `generated/manowar`.
 - `src/version.ts`.
 
 ## License

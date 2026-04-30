@@ -1,5 +1,11 @@
 import type { APIPromise, HttpClient } from "../http.js";
+import { x402Client } from "@x402/core/client";
+import { ExactEvmScheme, toClientEvmSigner, type ClientEvmSigner } from "@x402/evm";
+import { UptoEvmScheme } from "@x402/evm/upto/client";
+import { createPublicClient, http, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import type {
+    ComposePaymentMode,
     ComposeReceipt,
     FacilitatorChainsResponse,
     FacilitatorSupportedResponse,
@@ -8,6 +14,7 @@ import type {
     PaymentRequirements,
     SettleResponse,
     VerifyResponse,
+    X402PaymentSigner,
 } from "../types/index.js";
 import { decodeReceiptHeader } from "../streaming/receipt.js";
 
@@ -47,6 +54,61 @@ export function encodePaymentSignature(value: string | PaymentPayload): string {
     return typeof value === "string" ? value : encodePaymentPayload(value);
 }
 
+export function createX402EvmSigner(
+    signer: ClientEvmSigner,
+    options: { rpcUrl?: string; schemes?: Array<"upto" | "exact"> } = {},
+): X402PaymentSigner {
+    const schemes = options.schemes ?? ["upto", "exact"];
+    const client = new x402Client();
+    const schemeOptions = options.rpcUrl ? { rpcUrl: options.rpcUrl } : undefined;
+
+    if (schemes.includes("upto")) {
+        client.register("eip155:*", new UptoEvmScheme(signer, schemeOptions));
+    }
+    if (schemes.includes("exact")) {
+        client.register("eip155:*", new ExactEvmScheme(signer, schemeOptions));
+    }
+
+    return async (request) => {
+        const paymentRequired = filterPaymentRequiredByMaxAmount(request.paymentRequired, request.maxAmountWei);
+        return client.createPaymentPayload(paymentRequired as never) as Promise<PaymentPayload>;
+    };
+}
+
+export function createPrivateKeyX402EvmSigner(
+    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"upto" | "exact"> },
+): X402PaymentSigner {
+    return createPrivateKeyX402EvmWallet(input).x402Signer;
+}
+
+export function createPrivateKeyX402EvmWallet(
+    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"upto" | "exact"> },
+): { address: `0x${string}`; x402Signer: X402PaymentSigner } {
+    const privateKey = input.privateKey.startsWith("0x") ? input.privateKey : `0x${input.privateKey}`;
+    const account = privateKeyToAccount(privateKey as Hex);
+    const publicClient = input.rpcUrl
+        ? createPublicClient({ transport: http(input.rpcUrl) })
+        : undefined;
+    const signer = toClientEvmSigner(account, publicClient);
+    return {
+        address: account.address,
+        x402Signer: createX402EvmSigner(signer, {
+            rpcUrl: input.rpcUrl,
+            schemes: input.schemes,
+        }),
+    };
+}
+
+function filterPaymentRequiredByMaxAmount(paymentRequired: PaymentRequired, maxAmountWei?: string): PaymentRequired {
+    if (!maxAmountWei) return paymentRequired;
+    const max = BigInt(maxAmountWei);
+    const accepts = paymentRequired.accepts.filter((accept) => BigInt(accept.amount) <= max);
+    if (accepts.length === 0) {
+        throw new Error("No x402 payment requirement fits within x402MaxAmountWei");
+    }
+    return { ...paymentRequired, accepts };
+}
+
 export class FacilitatorResource {
     constructor(private readonly client: HttpClient) {}
 
@@ -84,8 +146,18 @@ export class FacilitatorResource {
 export class X402Resource {
     readonly facilitator: FacilitatorResource;
 
-    constructor(client: HttpClient) {
+    constructor(
+        client: HttpClient,
+        private readonly fetchWithPayment?: (input: RequestInfo | URL, init?: RequestInit & { paymentMode?: ComposePaymentMode }) => Promise<Response>,
+    ) {
         this.facilitator = new FacilitatorResource(client);
+    }
+
+    fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+        if (!this.fetchWithPayment) {
+            return Promise.reject(new Error("x402.fetch is only available from a ComposeSDK instance."));
+        }
+        return this.fetchWithPayment(input, { ...(init ?? {}), paymentMode: "x402" });
     }
 
     /**

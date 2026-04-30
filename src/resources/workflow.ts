@@ -15,7 +15,7 @@
  */
 
 import { ComposeError } from "../errors.js";
-import type { FetchLike } from "../http.js";
+import { applySdkClientHeaders, type FetchLike, type HttpClient } from "../http.js";
 import { parseSSEStream } from "../streaming/sse.js";
 import { extractReceiptFromResponse, parseReceiptEvent } from "../streaming/receipt.js";
 import { extractSessionBudgetFromResponse } from "../streaming/budget.js";
@@ -25,14 +25,22 @@ import type {
     WorkflowRuntimeEvent,
     WorkflowStreamCreateParams,
     WorkflowStreamFinalResult,
+    X402PaymentSigner,
 } from "../types/index.js";
-import { ComposeStreamIterator } from "./inference.js";
+import {
+    buildCallHeaders,
+    type ComposeCallOptions,
+    ComposeStreamIterator,
+    requestResponseWithPayment,
+} from "./inference.js";
 
 export interface WorkflowResourceContext {
     baseUrl: string;
     fetch: FetchLike;
+    http: HttpClient;
     getWalletMaybe: () => { address: string | null; chainId: number | null };
     getTokenMaybe: () => string | null;
+    getX402SignerMaybe?: () => X402PaymentSigner | null;
     events: ComposeEventBus;
     userAgent: string;
 }
@@ -42,7 +50,7 @@ export class WorkflowResource {
 
     stream(
         params: WorkflowStreamCreateParams,
-        options: { signal?: AbortSignal; timeoutMs?: number } = {},
+        options: ComposeCallOptions = {},
     ): ComposeStreamIterator<WorkflowRuntimeEvent, WorkflowStreamFinalResult> {
         return new ComposeStreamIterator(driveWorkflowStream(this.ctx, params, options));
     }
@@ -57,8 +65,8 @@ export class WorkflowResource {
         const token = this.ctx.getTokenMaybe();
         const headers = new Headers({
             "Content-Type": "application/json",
-            "User-Agent": this.ctx.userAgent,
         });
+        applySdkClientHeaders(headers, this.ctx.userAgent);
         if (token) headers.set("Authorization", `Bearer ${token}`);
         if (wallet.address) headers.set("x-session-user-address", wallet.address);
         if (wallet.chainId !== null) headers.set("x-chain-id", String(wallet.chainId));
@@ -74,20 +82,11 @@ export class WorkflowResource {
 async function* driveWorkflowStream(
     ctx: WorkflowResourceContext,
     params: WorkflowStreamCreateParams,
-    options: { signal?: AbortSignal; timeoutMs?: number },
+    options: ComposeCallOptions,
 ): AsyncGenerator<WorkflowRuntimeEvent, WorkflowStreamFinalResult, void> {
-    const url = `${ctx.baseUrl}/workflow/${encodeURIComponent(params.workflowWallet)}/chat`;
+    const path = `/workflow/${encodeURIComponent(params.workflowWallet)}/chat`;
     const wallet = ctx.getWalletMaybe();
     const token = ctx.getTokenMaybe();
-
-    const headers = new Headers({
-        "Content-Type": "application/json",
-        "User-Agent": ctx.userAgent,
-    });
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    if (wallet.address) headers.set("x-session-user-address", wallet.address);
-    if (wallet.chainId !== null) headers.set("x-chain-id", String(wallet.chainId));
-    if (params.composeRunId) headers.set("x-compose-run-id", params.composeRunId);
 
     const body: Record<string, unknown> = {
         message: params.message,
@@ -98,6 +97,7 @@ async function* driveWorkflowStream(
     if (typeof params.lastEventIndex === "number") body.lastEventIndex = params.lastEventIndex;
     if (typeof params.continuous === "boolean") body.continuous = params.continuous;
     if (params.attachment) body.attachment = params.attachment;
+    if (params.attachments) body.attachments = params.attachments;
 
     const timeoutController = new AbortController();
     const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
@@ -114,14 +114,21 @@ async function* driveWorkflowStream(
 
     let response: Response;
     try {
-        response = await ctx.fetch(url, {
+        response = await requestResponseWithPayment<unknown>(ctx.http, ctx, {
             method: "POST",
-            headers,
-            body: JSON.stringify(body),
+            path,
+            body,
+            headers: {
+                ...buildCallHeaders(options, wallet, token),
+                composeRunId: params.composeRunId ?? options.composeRunId,
+            },
             signal: mergeSignals(options.signal, timeoutController.signal),
-        });
+            timeoutMs,
+            expectStream: true,
+        }, options);
     } catch (fetchError) {
         clearTimeout(timer);
+        if (fetchError instanceof ComposeError) throw fetchError;
         throw new ComposeError({
             code: "network_error",
             message: fetchError instanceof Error ? fetchError.message : String(fetchError),
@@ -176,13 +183,17 @@ async function* driveWorkflowStream(
     let text = "";
     let structuredOutput: unknown = null;
     let streamReceipt: ComposeReceipt | null = null;
+    let emittedDone = false;
     const toolCalls: WorkflowStreamFinalResult["toolCalls"] = [];
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: options.signal })) {
             const data = frame.data.trim();
             if (!data || data === "[DONE]") {
-                if (data === "[DONE]") yield { type: "done" };
+                if (data === "[DONE]" && !emittedDone) {
+                    emittedDone = true;
+                    yield { type: "done" };
+                }
                 continue;
             }
 
@@ -199,6 +210,7 @@ async function* driveWorkflowStream(
                 } catch { /* skip malformed */ }
                 continue;
             }
+            if (emittedDone) continue;
 
             let payload: Record<string, unknown>;
             try {
@@ -300,8 +312,11 @@ async function* driveWorkflowStream(
                 continue;
             }
             if (eventName === "done") {
-                yield { type: "done" };
-                break;
+                if (!emittedDone) {
+                    emittedDone = true;
+                    yield { type: "done" };
+                }
+                continue;
             }
 
             // Unknown runtime frame — ignore rather than crash.

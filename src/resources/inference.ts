@@ -101,7 +101,7 @@ export interface ResponsesStreamFinalResult {
     sessionInvalidReason: SessionInvalidReason | null;
 }
 
-function buildCallHeaders(
+export function buildCallHeaders(
     options: ComposeCallOptions | undefined,
     ctxWallet: { address: string | null; chainId: number | null },
     ctxToken: string | null,
@@ -223,7 +223,7 @@ async function requestJsonWithPayment<T>(
     }
 }
 
-async function requestResponseWithPayment<T>(
+export async function requestResponseWithPayment<T>(
     client: HttpClient,
     ctx: InferenceContext,
     config: RequestOptions,
@@ -447,6 +447,7 @@ async function* streamChatCompletions(
     const aggregator = buildChatCompletionAggregator(params.model);
     const emittedToolStarts = new Set<string>();
     let streamError: ComposeError | null = null;
+    let sawDone = false;
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: options?.signal })) {
@@ -466,8 +467,10 @@ async function* streamChatCompletions(
                 continue;
             }
             if (frame.data === "[DONE]") {
-                break;
+                sawDone = true;
+                continue;
             }
+            if (sawDone) continue;
             if (frame.event !== "message") {
                 // Unknown Compose-specific frames: surface nothing to the chunk stream.
                 continue;
@@ -701,6 +704,7 @@ async function* streamResponses(
     let receipt: ComposeReceipt | null = null;
     let lastCompleted: ResponseStreamEvent | null = null;
     let streamError: ComposeError | null = null;
+    let sawDone = false;
     const toolCallAggregator = new Map<string, { id: string; name: string; arguments: string; index: number }>();
 
     try {
@@ -720,8 +724,10 @@ async function* streamResponses(
                 continue;
             }
             if (frame.data === "[DONE]") {
-                break;
+                sawDone = true;
+                continue;
             }
+            if (sawDone) continue;
             if (frame.event !== "message") continue;
 
             let parsed: ResponseStreamEvent;
@@ -1091,13 +1097,18 @@ async function* streamVideoStatus(
     }
 
     let lastStatus: VideoJobStatus | null = null;
+    let emittedDone = false;
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: opts.signal })) {
             if (frame.data === "[DONE]") {
-                yield { type: "done" };
-                break;
+                if (!emittedDone) {
+                    emittedDone = true;
+                    yield { type: "done" };
+                }
+                continue;
             }
+            if (emittedDone && frame.event !== "compose.error") continue;
             if (frame.event === "compose.video.status") {
                 try {
                     const parsed = JSON.parse(frame.data) as {

@@ -1,0 +1,2541 @@
+---
+openapi: 3.1.0
+info:
+  title: Compose Memory
+  version: 0.6.7
+  summary: Agent-first memory loop and low-level memory primitives.
+  description: |
+    Standalone Compose Memory contract. This SDK surface is intentionally
+    independent from agent/workflow execution so any external application or
+    autonomous agent can integrate compact pre-turn recall, post-turn memory
+    persistence, explicit durable memory, vector recall, transcripts, layered
+    search, and stats without adopting the rest of the manowar SDK.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+- url: https://api.compose.market
+  x-speakeasy-server-id: compose-api
+  description: Public Compose API gateway
+- url: https://runtime.compose.market
+  x-speakeasy-server-id: runtime
+  description: Runtime service
+- url: http://127.0.0.1:8787
+  x-speakeasy-server-id: local
+  description: Local runtime development endpoint
+tags:
+- name: memory
+security: []
+paths:
+  "/api/memory/context/assemble":
+    post:
+      tags:
+      - memory
+      operationId: context_assemble
+      summary: Assemble compact pre-turn memory context.
+      description: |
+        Agent-first workflow step. Call before reasoning or tool use. Returns a
+        compact prompt and structured memory items across working, scene, graph,
+        patterns, archives, and vectors.
+      requestBody:
+        "$ref": "#/components/requestBodies/AgentMemoryContextRequest"
+      responses:
+        '200':
+          description: Compact agent memory context.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentMemoryContextResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/turns/record":
+    post:
+      tags:
+      - memory
+      operationId: turn_record
+      summary: Persist the completed turn.
+      description: |
+        Agent-first workflow step. Call after the assistant final answer to store
+        transcript, working memory, and vector memory for later retrieval.
+      requestBody:
+        "$ref": "#/components/requestBodies/AgentMemoryRecordTurnRequest"
+      responses:
+        '200':
+          description: Turn persistence result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentMemoryRecordTurnResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/remember":
+    post:
+      tags:
+      - memory
+      operationId: remember
+      summary: Save an explicit durable fact or preference.
+      description: |
+        Agent-first workflow step. Call when the agent identifies a durable fact,
+        preference, correction, decision, or operational lesson.
+      requestBody:
+        "$ref": "#/components/requestBodies/AgentMemoryRememberRequest"
+      responses:
+        '200':
+          description: Explicit memory persistence result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AgentMemoryRememberResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/loop":
+    post:
+      tags:
+      - memory
+      operationId: loop
+      summary: Single endpoint for the agent memory loop.
+      description: |
+        Minimal-token agent surface. Set `step` to `pre_turn`, `post_turn`, or
+        `remember`; each response returns the next valid loop steps.
+      requestBody:
+        "$ref": "#/components/requestBodies/AgentMemoryLoopRequest"
+      responses:
+        '200':
+          description: Agent memory loop response.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/AgentMemoryContextResponse"
+                - "$ref": "#/components/schemas/AgentMemoryRecordTurnResponse"
+                - "$ref": "#/components/schemas/AgentMemoryRememberResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/workflows":
+    get:
+      tags:
+      - memory
+      operationId: workflows_list
+      summary: List compact agent-first memory workflow manifests.
+      responses:
+        '200':
+          description: Memory workflow manifests.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryWorkflowListResponse"
+  "/api/memory/workflows/{workflowId}":
+    get:
+      tags:
+      - memory
+      operationId: workflows_get
+      summary: Fetch one compact memory workflow manifest.
+      parameters:
+      - name: workflowId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Memory workflow manifest.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryWorkflowResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/patterns":
+    get:
+      tags:
+      - memory
+      operationId: patterns_list
+      summary: List learned procedural memory patterns.
+      parameters:
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      - name: patternType
+        in: query
+        schema:
+          type: string
+          enum:
+          - workflow
+          - decision
+          - response
+          - tool_sequence
+      - name: minSuccessRate
+        in: query
+        schema:
+          type: number
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Procedural memory patterns.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProceduralPatternListResponse"
+  "/api/memory/patterns/{patternId}":
+    get:
+      tags:
+      - memory
+      operationId: patterns_get
+      summary: Fetch one procedural memory pattern.
+      parameters:
+      - name: patternId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Procedural memory pattern.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProceduralPatternResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/patterns/{patternId}/validate":
+    post:
+      tags:
+      - memory
+      operationId: patterns_validate
+      summary: Validate a procedural memory pattern before promotion.
+      parameters:
+      - name: patternId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Pattern validation result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryPatternValidation"
+  "/api/memory/patterns/{patternId}/promote":
+    post:
+      tags:
+      - memory
+      operationId: patterns_promote
+      summary: Promote a validated procedural pattern into a learned skill.
+      parameters:
+      - name: patternId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryPatternPromoteRequest"
+      responses:
+        '200':
+          description: Pattern promotion result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryPatternPromoteResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/skills":
+    get:
+      tags:
+      - memory
+      operationId: skills_list
+      summary: List learned memory skills.
+      parameters:
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      - name: category
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Learned memory skills.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LearnedSkillListResponse"
+  "/api/memory/skills/{skillId}":
+    get:
+      tags:
+      - memory
+      operationId: skills_get
+      summary: Fetch one learned memory skill.
+      parameters:
+      - name: skillId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Learned memory skill.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LearnedSkillResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/add":
+    post:
+      tags:
+      - memory
+      operationId: graph_add
+      summary: Add graph memory through the configured graph provider.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryAddRequest"
+      responses:
+        '200':
+          description: Graph memory records.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GraphMemoryItemsResponse"
+  "/api/memory/search":
+    post:
+      tags:
+      - memory
+      operationId: graph_search
+      summary: Search graph memory through the configured graph provider.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemorySearchRequest"
+      responses:
+        '200':
+          description: Graph memory records.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GraphMemoryItemsResponse"
+  "/api/memory/{agentWallet}":
+    get:
+      tags:
+      - memory
+      operationId: list
+      summary: List memories for an agent wallet.
+      parameters:
+      - name: agentWallet
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userAddress
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Graph memory records.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GraphMemoryItemsResponse"
+  "/api/memory/vector-search":
+    post:
+      tags:
+      - memory
+      operationId: vector_search
+      summary: Search vector memory.
+      requestBody:
+        "$ref": "#/components/requestBodies/VectorSearchRequest"
+      responses:
+        '200':
+          description: Vector search results.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VectorSearchResponse"
+  "/api/memory/vector-index":
+    post:
+      tags:
+      - memory
+      operationId: vector_index
+      summary: Index a memory vector.
+      requestBody:
+        "$ref": "#/components/requestBodies/VectorIndexRequest"
+      responses:
+        '200':
+          description: Vector indexing result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VectorIndexResponse"
+  "/api/memory/transcript-store":
+    post:
+      tags:
+      - memory
+      operationId: transcript_store
+      summary: Store a session transcript.
+      requestBody:
+        "$ref": "#/components/requestBodies/TranscriptStoreRequest"
+      responses:
+        '200':
+          description: Transcript store result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SuccessResponse"
+  "/api/memory/transcript-get/{id}":
+    get:
+      tags:
+      - memory
+      operationId: transcript_get
+      summary: Fetch a transcript by session or thread id.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum:
+          - sessionId
+          - threadId
+      responses:
+        '200':
+          description: Session transcript.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SessionTranscript"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/transcripts/index":
+    post:
+      tags:
+      - memory
+      operationId: transcripts_index
+      summary: Store, index, and optionally update working memory from a transcript.
+      requestBody:
+        "$ref": "#/components/requestBodies/TranscriptIndexRequest"
+      responses:
+        '200':
+          description: Transcript indexing result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/TranscriptIndexResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/sessions/{sessionId}/working":
+    get:
+      tags:
+      - memory
+      operationId: sessions_working_get
+      summary: Fetch hot working memory for a session.
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: agentWallet
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Working session memory.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SessionMemoryResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+    patch:
+      tags:
+      - memory
+      operationId: sessions_working_update
+      summary: Update hot working memory for a session.
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        "$ref": "#/components/requestBodies/WorkingSessionUpdateRequest"
+      responses:
+        '200':
+          description: Updated working session memory.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/WorkingSessionUpdateResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/sessions/{sessionId}/compress":
+    post:
+      tags:
+      - memory
+      operationId: sessions_compress
+      summary: Compress a long transcript into durable archive memory.
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        "$ref": "#/components/requestBodies/SessionCompressRequest"
+      responses:
+        '200':
+          description: Session compression result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SessionCompressResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/archives/{archiveId}/sync":
+    post:
+      tags:
+      - memory
+      operationId: archives_sync
+      summary: Sync a memory archive to durable external storage.
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        "$ref": "#/components/requestBodies/ArchiveSyncRequest"
+      responses:
+        '200':
+          description: Archive sync result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ArchiveSyncResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/schedules":
+    get:
+      tags:
+      - memory
+      operationId: schedules_list
+      summary: List Temporal memory schedule status.
+      responses:
+        '200':
+          description: Memory schedules.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryScheduleListResponse"
+    post:
+      tags:
+      - memory
+      operationId: schedules_create
+      summary: Create or replace memory maintenance schedules.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryScheduleCreateRequest"
+      responses:
+        '200':
+          description: Schedule creation result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryScheduleCreateResponse"
+    delete:
+      tags:
+      - memory
+      operationId: schedules_delete
+      summary: Delete memory maintenance schedules.
+      responses:
+        '200':
+          description: Schedule delete result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryScheduleDeleteResponse"
+  "/api/memory/schedules/{scheduleId}/pause":
+    post:
+      tags:
+      - memory
+      operationId: schedules_pause
+      summary: Pause one memory maintenance schedule.
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Schedule pause result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemorySchedulePauseResponse"
+  "/api/memory/schedules/{scheduleId}/resume":
+    post:
+      tags:
+      - memory
+      operationId: schedules_resume
+      summary: Resume one memory maintenance schedule.
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Schedule resume result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryScheduleResumeResponse"
+  "/api/memory/schedules/{scheduleId}/trigger":
+    post:
+      tags:
+      - memory
+      operationId: schedules_trigger
+      summary: Trigger one memory maintenance schedule immediately.
+      parameters:
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Schedule trigger result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryScheduleTriggerResponse"
+  "/api/memory/rerank":
+    post:
+      tags:
+      - memory
+      operationId: rerank
+      summary: Rerank candidate memory documents.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - query
+              - documents
+              properties:
+                query:
+                  type: string
+                documents:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                topK:
+                  type: integer
+      responses:
+        '200':
+          description: Reranked memory documents.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RerankResponse"
+  "/api/memory/layers/search":
+    post:
+      tags:
+      - memory
+      operationId: layers_search
+      summary: Search all memory layers.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemorySearchRequest"
+      responses:
+        '200':
+          description: Layered memory search result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LayeredSearchResponse"
+  "/api/memory/stats/{agentWallet}":
+    get:
+      tags:
+      - memory
+      operationId: stats_get
+      summary: Get memory statistics for an agent wallet.
+      parameters:
+      - name: agentWallet
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Memory statistics.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryStatsResponse"
+  "/api/memory/items/search":
+    post:
+      tags:
+      - memory
+      operationId: items_search
+      summary: Search productized memory items across layers.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemorySearchRequest"
+      responses:
+        '200':
+          description: Layered memory search result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LayeredSearchResponse"
+  "/api/memory/items/{id}":
+    get:
+      tags:
+      - memory
+      operationId: items_get
+      summary: Fetch one durable memory item.
+      parameters:
+      - "$ref": "#/components/parameters/MemoryItemId"
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      - name: userAddress
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Memory item.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryItemResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+    patch:
+      tags:
+      - memory
+      operationId: items_update
+      summary: Update one durable memory item.
+      parameters:
+      - "$ref": "#/components/parameters/MemoryItemId"
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryItemUpdateRequest"
+      responses:
+        '200':
+          description: Updated memory item.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryItemUpdateResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+    delete:
+      tags:
+      - memory
+      operationId: items_delete
+      summary: Delete or soft-delete one durable memory item.
+      parameters:
+      - "$ref": "#/components/parameters/MemoryItemId"
+      - name: agentWallet
+        in: query
+        schema:
+          type: string
+      - name: userAddress
+        in: query
+        schema:
+          type: string
+      - name: hardDelete
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Delete result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryItemDeleteResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/conflicts/{id}/resolve":
+    post:
+      tags:
+      - memory
+      operationId: conflicts_resolve
+      summary: Resolve a memory conflict.
+      parameters:
+      - "$ref": "#/components/parameters/MemoryItemId"
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryConflictResolveRequest"
+      responses:
+        '200':
+          description: Conflict resolution result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryConflictResolveResponse"
+  "/api/memory/jobs":
+    post:
+      tags:
+      - memory
+      operationId: jobs_create
+      summary: Run a memory maintenance job.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryJobCreateRequest"
+      responses:
+        '200':
+          description: Completed maintenance job.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryJobRecord"
+  "/api/memory/jobs/{jobId}":
+    get:
+      tags:
+      - memory
+      operationId: jobs_get
+      summary: Fetch a memory maintenance job.
+      parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Memory maintenance job.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryJobRecord"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/memory/evals/runs":
+    post:
+      tags:
+      - memory
+      operationId: evals_run
+      summary: Run a memory retrieval evaluation.
+      requestBody:
+        "$ref": "#/components/requestBodies/MemoryEvalRunRequest"
+      responses:
+        '200':
+          description: Memory eval result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/MemoryEvalRunResponse"
+components:
+  parameters:
+    MemoryItemId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    AgentMemoryContextRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/AgentMemoryContextRequest"
+    AgentMemoryRecordTurnRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/AgentMemoryRecordTurnRequest"
+    AgentMemoryRememberRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/AgentMemoryRememberRequest"
+    AgentMemoryLoopRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - allOf:
+              - "$ref": "#/components/schemas/AgentMemoryContextRequest"
+              - type: object
+                required:
+                - step
+                properties:
+                  step:
+                    type: string
+                    const: pre_turn
+            - allOf:
+              - "$ref": "#/components/schemas/AgentMemoryRecordTurnRequest"
+              - type: object
+                required:
+                - step
+                properties:
+                  step:
+                    type: string
+                    const: post_turn
+            - allOf:
+              - "$ref": "#/components/schemas/AgentMemoryRememberRequest"
+              - type: object
+                required:
+                - step
+                properties:
+                  step:
+                    type: string
+                    const: remember
+    MemoryAddRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - messages
+            properties:
+              messages:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+              agentWallet:
+                type: string
+              agent_id:
+                type: string
+              userAddress:
+                type: string
+              user_id:
+                type: string
+              runId:
+                type: string
+              mode:
+                type: string
+                enum:
+                - global
+                - local
+              haiId:
+                type: string
+              metadata:
+                type: object
+                additionalProperties: true
+              enableGraph:
+                type: boolean
+    MemoryItemUpdateRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/MemoryItemUpdateRequest"
+    MemoryConflictResolveRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/MemoryConflictResolveRequest"
+    MemoryJobCreateRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/MemoryJobCreateRequest"
+    MemoryEvalRunRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+              "$ref": "#/components/schemas/MemoryEvalRunRequest"
+    MemorySearchRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - query
+            properties:
+              query:
+                type: string
+              agentWallet:
+                type: string
+              agent_id:
+                type: string
+              userAddress:
+                type: string
+              user_id:
+                type: string
+              threadId:
+                type: string
+              runId:
+                type: string
+              mode:
+                type: string
+                enum:
+                - global
+                - local
+              haiId:
+                type: string
+              limit:
+                type: integer
+              layers:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AgentMemoryLayer"
+              filters:
+                type: object
+                additionalProperties: true
+              rerank:
+                type: boolean
+    VectorSearchRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - query
+            - agentWallet
+            properties:
+              query:
+                type: string
+              queryEmbedding:
+                type: array
+                items:
+                  type: number
+              agentWallet:
+                type: string
+              userAddress:
+                type: string
+              threadId:
+                type: string
+              mode:
+                type: string
+                enum:
+                - global
+                - local
+              haiId:
+                type: string
+              filters:
+                type: object
+                additionalProperties: true
+              limit:
+                type: integer
+              threshold:
+                type: number
+    VectorIndexRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - content
+            - agentWallet
+            - source
+            properties:
+              content:
+                type: string
+              embedding:
+                type: array
+                items:
+                  type: number
+              agentWallet:
+                type: string
+              userAddress:
+                type: string
+              threadId:
+                type: string
+              mode:
+                type: string
+                enum:
+                - global
+                - local
+              haiId:
+                type: string
+              source:
+                type: string
+                enum:
+                - session
+                - knowledge
+                - pattern
+                - archive
+                - fact
+              metadata:
+                type: object
+                additionalProperties: true
+    TranscriptStoreRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - sessionId
+            - threadId
+            - agentWallet
+            - messages
+            - tokenCount
+            properties:
+              sessionId:
+                type: string
+              threadId:
+                type: string
+              agentWallet:
+                type: string
+              userAddress:
+                type: string
+              mode:
+                type: string
+                enum:
+                - global
+                - local
+              haiId:
+                type: string
+              messages:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AgentMemoryTurnMessage"
+              tokenCount:
+                type: integer
+              summary:
+                type: string
+              summaryEmbedding:
+                type: array
+                items:
+                  type: number
+              metadata:
+                type: object
+                additionalProperties: true
+    TranscriptIndexRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/TranscriptIndexRequest"
+    WorkingSessionUpdateRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/WorkingSessionUpdateRequest"
+    SessionCompressRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/SessionCompressRequest"
+    ArchiveSyncRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ArchiveSyncRequest"
+    MemoryPatternPromoteRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/MemoryPatternPromoteRequest"
+    MemoryScheduleCreateRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/MemoryScheduleCreateRequest"
+  responses:
+    ErrorResponse:
+      description: Memory error response.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  schemas:
+    AgentMemoryLayer:
+      type: string
+      enum:
+      - working
+      - scene
+      - graph
+      - patterns
+      - archives
+      - vectors
+    AgentMemoryLoopStep:
+      type: string
+      enum:
+      - pre_turn
+      - post_turn
+      - remember
+    AgentMemoryScope:
+      type: object
+      required:
+      - agentWallet
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        threadId:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+    AgentMemoryContextRequest:
+      allOf:
+      - "$ref": "#/components/schemas/AgentMemoryScope"
+      - type: object
+        required:
+        - query
+        properties:
+          query:
+            type: string
+          layers:
+            type: array
+            items:
+              "$ref": "#/components/schemas/AgentMemoryLayer"
+          limit:
+            type: integer
+            minimum: 1
+            maximum: 20
+          maxItems:
+            type: integer
+            minimum: 1
+            maximum: 24
+          maxItemChars:
+            type: integer
+            minimum: 1
+            maximum: 2000
+          budget:
+            "$ref": "#/components/schemas/AgentMemoryBudget"
+          includeRaw:
+            type: boolean
+    AgentMemoryBudget:
+      type: object
+      properties:
+        maxCharacters:
+          type: integer
+          minimum: 1
+        max_chars:
+          type: integer
+          minimum: 1
+        maxContextCharacters:
+          type: integer
+          minimum: 1
+        max_context_chars:
+          type: integer
+          minimum: 1
+        mode:
+          type: string
+          enum:
+          - compact
+          - balanced
+          - recall
+    AgentMemoryTurnMessage:
+      type: object
+      required:
+      - role
+      - content
+      properties:
+        role:
+          type: string
+          enum:
+          - user
+          - assistant
+          - system
+          - tool
+        content:
+          type: string
+        timestamp:
+          type: integer
+        toolCalls:
+          type: array
+          items:
+            type: object
+            required:
+            - name
+            - args
+            properties:
+              name:
+                type: string
+              args:
+                type: object
+                additionalProperties: true
+    AgentMemoryToolEvent:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+        toolName:
+          type: string
+        tool:
+          type: string
+        args:
+          type: object
+          additionalProperties: true
+        input:
+          type: object
+          additionalProperties: true
+        result:
+          type: string
+        output:
+          type: string
+        status:
+          type: string
+        timestamp:
+          type: integer
+    AgentMemoryRecordTurnRequest:
+      allOf:
+      - "$ref": "#/components/schemas/AgentMemoryScope"
+      - type: object
+        properties:
+          contextId:
+            type: string
+          turnId:
+            type: string
+          sessionId:
+            type: string
+          messages:
+            type: array
+            items:
+              "$ref": "#/components/schemas/AgentMemoryTurnMessage"
+          toolEvents:
+            type: array
+            items:
+              "$ref": "#/components/schemas/AgentMemoryToolEvent"
+          userMessage:
+            type: string
+          assistantMessage:
+            type: string
+          modelUsed:
+            type: string
+          model:
+            type: string
+          totalTokens:
+            type: integer
+          tokenCount:
+            type: integer
+          contextWindow:
+            type: integer
+          summary:
+            type: string
+    AgentMemoryRememberRequest:
+      allOf:
+      - "$ref": "#/components/schemas/AgentMemoryScope"
+      - type: object
+        required:
+        - content
+        properties:
+          content:
+            type: string
+          type:
+            type: string
+          scope:
+            type: string
+          retention:
+            type: string
+          conflictPolicy:
+            type: string
+          confidence:
+            type: number
+          enableGraph:
+            type: boolean
+    AgentMemoryContextUsage:
+      type: object
+      required:
+      - characters
+      - rawCharacters
+      - savedCharactersVsRaw
+      - items
+      properties:
+        characters:
+          type: integer
+        rawCharacters:
+          type: integer
+        budgetCharacters:
+          type: integer
+        savedCharactersVsRaw:
+          type: integer
+        items:
+          type: integer
+    AgentMemoryWorkflowEnvelope:
+      type: object
+      required:
+      - v
+      - step
+      - next
+      properties:
+        v:
+          type: string
+          const: compose.agent_memory.v1
+        step:
+          "$ref": "#/components/schemas/AgentMemoryLoopStep"
+        next:
+          type: array
+          items:
+            "$ref": "#/components/schemas/AgentMemoryLoopStep"
+    AgentMemoryCompactItem:
+      type: object
+      required:
+      - layer
+      - text
+      properties:
+        layer:
+          type: string
+        text:
+          type: string
+        id:
+          type: string
+        score:
+          type: number
+        source:
+          type: string
+        createdAt:
+          type: integer
+    AgentMemoryContextResponse:
+      type: object
+      required:
+      - workflow
+      - contextId
+      - prompt
+      - items
+      - totals
+      - contextUsage
+      - omitted
+      properties:
+        workflow:
+          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        contextId:
+          type: string
+        prompt:
+          type:
+          - string
+          - 'null'
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/AgentMemoryCompactItem"
+        totals:
+          type: object
+          additionalProperties:
+            type: integer
+        contextUsage:
+          "$ref": "#/components/schemas/AgentMemoryContextUsage"
+        omitted:
+          type: object
+          additionalProperties:
+            type: integer
+        raw:
+          type: object
+          additionalProperties:
+            type: array
+            items: {}
+    AgentMemoryRecordTurnResponse:
+      type: object
+      required:
+      - workflow
+      - success
+      - sessionId
+      - threadId
+      - turnId
+      - stored
+      properties:
+        workflow:
+          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        success:
+          type: boolean
+          const: true
+        sessionId:
+          type: string
+        threadId:
+          type: string
+        turnId:
+          type: string
+        vectorId:
+          type: string
+        stored:
+          type: object
+          required:
+          - transcript
+          - working
+          - vector
+          properties:
+            transcript:
+              type: boolean
+            working:
+              type: boolean
+            vector:
+              type: boolean
+    AgentMemoryRememberResponse:
+      type: object
+      required:
+      - workflow
+      - success
+      - graphSaved
+      - vectorSaved
+      properties:
+        workflow:
+          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        success:
+          type: boolean
+        graphSaved:
+          type: boolean
+        vectorSaved:
+          type: boolean
+        vectorId:
+          type: string
+        memory:
+          "$ref": "#/components/schemas/MemoryRememberedItem"
+    MemoryRememberedItem:
+      type: object
+      required:
+      - text
+      - type
+      - status
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+        retention:
+          type: string
+        confidence:
+          type: number
+        status:
+          type: string
+          enum:
+          - active
+    MemoryWorkflowStepManifest:
+      type: object
+      required:
+      - operationId
+      - method
+      - path
+      - purpose
+      properties:
+        operationId:
+          type: string
+        method:
+          type: string
+          enum:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+        path:
+          type: string
+        purpose:
+          type: string
+    MemoryWorkflowManifest:
+      type: object
+      required:
+      - id
+      - version
+      - description
+      - loop
+      - tokenPolicy
+      - steps
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+          const: compose.agent_memory.v1
+        description:
+          type: string
+        loop:
+          type: string
+          enum:
+          - hot
+          - durable
+          - maintenance
+        tokenPolicy:
+          type: string
+          enum:
+          - returns compact prompt only
+          - returns metadata only
+        steps:
+          type: array
+          items:
+            "$ref": "#/components/schemas/MemoryWorkflowStepManifest"
+    MemoryWorkflowListResponse:
+      type: object
+      required:
+      - workflows
+      properties:
+        workflows:
+          type: array
+          items:
+            "$ref": "#/components/schemas/MemoryWorkflowManifest"
+    MemoryWorkflowResponse:
+      type: object
+      required:
+      - workflow
+      properties:
+        workflow:
+          "$ref": "#/components/schemas/MemoryWorkflowManifest"
+    ProceduralPattern:
+      type: object
+      required:
+      - patternId
+      - agentWallet
+      - patternType
+      - trigger
+      - steps
+      - summary
+      - successRate
+      - executionCount
+      - lastExecuted
+      - createdAt
+      properties:
+        patternId:
+          type: string
+        agentWallet:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        patternType:
+          type: string
+          enum:
+          - workflow
+          - decision
+          - response
+          - tool_sequence
+        trigger:
+          type: object
+          required:
+          - type
+          - value
+          properties:
+            type:
+              type: string
+              enum:
+              - intent
+              - keyword
+              - context
+              - state
+            value:
+              type: string
+            conditions:
+              type: object
+              additionalProperties: true
+        steps:
+          type: array
+          items:
+            type: object
+            required:
+            - action
+            - order
+            properties:
+              action:
+                type: string
+              params:
+                type: object
+                additionalProperties: true
+              expectedOutcome:
+                type: string
+              order:
+                type: integer
+        summary:
+          type: string
+        successRate:
+          type: number
+        executionCount:
+          type: integer
+        lastExecuted:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+    ProceduralPatternListResponse:
+      type: object
+      required:
+      - patterns
+      properties:
+        patterns:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ProceduralPattern"
+    ProceduralPatternResponse:
+      type: object
+      required:
+      - pattern
+      properties:
+        pattern:
+          "$ref": "#/components/schemas/ProceduralPattern"
+    MemoryPatternValidation:
+      type: object
+      required:
+      - valid
+      - confidence
+      - occurrences
+      - successRate
+      - toolSequence
+      properties:
+        valid:
+          type: boolean
+        confidence:
+          type: number
+        occurrences:
+          type: integer
+        successRate:
+          type: number
+        toolSequence:
+          type: array
+          items:
+            type: string
+    MemoryPatternPromoteRequest:
+      type: object
+      required:
+      - skillName
+      - validationData
+      properties:
+        skillName:
+          type: string
+        validationData:
+          "$ref": "#/components/schemas/MemoryPatternValidation"
+    MemoryPatternPromoteResponse:
+      type: object
+      required:
+      - skillId
+      - promoted
+      properties:
+        skillId:
+          type: string
+        promoted:
+          type: boolean
+    LearnedSkill:
+      type: object
+      required:
+      - skillId
+      - name
+      - description
+      - category
+      - successRate
+      - usageCount
+      - creator
+      - agents
+      - createdAt
+      properties:
+        skillId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        trigger:
+          type: object
+          additionalProperties: true
+        spawnConfig:
+          type: object
+          additionalProperties: true
+        successRate:
+          type: number
+        usageCount:
+          type: integer
+        creator:
+          type: string
+        agents:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+    LearnedSkillListResponse:
+      type: object
+      required:
+      - skills
+      properties:
+        skills:
+          type: array
+          items:
+            "$ref": "#/components/schemas/LearnedSkill"
+    LearnedSkillResponse:
+      type: object
+      required:
+      - skill
+      properties:
+        skill:
+          "$ref": "#/components/schemas/LearnedSkill"
+    GraphMemoryItem:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        memory:
+          type: string
+        user_id:
+          type: string
+        agent_id:
+          type: string
+        run_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        relations:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    GraphMemoryItemsResponse:
+      type: array
+      items:
+        "$ref": "#/components/schemas/GraphMemoryItem"
+    SearchResult:
+      type: object
+      required:
+      - id
+      - content
+      - score
+      - source
+      - agentWallet
+      - decayScore
+      - accessCount
+      - createdAt
+      properties:
+        id:
+          type: string
+        vectorId:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+        source:
+          type: string
+          enum:
+          - session
+          - knowledge
+          - pattern
+          - archive
+          - fact
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        threadId:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        decayScore:
+          type: number
+        accessCount:
+          type: integer
+        createdAt:
+          type: integer
+    VectorSearchResponse:
+      type: object
+      required:
+      - results
+      properties:
+        results:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SearchResult"
+    VectorIndexResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        vectorId:
+          type: string
+    SuccessResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+    SessionTranscript:
+      type: object
+      required:
+      - sessionId
+      - threadId
+      - agentWallet
+      - messages
+      - metadata
+      - createdAt
+      properties:
+        sessionId:
+          type: string
+        threadId:
+          type: string
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        messages:
+          type: array
+          items:
+            "$ref": "#/components/schemas/AgentMemoryTurnMessage"
+        summary:
+          type: string
+        tokenCount:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: integer
+        expiresAt:
+          type: integer
+    TranscriptIndexRequest:
+      type: object
+      required:
+      - sessionId
+      - threadId
+      - agentWallet
+      - messages
+      properties:
+        sessionId:
+          type: string
+        threadId:
+          type: string
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        messages:
+          type: array
+          items:
+            "$ref": "#/components/schemas/AgentMemoryTurnMessage"
+        modelUsed:
+          type: string
+        model:
+          type: string
+        totalTokens:
+          type: integer
+        tokenCount:
+          type: integer
+        rememberWorkingMemory:
+          type: boolean
+    TranscriptIndexResponse:
+      type: object
+      required:
+      - indexed
+      - messageCount
+      - vectorCount
+      properties:
+        indexed:
+          type: boolean
+        messageCount:
+          type: integer
+        vectorCount:
+          type: integer
+    SessionMemory:
+      type: object
+      required:
+      - sessionId
+      - agentWallet
+      - workingMemory
+      - compressed
+      - createdAt
+      - expiresAt
+      - lastAccessedAt
+      properties:
+        sessionId:
+          type: string
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        threadId:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        workingMemory:
+          type: object
+          required:
+          - context
+          - entities
+          - state
+          properties:
+            context:
+              type: array
+              items:
+                type: string
+            entities:
+              type: object
+              additionalProperties: true
+            state:
+              type: object
+              additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        compressed:
+          type: boolean
+        createdAt:
+          type: integer
+        expiresAt:
+          type: integer
+        lastAccessedAt:
+          type: integer
+    SessionMemoryResponse:
+      type: object
+      required:
+      - session
+      properties:
+        session:
+          "$ref": "#/components/schemas/SessionMemory"
+    WorkingSessionUpdateRequest:
+      type: object
+      required:
+      - agentWallet
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        threadId:
+          type: string
+        mode:
+          type: string
+          enum:
+          - global
+          - local
+        haiId:
+          type: string
+        context:
+          type: array
+          items:
+            type: string
+        entities:
+          type: object
+          additionalProperties: true
+        state:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        replace:
+          type: boolean
+    WorkingSessionUpdateResponse:
+      type: object
+      required:
+      - success
+      - session
+      properties:
+        success:
+          type: boolean
+        session:
+          "$ref": "#/components/schemas/SessionMemory"
+    SessionCompressRequest:
+      type: object
+      required:
+      - agentWallet
+      - coordinatorModel
+      properties:
+        agentWallet:
+          type: string
+        coordinatorModel:
+          type: string
+    SessionCompressResponse:
+      type: object
+      required:
+      - summary
+      - entitiesExtracted
+      properties:
+        summary:
+          type: string
+        entitiesExtracted:
+          type: integer
+    ArchiveSyncRequest:
+      type: object
+      required:
+      - agentWallet
+      properties:
+        agentWallet:
+          type: string
+    ArchiveSyncResponse:
+      type: object
+      required:
+      - ipfsHash
+      - pinned
+      properties:
+        ipfsHash:
+          type: string
+        pinned:
+          type: boolean
+    MemoryScheduleStatus:
+      type: object
+      required:
+      - scheduleId
+      - paused
+      properties:
+        scheduleId:
+          type: string
+        paused:
+          type: boolean
+        lastRunAt:
+          type: integer
+        nextRunAt:
+          type: integer
+        note:
+          type: string
+    MemoryScheduleListResponse:
+      type: object
+      required:
+      - schedules
+      properties:
+        schedules:
+          type: array
+          items:
+            "$ref": "#/components/schemas/MemoryScheduleStatus"
+    MemoryScheduleCreateRequest:
+      type: object
+      required:
+      - agentWallets
+      properties:
+        agentWallets:
+          type: array
+          items:
+            type: string
+    MemoryScheduleCreateResponse:
+      type: object
+      required:
+      - created
+      properties:
+        created:
+          type: boolean
+    MemoryScheduleDeleteResponse:
+      type: object
+      required:
+      - deleted
+      properties:
+        deleted:
+          type: boolean
+    MemorySchedulePauseResponse:
+      type: object
+      required:
+      - paused
+      properties:
+        paused:
+          type: boolean
+    MemoryScheduleResumeResponse:
+      type: object
+      required:
+      - resumed
+      properties:
+        resumed:
+          type: boolean
+    MemoryScheduleTriggerResponse:
+      type: object
+      required:
+      - triggered
+      properties:
+        triggered:
+          type: boolean
+    RerankResponse:
+      type: object
+      required:
+      - results
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    LayeredSearchResponse:
+      type: object
+      required:
+      - query
+      - layers
+      - totals
+      properties:
+        query:
+          type: string
+        layers:
+          type: object
+          additionalProperties:
+            type: array
+            items: {}
+        totals:
+          type: object
+          additionalProperties:
+            type: integer
+    MemoryStatsResponse:
+      type: object
+      required:
+      - totalVectors
+      - totalTranscripts
+      - avgDecayScore
+      - oldestVector
+      - newestVector
+      - byType
+      properties:
+        totalVectors:
+          type: integer
+        totalTranscripts:
+          type: integer
+        avgDecayScore:
+          type: number
+        oldestVector:
+          type: integer
+        newestVector:
+          type: integer
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+    MemoryVectorItem:
+      allOf:
+      - "$ref": "#/components/schemas/SearchResult"
+      - type: object
+        properties:
+          embedding:
+            type: array
+            items:
+              type: number
+          metadata:
+            type: object
+            additionalProperties: true
+          lastAccessedAt:
+            type: integer
+          updatedAt:
+            type: integer
+    MemoryItemResponse:
+      type: object
+      required:
+      - item
+      properties:
+        item:
+          "$ref": "#/components/schemas/MemoryVectorItem"
+    MemoryItemUpdateRequest:
+      type: object
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        threadId:
+          type: string
+        content:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        retention:
+          type: string
+        confidence:
+          type: number
+        status:
+          type: string
+          enum:
+          - active
+          - superseded
+          - archived
+        filters:
+          type: object
+          additionalProperties: true
+    MemoryItemUpdateResponse:
+      type: object
+      required:
+      - updated
+      properties:
+        updated:
+          type: boolean
+        item:
+          "$ref": "#/components/schemas/MemoryVectorItem"
+    MemoryItemDeleteResponse:
+      type: object
+      required:
+      - deleted
+      - hardDeleted
+      properties:
+        deleted:
+          type: boolean
+        hardDeleted:
+          type: boolean
+    MemoryConflictResolveRequest:
+      type: object
+      required:
+      - resolution
+      properties:
+        agentWallet:
+          type: string
+        resolution:
+          type: string
+          enum:
+          - supersede
+          - keep
+          - merge
+          - ignore
+        winningMemoryId:
+          type: string
+        reason:
+          type: string
+    MemoryConflictResolveResponse:
+      type: object
+      required:
+      - resolved
+      - memoryId
+      properties:
+        resolved:
+          type: boolean
+        memoryId:
+          type: string
+    MemoryTimeRange:
+      type: object
+      required:
+      - start
+      - end
+      properties:
+        start:
+          type: integer
+        end:
+          type: integer
+    MemoryJobCreateRequest:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - consolidate
+          - patterns_extract
+          - archive_create
+          - decay_update
+          - cleanup
+        execution:
+          type: string
+          enum:
+          - inline
+          - temporal
+        agentWallet:
+          type: string
+        agentWallets:
+          type: array
+          items:
+            type: string
+        timeRange:
+          "$ref": "#/components/schemas/MemoryTimeRange"
+        dateRange:
+          "$ref": "#/components/schemas/MemoryTimeRange"
+        confidenceThreshold:
+          type: number
+        batchSize:
+          type: integer
+        halfLifeDays:
+          type: integer
+        olderThanDays:
+          type: integer
+        compress:
+          type: boolean
+        syncToIpfs:
+          type: boolean
+    MemoryJobRecord:
+      type: object
+      required:
+      - jobId
+      - type
+      - execution
+      - status
+      - createdAt
+      properties:
+        jobId:
+          type: string
+        type:
+          type: string
+          enum:
+          - consolidate
+          - patterns_extract
+          - archive_create
+          - decay_update
+          - cleanup
+        execution:
+          type: string
+          enum:
+          - inline
+          - temporal
+        status:
+          type: string
+          enum:
+          - running
+          - completed
+          - failed
+        agentWallet:
+          type: string
+        temporalWorkflowId:
+          type: string
+        temporalRunId:
+          type: string
+        data: {}
+        error:
+          type: string
+        createdAt:
+          type: integer
+        completedAt:
+          type: integer
+    MemoryEvalTestCase:
+      type: object
+      required:
+      - query
+      properties:
+        query:
+          type: string
+        expected:
+          type: string
+        expectedMemoryId:
+          type: string
+    MemoryEvalRunRequest:
+      allOf:
+      - "$ref": "#/components/schemas/AgentMemoryScope"
+      - type: object
+        required:
+        - testCases
+        properties:
+          layers:
+            type: array
+            items:
+              "$ref": "#/components/schemas/AgentMemoryLayer"
+          testCases:
+            type: array
+            items:
+              "$ref": "#/components/schemas/MemoryEvalTestCase"
+    MemoryEvalRunResponse:
+      type: object
+      required:
+      - evalRunId
+      - status
+      - scores
+      - results
+      properties:
+        evalRunId:
+          type: string
+        status:
+          type: string
+          enum:
+          - completed
+        scores:
+          type: object
+          required:
+          - recallAtK
+          - precisionAtK
+          - avgContextCharacters
+          - cases
+          properties:
+            recallAtK:
+              type: number
+            precisionAtK:
+              type: number
+            avgContextCharacters:
+              type: number
+            cases:
+              type: integer
+        avgSearchLatencyMs:
+          type: number
+        results:
+          type: array
+          items:
+            type: object
+            required:
+            - query
+            - hit
+            - returned
+            - contextCharacters
+            properties:
+              query:
+                type: string
+              hit:
+                type: boolean
+              returned:
+                type: integer
+              contextCharacters:
+                type: integer
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          oneOf:
+          - type: string
+          - type: object
+            additionalProperties: true

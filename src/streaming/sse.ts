@@ -10,8 +10,9 @@
  * Compose's named SSE events include `message` (default OpenAI data frames),
  * `compose.receipt`, `compose.error`, `compose.video.status`.
  *
- * The special OpenAI terminator frame `data: [DONE]` short-circuits iteration:
- * it is yielded once with `data === "[DONE]"` and then the stream ends.
+ * The special OpenAI terminator frame `data: [DONE]` is yielded as a normal
+ * frame. Resource-level stream readers decide whether to stop or keep reading
+ * trailing Compose-native metadata such as `compose.receipt`.
  */
 
 export interface SSEFrame {
