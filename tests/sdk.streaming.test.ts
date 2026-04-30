@@ -7,8 +7,8 @@
  *   - Assemble chat.completion.chunk frames into a final ChatCompletion
  *   - Surface reasoning_content deltas through the stream
  *   - Aggregate tool_calls across chunks
- *   - Parse the terminal `compose.receipt` SSE frame into a typed receipt
- *   - Stop iteration on `[DONE]`
+ *   - Parse terminal `compose.receipt` SSE frames into typed receipts
+ *   - Keep Compose terminal metadata available even when it follows `[DONE]`
  */
 
 import assert from "node:assert/strict";
@@ -85,6 +85,7 @@ test("chat.completions.stream aggregates content deltas + tool_calls + reasoning
             choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
             usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
         }) },
+        { data: "[DONE]" },
         { event: "compose.receipt", data: JSON.stringify({
             finalAmountWei: "12345",
             providerAmountWei: "12222",
@@ -93,7 +94,6 @@ test("chat.completions.stream aggregates content deltas + tool_calls + reasoning
             network: "eip155:43114",
             settledAt: 1_700_000_000_000,
         }) },
-        { data: "[DONE]" },
     ];
 
     await withStreamingServer(frames, async (sdk) => {
@@ -132,8 +132,8 @@ test("responses.stream yields output_text.delta events and resolves with receipt
         { data: JSON.stringify({ type: "response.output_text.delta", response_id: respId, model: "gpt-4.1-mini", delta: "Hello" }) },
         { data: JSON.stringify({ type: "response.output_text.delta", response_id: respId, model: "gpt-4.1-mini", delta: ", world!" }) },
         { data: JSON.stringify({ type: "response.completed", response_id: respId, model: "gpt-4.1-mini", finish_reason: "stop", usage: { input_tokens: 5, output_tokens: 7, total_tokens: 12 } }) },
-        { event: "compose.receipt", data: JSON.stringify({ finalAmountWei: "999", network: "eip155:43114", settledAt: 1 }) },
         { data: "[DONE]" },
+        { event: "compose.receipt", data: JSON.stringify({ finalAmountWei: "999", network: "eip155:43114", settledAt: 1 }) },
     ];
 
     await withStreamingServer(frames, async (sdk) => {

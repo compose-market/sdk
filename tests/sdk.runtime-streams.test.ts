@@ -23,6 +23,13 @@ import {
 
 const WALLET = "0x0000000000000000000000000000000000000001";
 
+function encodePaymentRequiredHeader(value: unknown): string {
+    return Buffer.from(JSON.stringify(value), "utf-8").toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
+
 async function withRuntimeSSEServer(
     writer: (req: IncomingMessage, res: ServerResponse, bodyText: string) => void | Promise<void>,
     run: (baseUrl: string) => Promise<void>,
@@ -52,6 +59,7 @@ test("sdk.agent.stream yields text/thinking/tool events and aggregates toolCalls
             res.write(`data: ${JSON.stringify({ type: "thinking_end" })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "tool_start", toolName: "web_search", content: "query: cats" })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "tool_end", toolName: "web_search", message: "3 results" })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "reasoning_delta", delta: "Need to summarize search results." })}\n\n`);
             res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "Here are" } }] })}\n\n`);
             res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: " the results." } }] })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
@@ -77,11 +85,12 @@ test("sdk.agent.stream yields text/thinking/tool events and aggregates toolCalls
             const events: AgentRuntimeEvent[] = [];
             for await (const ev of stream) events.push(ev);
 
-            // thinking-start / thinking-end / tool-start / tool-end / 2x text-delta / done
-            assert.equal(events.length, 7);
+            // thinking-start / thinking-end / tool-start / tool-end / reasoning / 2x text-delta / done
+            assert.equal(events.length, 8);
             assert.equal(events[0].type, "thinking-start");
             assert.equal(events[2].type, "tool-start");
             assert.equal(events[3].type, "tool-end");
+            assert.deepEqual(events[4], { type: "reasoning-delta", delta: "Need to summarize search results." });
             const textDeltas = events.filter((e) => e.type === "text-delta");
             assert.equal(textDeltas.length, 2);
 
@@ -99,6 +108,131 @@ test("sdk.agent.stream yields text/thinking/tool events and aggregates toolCalls
             assert.equal(agentToolEvents.length, 2);
             assert.equal(agentToolEvents[0].toolName, "web_search");
             void starts;
+        },
+    );
+});
+
+test("sdk.agent.stream negotiates x402 upto payments with x402MaxAmountWei", async () => {
+    const paymentRequired = {
+        x402Version: 2 as const,
+        resource: { url: "http://runtime.test/agent/0xagent/stream", description: "Agent stream" },
+        accepts: [{
+            scheme: "upto",
+            network: "eip155:43114",
+            amount: "1000000",
+            asset: "0x5425890298aed601595a70AB815c96711a31Bc65",
+            payTo: "0x0000000000000000000000000000000000000402",
+            maxTimeoutSeconds: 300,
+        }],
+    };
+    const paymentRequiredHeader = encodePaymentRequiredHeader(paymentRequired);
+    let calls = 0;
+    let signerCalls = 0;
+
+    await withRuntimeSSEServer(
+        (req, res) => {
+            calls += 1;
+            if (calls === 1) {
+                assert.equal(req.headers["x-x402-max-amount-wei"], "1000000");
+                assert.equal(req.headers.authorization, undefined);
+                assert.equal(req.headers["payment-signature"], undefined);
+                res.writeHead(402, {
+                    "content-type": "application/json",
+                    "PAYMENT-REQUIRED": paymentRequiredHeader,
+                });
+                res.end(JSON.stringify(paymentRequired));
+                return;
+            }
+
+            assert.ok(req.headers["payment-signature"]);
+            assert.equal(req.headers.authorization, undefined);
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_x402",
+            });
+            res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "paid agent" } }] })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.write(`event: compose.receipt\ndata: ${JSON.stringify({
+                finalAmountWei: "8836",
+                txHash: "0xagentsettlement",
+                network: "eip155:43114",
+                settledAt: 1_777_339_956_538,
+            })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                x402Signer: (challenge) => {
+                    signerCalls += 1;
+                    assert.deepEqual(challenge.paymentRequired, paymentRequired);
+                    assert.equal(challenge.paymentRequiredHeader, paymentRequiredHeader);
+                    assert.equal(challenge.method, "POST");
+                    assert.equal(challenge.path, "/agent/0xagent/stream");
+                    assert.equal(challenge.maxAmountWei, "1000000");
+                    return {
+                        x402Version: 2,
+                        accepted: challenge.paymentRequired.accepts[0],
+                        payload: { authorization: "signed-agent" },
+                        resource: challenge.paymentRequired.resource,
+                    };
+                },
+            });
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "hi",
+                threadId: "t1",
+                userAddress: WALLET,
+            }, { paymentMode: "x402", x402MaxAmountWei: "1000000" });
+
+            const events: AgentRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+            const final = await stream.final();
+            assert.equal(final.text, "paid agent");
+            assert.equal(final.receipt?.finalAmountWei, "8836");
+            assert.equal(final.receipt?.txHash, "0xagentsettlement");
+            assert.equal(signerCalls, 1);
+            assert.equal(calls, 2);
+        },
+    );
+});
+
+test("sdk.agent.stream treats runtime done as terminal even when the socket closes later", async () => {
+    await withRuntimeSSEServer(
+        (_req, res) => {
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_open_socket",
+            });
+            res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "finished" } }] })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            setTimeout(() => res.end(), 1_000);
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                composeKey: "compose-jwt-abc",
+            });
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "hi",
+                threadId: "t-open",
+                userAddress: WALLET,
+            });
+            const started = Date.now();
+            const events: AgentRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+            const final = await stream.final();
+
+            assert.ok(Date.now() - started < 900);
+            assert.equal(events.at(-1)?.type, "done");
+            assert.equal(final.text, "finished");
         },
     );
 });
@@ -154,6 +288,88 @@ test("sdk.workflow.stream yields lifecycle events and emits toolCallStart/End", 
 
             const wfTools = toolEvents.filter((e) => e.source === "workflow");
             assert.equal(wfTools.length, 2);
+        },
+    );
+});
+
+test("sdk.workflow.stream negotiates x402 upto payments with x402MaxAmountWei", async () => {
+    const paymentRequired = {
+        x402Version: 2 as const,
+        resource: { url: "http://runtime.test/workflow/0xworkflow/chat", description: "Workflow stream" },
+        accepts: [{
+            scheme: "upto",
+            network: "eip155:43114",
+            amount: "2000000",
+            asset: "0x5425890298aed601595a70AB815c96711a31Bc65",
+            payTo: "0x0000000000000000000000000000000000000402",
+            maxTimeoutSeconds: 300,
+        }],
+    };
+    const paymentRequiredHeader = encodePaymentRequiredHeader(paymentRequired);
+    let calls = 0;
+    let signerCalls = 0;
+
+    await withRuntimeSSEServer(
+        (req, res) => {
+            calls += 1;
+            if (calls === 1) {
+                assert.equal(req.headers["x-x402-max-amount-wei"], "2000000");
+                res.writeHead(402, {
+                    "content-type": "application/json",
+                    "PAYMENT-REQUIRED": paymentRequiredHeader,
+                });
+                res.end(JSON.stringify(paymentRequired));
+                return;
+            }
+
+            assert.ok(req.headers["payment-signature"]);
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_workflow_x402",
+            });
+            res.write(`event: result\ndata: ${JSON.stringify({ output: { value: "paid workflow" } })}\n\n`);
+            res.write(`event: done\ndata: ${JSON.stringify({})}\n\n`);
+            res.write(`event: compose.receipt\ndata: ${JSON.stringify({
+                finalAmountWei: "14421",
+                txHash: "0xworkflowsettlement",
+                network: "eip155:43114",
+                settledAt: 1_777_339_956_539,
+            })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                x402Signer: (challenge) => {
+                    signerCalls += 1;
+                    assert.equal(challenge.path, "/workflow/0xworkflow/chat");
+                    assert.equal(challenge.maxAmountWei, "2000000");
+                    return {
+                        x402Version: 2,
+                        accepted: challenge.paymentRequired.accepts[0],
+                        payload: { authorization: "signed-workflow" },
+                        resource: challenge.paymentRequired.resource,
+                    };
+                },
+            });
+
+            const stream = sdk.workflow.stream({
+                workflowWallet: "0xworkflow",
+                message: "hi",
+                threadId: "wf1",
+                userAddress: WALLET,
+            }, { paymentMode: "x402", x402MaxAmountWei: "2000000" });
+
+            const events: WorkflowRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+            const final = await stream.final();
+            assert.deepEqual(final.structuredOutput, { value: "paid workflow" });
+            assert.equal(final.receipt?.finalAmountWei, "14421");
+            assert.equal(final.receipt?.txHash, "0xworkflowsettlement");
+            assert.equal(signerCalls, 1);
+            assert.equal(calls, 2);
         },
     );
 });
@@ -235,5 +451,3 @@ test("ResponsesStreamFinalResult aggregates tool_call + tool_call.delta frames",
         await new Promise<void>((resolve) => bareServer.close(() => resolve()));
     }
 });
-
-
