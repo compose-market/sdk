@@ -24,7 +24,7 @@ if (typeof version !== "string" || version.length === 0) {
     process.exit(1);
 }
 
-const generatedTargets = ["agentic", "inference", "x402"];
+const generatedTargets = ["manowar", "inference", "memory", "x402"];
 
 function readUtf8(path) {
     return readFileSync(path, "utf-8");
@@ -93,12 +93,15 @@ track(join(rootDir, "package-lock.json"), updateJson(join(rootDir, "package-lock
     }
 }));
 
-for (const spec of ["agentic.openapi.yaml", "inference.openapi.yaml", "x402.openapi.yaml"]) {
+for (const spec of ["manowar.openapi.yaml", "inference.openapi.yaml", "memory.openapi.yaml", "x402.openapi.yaml"]) {
     const path = join(rootDir, "specs", spec);
     track(path, updateInfoVersion(path));
 }
 
-track(join(rootDir, ".speakeasy", "tests.arazzo.yaml"), updateInfoVersion(join(rootDir, ".speakeasy", "tests.arazzo.yaml")));
+for (const arazzo of ["tests.arazzo.yaml", "memory.arazzo.yaml", "a2a.arazzo.yaml"]) {
+    const path = join(rootDir, ".speakeasy", arazzo);
+    track(path, updateInfoVersion(path));
+}
 
 track(join(rootDir, ".speakeasy", "gen.yaml"), replaceRequired(
     join(rootDir, ".speakeasy", "gen.yaml"),
