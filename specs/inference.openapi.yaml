@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Inference
-  version: 0.5.0
+  version: 0.6.7
   summary: Model discovery, inference, and realtime inference stream contracts.
   description: 'Canonical contract for Compose model discovery, serverless inference,
     and realtime inference streams. Payment and session primitives are owned by the
@@ -1157,6 +1157,60 @@ components:
         defaults:
           type: object
           additionalProperties: true
+    ComposeAttachment:
+      type: object
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+          description: Advisory attachment kind. The SDK/server do not reject unsupported model combinations.
+          enum:
+          - image
+          - audio
+          - video
+          - pdf
+          - file
+          - text
+          - json
+          - url
+        url:
+          type: string
+        uri:
+          type: string
+        data:
+          type: string
+          description: Data URL, plain text content, or provider-ready encoded payload.
+        base64:
+          type: string
+        mimeType:
+          type: string
+        contentType:
+          type: string
+        name:
+          type: string
+        filename:
+          type: string
+        text:
+          type: string
+        content:
+          type: string
+        detail:
+          type: string
+          enum:
+          - auto
+          - low
+          - high
+        metadata:
+          type: object
+          additionalProperties: true
+    ComposeAttachmentInput:
+      oneOf:
+      - "$ref": "#/components/schemas/ComposeAttachment"
+      - type: string
+    ComposeAttachments:
+      type: array
+      items:
+        "$ref": "#/components/schemas/ComposeAttachmentInput"
     ChatCompletionsCreateRequest:
       type: object
       required:
@@ -1174,6 +1228,10 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/ChatMessage"
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         temperature:
           type: number
         max_tokens:
@@ -1258,6 +1316,10 @@ components:
         model:
           type: string
         input: {}
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         provider:
           "$ref": "#/components/schemas/ModelProvider"
         stream:
@@ -1337,6 +1399,10 @@ components:
           - type: array
             items:
               type: string
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         provider:
           "$ref": "#/components/schemas/ModelProvider"
         dimensions:
@@ -1375,6 +1441,10 @@ components:
           type: string
         prompt:
           type: string
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         n:
           type: integer
         size:
@@ -1410,6 +1480,10 @@ components:
           type: string
         input:
           type: string
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         voice:
           type: string
         response_format:
@@ -1429,6 +1503,10 @@ components:
           type: string
         file:
           type: string
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         filename:
           type: string
         language:
@@ -1457,6 +1535,10 @@ components:
           type: string
         prompt:
           type: string
+        attachments:
+          "$ref": "#/components/schemas/ComposeAttachments"
+        attachment:
+          "$ref": "#/components/schemas/ComposeAttachmentInput"
         duration:
           type: integer
         aspect_ratio:

@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose x402
-  version: 0.5.0
+  version: 0.6.7
   summary: x402 settlement, Compose Keys, sessions, payments, and facilitator contracts.
   description: 'Canonical contract for Compose x402 settlement, reusable Compose Keys,
     session state, payments, and facilitator operations.
@@ -21,6 +21,7 @@ tags:
 - name: x402
 - name: compose-keys
 - name: payments
+- name: feedback
 security: []
 paths:
   "/health":
@@ -360,6 +361,79 @@ paths:
                 additionalProperties: true
         '400':
           "$ref": "#/components/responses/ErrorResponse"
+  "/v1/feedback":
+    post:
+      tags:
+      - feedback
+      operationId: feedback_submit
+      security:
+      - ComposeKeyAuth: []
+      - {}
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FeedbackSubmitRequest"
+      responses:
+        '201':
+          description: Feedback accepted.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackSubmitResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+    get:
+      tags:
+      - feedback
+      operationId: feedback_list
+      parameters:
+      - "$ref": "#/components/parameters/FeedbackTargetTypeQuery"
+      - "$ref": "#/components/parameters/FeedbackTargetIdQuery"
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Recent feedback for one target.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackListResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/feedback/summary":
+    get:
+      tags:
+      - feedback
+      operationId: feedback_summary_get
+      parameters:
+      - "$ref": "#/components/parameters/FeedbackTargetTypeQuery"
+      - "$ref": "#/components/parameters/FeedbackTargetIdQuery"
+      - name: recentLimit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Reputation summary for one endpoint, x402 flow, model, agent, or workflow target.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackSummary"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     ComposeKeyAuth:
@@ -405,6 +479,20 @@ components:
       required: false
       schema:
         "$ref": "#/components/schemas/AtomicAmount"
+    FeedbackTargetTypeQuery:
+      name: targetType
+      in: query
+      required: true
+      schema:
+        "$ref": "#/components/schemas/FeedbackTargetType"
+    FeedbackTargetIdQuery:
+      name: targetId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
   headers:
     PaymentRequired:
       description: Base64-url encoded x402 v2 PaymentRequired object.
@@ -616,6 +704,257 @@ components:
           "$ref": "#/components/schemas/ChainNetwork"
         amount:
           "$ref": "#/components/schemas/AtomicAmount"
+    FeedbackTargetType:
+      type: string
+      enum:
+      - endpoint
+      - x402
+      - model
+      - agent
+      - workflow
+    FeedbackCategory:
+      type: string
+      enum:
+      - general
+      - bug
+      - latency
+      - quality
+      - pricing
+      - settlement
+      - model_capability
+      - safety
+      - docs
+      - integration
+    FeedbackVerificationKind:
+      type: string
+      enum:
+      - anonymous
+      - wallet_header
+      - compose_key
+    FeedbackTarget:
+      type: object
+      required:
+      - type
+      - id
+      properties:
+        type:
+          "$ref": "#/components/schemas/FeedbackTargetType"
+        id:
+          type: string
+          minLength: 1
+          maxLength: 512
+    FeedbackContext:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+        paymentIntentId:
+          type: string
+        composeRunId:
+          type: string
+        chainId:
+          type: integer
+          minimum: 1
+        modelId:
+          type: string
+        provider:
+          type: string
+        agentId:
+          type: string
+        agentWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        workflowId:
+          type: string
+        endpoint:
+          type: object
+          additionalProperties: false
+          properties:
+            method:
+              type: string
+            path:
+              type: string
+            url:
+              type: string
+        receipt:
+          type: object
+          additionalProperties: false
+          properties:
+            network:
+              "$ref": "#/components/schemas/ChainNetwork"
+            txHash:
+              type: string
+            finalAmountWei:
+              "$ref": "#/components/schemas/AtomicAmount"
+        sdk:
+          type: object
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+    FeedbackSubmitRequest:
+      type: object
+      required:
+      - target
+      properties:
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        category:
+          "$ref": "#/components/schemas/FeedbackCategory"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        message:
+          type: string
+          maxLength: 4000
+        labels:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 64
+        context:
+          "$ref": "#/components/schemas/FeedbackContext"
+        metadata:
+          type: object
+          additionalProperties: true
+      anyOf:
+      - required:
+        - rating
+      - required:
+        - message
+    FeedbackSubmitResponse:
+      type: object
+      required:
+      - feedbackId
+      - target
+      - verification
+      - createdAt
+      properties:
+        feedbackId:
+          type: string
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        verification:
+          "$ref": "#/components/schemas/FeedbackVerificationKind"
+        createdAt:
+          type: integer
+    FeedbackRecord:
+      type: object
+      required:
+      - id
+      - target
+      - category
+      - labels
+      - context
+      - metadata
+      - verification
+      - createdAt
+      properties:
+        id:
+          type: string
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        category:
+          "$ref": "#/components/schemas/FeedbackCategory"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        message:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        context:
+          "$ref": "#/components/schemas/FeedbackContext"
+        metadata:
+          type: object
+          additionalProperties: true
+        verification:
+          "$ref": "#/components/schemas/FeedbackVerificationKind"
+        createdAt:
+          type: integer
+    FeedbackListResponse:
+      type: object
+      required:
+      - object
+      - data
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FeedbackRecord"
+    FeedbackSummary:
+      type: object
+      required:
+      - target
+      - count
+      - ratingCount
+      - ratingAverage
+      - ratings
+      - categories
+      - verification
+      - recent
+      properties:
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        count:
+          type: integer
+          minimum: 0
+        ratingCount:
+          type: integer
+          minimum: 0
+        ratingAverage:
+          type:
+          - number
+          - 'null'
+        ratings:
+          type: object
+          required:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          properties:
+            '1':
+              type: integer
+            '2':
+              type: integer
+            '3':
+              type: integer
+            '4':
+              type: integer
+            '5':
+              type: integer
+        categories:
+          type: object
+          additionalProperties:
+            type: integer
+        verification:
+          type: object
+          required:
+          - anonymous
+          - wallet_header
+          - compose_key
+          properties:
+            anonymous:
+              type: integer
+            wallet_header:
+              type: integer
+            compose_key:
+              type: integer
+        recent:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FeedbackRecord"
     FacilitatorSupportedResponse:
       type: object
       required:
