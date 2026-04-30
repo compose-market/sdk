@@ -5,6 +5,11 @@
 import * as z from "zod/v4-mini";
 import { smartUnion } from "../types/smart-union.js";
 import {
+  ComposeAttachmentInput,
+  ComposeAttachmentInput$Outbound,
+  ComposeAttachmentInput$outboundSchema,
+} from "./compose-attachment-input.js";
+import {
   ModelProvider,
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
@@ -14,6 +19,8 @@ export type Input = string | Array<string>;
 export type EmbeddingsCreateRequest = {
   model: string;
   input: string | Array<string>;
+  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: ComposeAttachmentInput | undefined;
   provider?: ModelProvider | undefined;
   dimensions?: number | undefined;
   [additionalProperties: string]: unknown;
@@ -34,6 +41,8 @@ export function inputToJSON(input: Input): string {
 export type EmbeddingsCreateRequest$Outbound = {
   model: string;
   input: string | Array<string>;
+  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: ComposeAttachmentInput$Outbound | undefined;
   provider?: string | undefined;
   dimensions?: number | undefined;
   [additionalProperties: string]: unknown;
@@ -47,6 +56,8 @@ export const EmbeddingsCreateRequest$outboundSchema: z.ZodMiniType<
   z.object({
     model: z.string(),
     input: smartUnion([z.string(), z.array(z.string())]),
+    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
     provider: z.optional(ModelProvider$outboundSchema),
     dimensions: z.optional(z.int()),
   }),

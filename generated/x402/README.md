@@ -178,6 +178,12 @@ run();
 * [composeKeysGet](docs/sdks/composekeys/README.md#composekeysget)
 * [composeKeysRevoke](docs/sdks/composekeys/README.md#composekeysrevoke)
 
+### [Feedback](docs/sdks/feedback/README.md)
+
+* [feedbackSubmit](docs/sdks/feedback/README.md#feedbacksubmit)
+* [feedbackList](docs/sdks/feedback/README.md#feedbacklist)
+* [feedbackSummaryGet](docs/sdks/feedback/README.md#feedbacksummaryget)
+
 ### [Health](docs/sdks/health/README.md)
 
 * [healthCheck](docs/sdks/health/README.md#healthcheck)
@@ -220,6 +226,9 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 - [`composeKeysComposeKeysRevoke`](docs/sdks/composekeys/README.md#composekeysrevoke)
 - [`composeKeysSessionEventsSubscribe`](docs/sdks/composekeys/README.md#sessioneventssubscribe)
 - [`composeKeysSessionGetActive`](docs/sdks/composekeys/README.md#sessiongetactive)
+- [`feedbackFeedbackList`](docs/sdks/feedback/README.md#feedbacklist)
+- [`feedbackFeedbackSubmit`](docs/sdks/feedback/README.md#feedbacksubmit)
+- [`feedbackFeedbackSummaryGet`](docs/sdks/feedback/README.md#feedbacksummaryget)
 - [`healthHealthCheck`](docs/sdks/health/README.md#healthcheck)
 - [`paymentsPaymentsAbort`](docs/sdks/payments/README.md#paymentsabort)
 - [`paymentsPaymentsModelMeter`](docs/sdks/payments/README.md#paymentsmodelmeter)
@@ -384,9 +393,9 @@ run();
 
 
 **Inherit from [`ComposeMarketError`](./src/models/errors/compose-market-error.ts)**:
-* [`ErrorEnvelope`](./src/models/errors/error-envelope.ts): Applicable to 11 of 15 methods.*
-* [`LegacyError`](./src/models/errors/legacy-error.ts): Compose error response. Applicable to 10 of 15 methods.*
-* [`PaymentRequiredError`](./src/models/errors/payment-required-error.ts): x402 payment challenge. Status code `402`. Applicable to 1 of 15 methods.*
+* [`ErrorEnvelope`](./src/models/errors/error-envelope.ts): Applicable to 14 of 18 methods.*
+* [`LegacyError`](./src/models/errors/legacy-error.ts): Compose error response. Applicable to 13 of 18 methods.*
+* [`PaymentRequiredError`](./src/models/errors/payment-required-error.ts): x402 payment challenge. Status code `402`. Applicable to 1 of 18 methods.*
 * [`ResponseValidationError`](./src/models/errors/response-validation-error.ts): Type mismatch between the data returned from the server and the structure expected by the SDK. See `error.rawValue` for the raw value and `error.pretty()` for a nicely formatted multi-line string.
 
 </details>

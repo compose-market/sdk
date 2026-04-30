@@ -4,6 +4,7 @@
 
 import { ClientSDK } from "../lib/sdks.js";
 import { ComposeKeys } from "./compose-keys.js";
+import { Feedback } from "./feedback.js";
 import { Health } from "./health.js";
 import { Payments } from "./payments.js";
 import { X402 } from "./x402.js";
@@ -27,5 +28,10 @@ export class ComposeMarket extends ClientSDK {
   private _payments?: Payments;
   get payments(): Payments {
     return (this._payments ??= new Payments(this._options));
+  }
+
+  private _feedback?: Feedback;
+  get feedback(): Feedback {
+    return (this._feedback ??= new Feedback(this._options));
   }
 }

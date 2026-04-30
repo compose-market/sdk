@@ -5,6 +5,11 @@
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import {
+  ComposeAttachmentInput,
+  ComposeAttachmentInput$Outbound,
+  ComposeAttachmentInput$outboundSchema,
+} from "./compose-attachment-input.js";
+import {
   ModelProvider,
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
@@ -12,6 +17,8 @@ import {
 export type VideoGenerateRequest = {
   model: string;
   prompt?: string | undefined;
+  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: ComposeAttachmentInput | undefined;
   duration?: number | undefined;
   aspectRatio?: string | undefined;
   resolution?: string | undefined;
@@ -24,6 +31,8 @@ export type VideoGenerateRequest = {
 export type VideoGenerateRequest$Outbound = {
   model: string;
   prompt?: string | undefined;
+  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: ComposeAttachmentInput$Outbound | undefined;
   duration?: number | undefined;
   aspect_ratio?: string | undefined;
   resolution?: string | undefined;
@@ -41,6 +50,8 @@ export const VideoGenerateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       prompt: z.optional(z.string()),
+      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
       duration: z.optional(z.int()),
       aspectRatio: z.optional(z.string()),
       resolution: z.optional(z.string()),

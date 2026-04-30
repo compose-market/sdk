@@ -5,6 +5,11 @@
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import {
+  ComposeAttachmentInput,
+  ComposeAttachmentInput$Outbound,
+  ComposeAttachmentInput$outboundSchema,
+} from "./compose-attachment-input.js";
+import {
   ModelProvider,
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
@@ -12,6 +17,8 @@ import {
 export type AudioTranscriptionCreateRequest = {
   model: string;
   file: string;
+  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: ComposeAttachmentInput | undefined;
   filename?: string | undefined;
   language?: string | undefined;
   responseFormat?: string | undefined;
@@ -23,6 +30,8 @@ export type AudioTranscriptionCreateRequest = {
 export type AudioTranscriptionCreateRequest$Outbound = {
   model: string;
   file: string;
+  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: ComposeAttachmentInput$Outbound | undefined;
   filename?: string | undefined;
   language?: string | undefined;
   response_format?: string | undefined;
@@ -39,6 +48,8 @@ export const AudioTranscriptionCreateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       file: z.string(),
+      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
       filename: z.optional(z.string()),
       language: z.optional(z.string()),
       responseFormat: z.optional(z.string()),

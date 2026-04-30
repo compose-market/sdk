@@ -9,6 +9,8 @@ export * from "./canonical-modality.js";
 export * from "./chat-completion.js";
 export * from "./chat-completions-create-request.js";
 export * from "./chat-message.js";
+export * from "./compose-attachment-input.js";
+export * from "./compose-attachment.js";
 export * from "./compose-receipt-body.js";
 export * from "./compose-receipt-line-item.js";
 export * from "./embeddings-create-request.js";

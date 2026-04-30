@@ -18,6 +18,8 @@ export type InferenceImagesEditSecurity = {
 export type InferenceImagesEditRequestBody = {
   model: string;
   prompt: string;
+  attachments?: Array<models.ComposeAttachmentInput> | undefined;
+  attachment?: models.ComposeAttachmentInput | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
@@ -90,6 +92,8 @@ export function inferenceImagesEditSecurityToJSON(
 export type InferenceImagesEditRequestBody$Outbound = {
   model: string;
   prompt: string;
+  attachments?: Array<models.ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: models.ComposeAttachmentInput$Outbound | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
@@ -106,6 +110,10 @@ export const InferenceImagesEditRequestBody$outboundSchema: z.ZodMiniType<
   z.object({
     model: z.string(),
     prompt: z.string(),
+    attachments: z.optional(
+      z.array(models.ComposeAttachmentInput$outboundSchema),
+    ),
+    attachment: z.optional(models.ComposeAttachmentInput$outboundSchema),
     n: z.optional(z.int()),
     size: z.optional(z.string()),
     quality: z.optional(z.string()),

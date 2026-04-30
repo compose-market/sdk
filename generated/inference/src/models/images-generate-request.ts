@@ -4,6 +4,11 @@
 
 import * as z from "zod/v4-mini";
 import {
+  ComposeAttachmentInput,
+  ComposeAttachmentInput$Outbound,
+  ComposeAttachmentInput$outboundSchema,
+} from "./compose-attachment-input.js";
+import {
   ModelProvider,
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
@@ -11,6 +16,8 @@ import {
 export type ImagesGenerateRequest = {
   model: string;
   prompt: string;
+  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: ComposeAttachmentInput | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
@@ -22,6 +29,8 @@ export type ImagesGenerateRequest = {
 export type ImagesGenerateRequest$Outbound = {
   model: string;
   prompt: string;
+  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: ComposeAttachmentInput$Outbound | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
@@ -37,6 +46,8 @@ export const ImagesGenerateRequest$outboundSchema: z.ZodMiniType<
   z.object({
     model: z.string(),
     prompt: z.string(),
+    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
     n: z.optional(z.int()),
     size: z.optional(z.string()),
     quality: z.optional(z.string()),

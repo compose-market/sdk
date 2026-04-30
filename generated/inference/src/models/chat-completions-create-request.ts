@@ -10,6 +10,11 @@ import {
   ChatMessage$outboundSchema,
 } from "./chat-message.js";
 import {
+  ComposeAttachmentInput,
+  ComposeAttachmentInput$Outbound,
+  ComposeAttachmentInput$outboundSchema,
+} from "./compose-attachment-input.js";
+import {
   ModelProvider,
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
@@ -19,6 +24,8 @@ export type ChatCompletionsCreateRequest = {
   provider?: ModelProvider | undefined;
   stream?: boolean | undefined;
   messages: Array<ChatMessage>;
+  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: ComposeAttachmentInput | undefined;
   temperature?: number | undefined;
   maxTokens?: number | undefined;
   tools?: Array<{ [k: string]: any }> | undefined;
@@ -32,6 +39,8 @@ export type ChatCompletionsCreateRequest$Outbound = {
   provider?: string | undefined;
   stream?: boolean | undefined;
   messages: Array<ChatMessage$Outbound>;
+  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: ComposeAttachmentInput$Outbound | undefined;
   temperature?: number | undefined;
   max_tokens?: number | undefined;
   tools?: Array<{ [k: string]: any }> | undefined;
@@ -50,6 +59,8 @@ export const ChatCompletionsCreateRequest$outboundSchema: z.ZodMiniType<
       provider: z.optional(ModelProvider$outboundSchema),
       stream: z.optional(z.boolean()),
       messages: z.array(ChatMessage$outboundSchema),
+      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
       temperature: z.optional(z.number()),
       maxTokens: z.optional(z.int()),
       tools: z.optional(z.array(z.record(z.string(), z.any()))),
