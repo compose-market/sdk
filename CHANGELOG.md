@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.7
+
+### Highlights
+
+- Agent runtime: rich streaming events. New `tool-args-delta` (per-token tool argument streaming, mirrors Codex `response.function_call_arguments.delta` / Claude Code `input_json_delta`) and `stopped` (user-initiated abort).
+- Agent runtime: `sdk.agent.stop({ agentWallet, runId, threadId? })` aborts an in-flight stream while preserving the LangGraph checkpoint — a subsequent stream call with the same `threadId` resumes the thread's conversation, CoT, and memory.
+- Identity binding restored. Agents always know their on-chain identity (name, description, wallet, skills) via per-turn typed `AgentIdentity` block hydrated once from Pinata IPFS — no more "I'm a helpful assistant" drift.
+- Multi-step tool loop fixed. Removed the kill-switch that unbound tools after one successful batch; the model now decides exit by emitting no tool_calls (LangGraph Deep Agents / Manus / Codex / Claude Code SOTA pattern).
+- Memory tools restored: `save_memory`, `search_memory`, `search_all_memory` re-bound, all routed through the unified `runAgentMemoryLoop` (six-layer memory: working / scene / graph / patterns / archives / vectors).
+
+## Unreleased
+
+### Highlights
+
+- Added the root `sdk.feedback` resource for endpoint, x402, model, agent, and workflow feedback.
+- Added `POST /v1/feedback`, `GET /v1/feedback`, and `GET /v1/feedback/summary` to the x402 OpenAPI contract.
+- Feedback automatically carries Compose Key auth or wallet headers when available and returns verification counts separately from anonymous feedback.
+
+### Tests
+
+- Added SDK contract coverage for `sdk.feedback.model(...)` and `sdk.feedback.summary(...)`.
+
+---
+
 ## 0.5.0
 
 Root-cause SDK generation, modality catalog, and local build version-sync pass.
@@ -20,7 +44,7 @@ Root-cause SDK generation, modality catalog, and local build version-sync pass.
 - `npm test` - 52 passing tests.
 - `npm run typecheck`
 - `npm run build`
-- `node --input-type=module -e '...'` import check for `@compose-market/sdk`, `/x402`, `/inference`, `/inference/modality`, and `/agentic`.
+- `node --input-type=module -e '...'` import check for `@compose-market/sdk`, `/x402`, `/inference`, `/inference/modality`, and `/manowar`.
 - `npm pack --dry-run --cache /tmp/compose-npm-cache`
 
 ---
@@ -34,14 +58,14 @@ OpenAPI/Arazzo contract freeze plus production payment-safety pass.
 - Added canonical Speakeasy-ready contracts:
   - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/x402.openapi.yaml` for x402 settlement, Compose Keys, sessions, payments, and facilitator operations.
   - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/inference.openapi.yaml` for model discovery, inference, and realtime inference streams.
-  - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/agentic.openapi.yaml` for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
+  - `/Users/jabyl/Downloads/compose-market/packages/sdk/specs/manowar.openapi.yaml` for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
   - `/Users/jabyl/Downloads/compose-market/packages/sdk/.speakeasy/tests.arazzo.yaml` for model discovery, Compose Key session lifecycle, Compose Key inference, raw x402 challenge/retry, streaming inference frames, and runtime agent/workflow loops.
 - Added `.speakeasy/workflow.yaml` and `.speakeasy/gen.yaml` so the SDK repo is ready for Speakeasy generation once the CLI is authenticated.
 - Generated and exported Speakeasy TypeScript clients:
   - `@compose-market/sdk/x402`, `/x402/keys`, `/x402/session`, and `/x402/payments` for x402 settlement, Compose Keys, session state, payments, and facilitator operations.
   - `@compose-market/sdk/inference` for model discovery, inference, and realtime streams.
-  - `@compose-market/sdk/agentic` plus `/agentic/agent`, `/agentic/workflow`, `/agentic/memory`, and `/agentic/tools`.
-  - Generated schema and operation types under `/inference/schemas`, `/inference/operations`, `/agentic/schemas`, and `/agentic/operations`.
+  - `@compose-market/sdk/manowar` plus `/manowar/agent`, `/manowar/workflow`, `/manowar/memory`, and `/manowar/tools`.
+  - Generated schema and operation types under `/inference/schemas`, `/inference/operations`, `/manowar/schemas`, and `/manowar/operations`.
 - Root `npm run build` now compiles the hand-written orchestration SDK plus both generated clients before publish.
 - Hardened money types: Compose Key atomic amounts are strings end to end; `budgetUsd` is now an exact decimal string and `budgetWei` is a positive integer string.
 - Added explicit inference payment modes:
@@ -61,7 +85,7 @@ OpenAPI/Arazzo contract freeze plus production payment-safety pass.
 - `speakeasy lint arazzo` passes for `.speakeasy/tests.arazzo.yaml`.
 - `speakeasy run -y --skip-upload-spec --skip-testing --output console --target x402` passes and generated `generated/x402`.
 - `speakeasy run -y --skip-upload-spec --skip-testing --output console --target inference` passes and generated `generated/inference`.
-- `speakeasy run -y --skip-upload-spec --skip-testing --output console --target agentic` passes and generated `generated/agentic`.
+- `speakeasy run -y --skip-upload-spec --skip-testing --output console --target manowar` passes and generated `generated/manowar`.
 
 ### Speakeasy generation notes
 
