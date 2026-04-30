@@ -1,0 +1,139 @@
+arazzo: 1.0.1
+info:
+  title: Compose Memory Agent-First Workflows
+  summary: |
+    Standalone workflow contracts for compact retrieval, turn recording,
+    durable recall, and maintenance. Memory framework layers (responsibilities):
+      - MongoDB Atlas $vectorSearch — durable vector store
+      - Voyage embeddings (Redis-cached) — text -> 1024-dim vector
+      - Cloudflare bge-reranker-base — query-time relevance reranking
+      - Temporal decay + MMR — older facts de-rank, top-K diversification
+      - Mem0 v3 — durable extracted-fact graph layer (its own retrieval defaults)
+    Mem0 owns its top_k/threshold/rerank — clients (this workflow) do NOT
+    pass them through. Per-thread traceability lives in metadata.run_id.
+  version: 0.6.7
+sourceDescriptions:
+  - name: memory
+    url: ../specs/memory.openapi.yaml
+    type: openapi
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_RUNTIME_TEST_URL; https://runtime.compose.market"
+workflows:
+  - workflowId: memory_agent_turn_loop
+    summary: Retrieve compact memory before a turn, persist the turn, then save an explicit durable fact.
+    inputs:
+      type: object
+      properties:
+        agentWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        threadId:
+          type: string
+          examples: ["arazzo-thread"]
+        query:
+          type: string
+          examples: ["billing preference"]
+    steps:
+      - stepId: get_loop_manifest
+        operationId: $sourceDescriptions.memory.workflows_get
+        parameters:
+          - name: workflowId
+            in: path
+            value: agent_memory_loop
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: pre_turn_context
+        operationId: $sourceDescriptions.memory.context_assemble
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            query: "$inputs.query"
+            layers: ["working", "patterns", "vectors"]
+            budget:
+              maxCharacters: 1800
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          contextId: $response.body#/contextId
+      - stepId: post_turn_record
+        operationId: $sourceDescriptions.memory.turn_record
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            contextId: $steps.pre_turn_context.outputs.contextId
+            userMessage: "$inputs.query"
+            assistantMessage: "Recorded."
+            modelUsed: "compose-test"
+            totalTokens: 1
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: remember_fact
+        operationId: $sourceDescriptions.memory.remember
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            content: "The user prefers concise billing answers."
+            type: preference
+            retention: long
+            confidence: 0.9
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: memory_maintenance_loop
+    summary: Discover memory workflows, run maintenance, and inspect reusable learned patterns.
+    inputs:
+      type: object
+      properties:
+        agentWallet:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+    steps:
+      - stepId: list_workflows
+        operationId: $sourceDescriptions.memory.workflows_list
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: list_patterns
+        operationId: $sourceDescriptions.memory.patterns_list
+        parameters:
+          - name: agentWallet
+            in: query
+            value: "$inputs.agentWallet"
+          - name: minSuccessRate
+            in: query
+            value: 0.2
+          - name: limit
+            in: query
+            value: 5
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: run_decay_job
+        operationId: $sourceDescriptions.memory.jobs_create
+        requestBody:
+          contentType: application/json
+          payload:
+            type: decay_update
+            execution: inline
+            halfLifeDays: 30
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          jobId: $response.body#/jobId
+      - stepId: get_decay_job
+        operationId: $sourceDescriptions.memory.jobs_get
+        parameters:
+          - name: jobId
+            in: path
+            value: $steps.run_decay_job.outputs.jobId
+        successCriteria:
+          - condition: $statusCode == 200
