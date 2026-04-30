@@ -33,7 +33,7 @@ generation:
     skipResponseBodyAssertions: false
   telemetryEnabled: false
 typescript:
-  version: 0.6.6
+  version: 0.6.7
   acceptHeaderEnum: false
   additionalDependencies:
     dependencies: {}

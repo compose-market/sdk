@@ -1,11 +1,11 @@
 workflowVersion: 1.0.0
 speakeasyVersion: latest
 sources:
-    agentic:
+    manowar:
         inputs:
-            - location: ./specs/agentic.openapi.yaml
+            - location: ./specs/manowar.openapi.yaml
         registry:
-            location: registry.speakeasyapi.dev/compose-market/compose-market/agentic
+            location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
     inference:
         inputs:
             - location: ./specs/inference.openapi.yaml
@@ -22,13 +22,13 @@ sources:
         registry:
             location: registry.speakeasyapi.dev/compose-market/compose-market/x-402
 targets:
-    agentic:
+    manowar:
         target: typescript
-        source: agentic
-        output: ./generated/agentic
+        source: manowar
+        output: ./generated/manowar
         codeSamples:
             registry:
-                location: registry.speakeasyapi.dev/compose-market/compose-market/agentic-typescript-code-samples
+                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
             labelOverride:
                 fixedValue: Typescript (SDK)
             blocking: false

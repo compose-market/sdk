@@ -6,10 +6,10 @@ info:
     Step 1 dials blind, step 2 retries with a Permit2 signature against the
     server's `upto` quote, step 3 submits structured feedback. Authoritative
     metering decides the actual settled amount inside the envelope.
-  version: 1.0.0
+  version: 0.6.7
 sourceDescriptions:
-  - name: agentic
-    url: ../specs/agentic.openapi.yaml
+  - name: manowar
+    url: ../specs/manowar.openapi.yaml
     type: openapi
   - name: x402
     url: ../specs/x402.openapi.yaml
@@ -60,7 +60,7 @@ workflows:
       # ── Step 1 — Blind dial. Server replies 402 with the `upto` envelope and
       # the `compose-payment-intent-v1` extension endpoints. No client state.
       - stepId: discover
-        operationId: $sourceDescriptions.agentic.agents_stream_create
+        operationId: $sourceDescriptions.manowar.agents_stream_create
         parameters:
           - name: walletAddress
             in: path
@@ -87,7 +87,7 @@ workflows:
       # (always <= the signed envelope), and writes a `compose.receipt`
       # SSE event before the stream ends.
       - stepId: paid_stream
-        operationId: $sourceDescriptions.agentic.agents_stream_create
+        operationId: $sourceDescriptions.manowar.agents_stream_create
         parameters:
           - name: walletAddress
             in: path

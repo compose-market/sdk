@@ -1,7 +1,7 @@
 speakeasyVersion: 1.761.9
 sources:
-    agentic:
-        sourceNamespace: agentic
+    manowar:
+        sourceNamespace: manowar
         sourceRevisionDigest: sha256:f6dd6665228edc1325f23da6b7e281c9b762075ba6de941480a459250ba5b3e9
         sourceBlobDigest: sha256:790131f7ab7cec4d0ac94cb0ecb93d2ddcf9a014ebd0dd1ccfc8b9c72490179e
         tags:
@@ -22,12 +22,12 @@ sources:
             - latest
             - 0.5.0
 targets:
-    agentic:
-        source: agentic
-        sourceNamespace: agentic
+    manowar:
+        source: manowar
+        sourceNamespace: manowar
         sourceRevisionDigest: sha256:f6dd6665228edc1325f23da6b7e281c9b762075ba6de941480a459250ba5b3e9
         sourceBlobDigest: sha256:790131f7ab7cec4d0ac94cb0ecb93d2ddcf9a014ebd0dd1ccfc8b9c72490179e
-        codeSamplesNamespace: agentic-typescript-code-samples
+        codeSamplesNamespace: manowar-typescript-code-samples
         codeSamplesRevisionDigest: sha256:7285d9bc2ae2fce507bc066d890d499668a8128b147b3fdd2e0ec4c455792c30
     inference:
         source: inference
@@ -51,11 +51,11 @@ workflow:
     workflowVersion: 1.0.0
     speakeasyVersion: latest
     sources:
-        agentic:
+        manowar:
             inputs:
-                - location: ./specs/agentic.openapi.yaml
+                - location: ./specs/manowar.openapi.yaml
             registry:
-                location: registry.speakeasyapi.dev/compose-market/compose-market/agentic
+                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
         inference:
             inputs:
                 - location: ./specs/inference.openapi.yaml
@@ -72,13 +72,13 @@ workflow:
             registry:
                 location: registry.speakeasyapi.dev/compose-market/compose-market/x-402
     targets:
-        agentic:
+        manowar:
             target: typescript
-            source: agentic
-            output: ./generated/agentic
+            source: manowar
+            output: ./generated/manowar
             codeSamples:
                 registry:
-                    location: registry.speakeasyapi.dev/compose-market/compose-market/agentic-typescript-code-samples
+                    location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
                 labelOverride:
                     fixedValue: Typescript (SDK)
                 blocking: false

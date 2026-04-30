@@ -1,8 +1,8 @@
 arazzo: 1.0.1
 info:
   title: Compose SDK Agent-First Workflows
-  summary: E2E workflow contracts for the Compose SDK, inference, x402, and agentic loops.
-  version: 0.6.6
+  summary: E2E workflow contracts for the Compose SDK, inference, x402, and manowar loops.
+  version: 0.6.7
 sourceDescriptions:
   - name: x402
     url: ../specs/x402.openapi.yaml
@@ -10,8 +10,8 @@ sourceDescriptions:
   - name: inference
     url: ../specs/inference.openapi.yaml
     type: openapi
-  - name: agentic
-    url: ../specs/agentic.openapi.yaml
+  - name: manowar
+    url: ../specs/manowar.openapi.yaml
     type: openapi
   - name: memory
     url: ../specs/memory.openapi.yaml
@@ -339,7 +339,7 @@ workflows:
           - condition: $statusCode == 200
           - condition: $response.header.Content-Type != "application/json"
   - workflowId: runtime_agent_workflow_loop
-    summary: Run agent and workflow streams against the Compose agentic service.
+    summary: Run agent and workflow streams against the Compose manowar service.
     x-speakeasy-test-server:
       baseUrl: "x-env: COMPOSE_RUNTIME_TEST_URL; https://runtime.compose.market"
     inputs:
@@ -365,7 +365,7 @@ workflows:
           examples: ["arazzo-thread"]
     steps:
       - stepId: stream_agent
-        operationId: $sourceDescriptions.agentic.agents_stream_create
+        operationId: $sourceDescriptions.manowar.agents_stream_create
         parameters:
           - name: Authorization
             in: header
@@ -391,7 +391,7 @@ workflows:
         successCriteria:
           - condition: $statusCode == 200
       - stepId: stream_workflow
-        operationId: $sourceDescriptions.agentic.workflows_chat_stream
+        operationId: $sourceDescriptions.manowar.workflows_chat_stream
         parameters:
           - name: Authorization
             in: header
