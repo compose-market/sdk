@@ -1,3 +1,28 @@
+/**
+ * Compose memory — first-party 6-layer memory framework.
+ *
+ *   working  → Mongo `sessions`        rolling per-thread context
+ *   scene    → Mongo `session_transcripts`  full transcripts
+ *   graph    → Mongo `memory` (source:"fact")  durable user facts
+ *   patterns → Mongo `patterns`        mined tool sequences
+ *   archives → Mongo `archives` + Pinata  cold storage
+ *   vectors  → Mongo `memory` (source:"session"|"knowledge")  hybrid recall
+ *
+ * One unified ranker (Cloudflare BAAI bge-reranker-base + temporal decay +
+ * MMR) shortlists items across all layers into a budget-bounded prompt block.
+ *
+ * The 80%-case surface for agent loops is three calls:
+ *   - `sdk.memory.context({ query, agentWallet, userAddress })` → pre-turn block
+ *   - `sdk.memory.recordTurn({ messages, agentWallet, userAddress, threadId })` → post-turn persist
+ *   - `sdk.memory.remember({ content, agentWallet, userAddress })` → durable fact
+ *
+ * Or even simpler ergonomic shortcuts:
+ *   - `sdk.memory.recall("what's my favourite color?", { agentWallet, userAddress })`
+ *   - `sdk.memory.save("my favourite color is azure", { agentWallet, userAddress })`
+ *
+ * The runtime owns ranking, budget enforcement, layer selection, and fact
+ * extraction. The SDK is a thin transport.
+ */
 import type { APIPromise, HttpClient, RequestOptions } from "../http.js";
 import type {
     AgentMemoryContextParams,
@@ -37,27 +62,135 @@ export interface MemoryRequestOptions {
     idempotencyKey?: string;
 }
 
+/**
+ * Shorthand options for the ergonomic helpers `recall` and `save`.
+ * Scope (`agentWallet` + `userAddress`) is required; everything else is
+ * either auto-defaulted by the runtime or an opt-in tuning knob.
+ */
+export interface MemoryShorthandOptions {
+    agentWallet: string;
+    userAddress?: string;
+    threadId?: string;
+    mode?: "global" | "local";
+    haiId?: string;
+    /** Recall: max items in the returned prompt block. Default 6. */
+    limit?: number;
+    /** Recall: max characters in the returned prompt block. Default 900. */
+    budgetCharacters?: number;
+    /** Remember: confidence override (default 1 for explicit saves). */
+    confidence?: number;
+    /** Remember: durable-fact category. Default "other". */
+    type?: "preference" | "identity" | "context" | "skill" | "relationship" | "event" | "other";
+    request?: MemoryRequestOptions;
+}
+
 export class MemoryResource {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: MemoryResourceContext,
     ) { }
 
+    /**
+     * Pre-turn context retrieval. Returns a budget-bounded prompt block
+     * shortlisting top items across all 6 layers.
+     */
     context(params: AgentMemoryContextParams, options: MemoryRequestOptions = {}): APIPromise<AgentMemoryContextResponse> {
         return this.request("POST", "/api/memory/context/assemble", params, options);
     }
 
+    /**
+     * Post-turn persistence. Persists transcript + working memory + per-turn
+     * vector + extracts durable facts (graph layer). Idempotent on `turnId`.
+     */
     recordTurn(params: AgentMemoryRecordTurnParams, options: MemoryRequestOptions = {}): APIPromise<AgentMemoryRecordTurnResponse> {
         return this.request("POST", "/api/memory/turns/record", params, options, undefined, true);
     }
 
+    /**
+     * Save an explicit durable fact. Indexed as a `source:"fact"` vector with
+     * `metadata.layer:"graph"` so the cross-layer ranker surfaces it.
+     */
     remember(params: AgentMemoryRememberParams, options: MemoryRequestOptions = {}): APIPromise<AgentMemoryRememberResponse> {
         return this.request("POST", "/api/memory/remember", params, options, undefined, true);
     }
 
+    /**
+     * Unified loop dispatcher — same as calling `context`/`recordTurn`/`remember`
+     * directly but lets you pass a discriminated union, useful when the
+     * caller's step is dynamic.
+     */
     loop(params: AgentMemoryLoopParams, options: MemoryRequestOptions = {}): APIPromise<AgentMemoryLoopResponse> {
         return this.request("POST", "/api/memory/loop", params, options, undefined, params.step !== "pre_turn");
     }
+
+    // ------------------------------------------------------------------
+    // Ergonomic shortcuts — string-first, no envelopes, the 80% case
+    // ------------------------------------------------------------------
+
+    /**
+     * Pre-turn recall in one call. Returns the rendered prompt block
+     * directly (or `null` if no relevant memories).
+     *
+     *   const block = await sdk.memory.recall(
+     *     "what's my favourite color?",
+     *     { agentWallet, userAddress },
+     *   );
+     */
+    async recall(query: string, options: MemoryShorthandOptions): Promise<{
+        prompt: string | null;
+        items: AgentMemoryContextResponse["items"];
+        totals: Record<string, number>;
+        contextUsage: AgentMemoryContextResponse["contextUsage"];
+    }> {
+        const response = await this.context({
+            query,
+            agentWallet: options.agentWallet,
+            userAddress: options.userAddress,
+            threadId: options.threadId,
+            mode: options.mode,
+            haiId: options.haiId,
+            limit: options.limit,
+            ...(options.budgetCharacters ? { budget: { maxCharacters: options.budgetCharacters } } : {}),
+        }, options.request ?? {});
+        return {
+            prompt: response.prompt,
+            items: response.items,
+            totals: response.totals,
+            contextUsage: response.contextUsage,
+        };
+    }
+
+    /**
+     * Save a durable fact in one call. Returns whether it landed.
+     *
+     *   await sdk.memory.save(
+     *     "my favourite color is azure",
+     *     { agentWallet, userAddress, type: "preference" },
+     *   );
+     */
+    async save(content: string, options: MemoryShorthandOptions): Promise<{
+        saved: boolean;
+        id?: string;
+    }> {
+        const response = await this.remember({
+            content,
+            agentWallet: options.agentWallet,
+            userAddress: options.userAddress,
+            threadId: options.threadId,
+            mode: options.mode,
+            haiId: options.haiId,
+            ...(options.type ? { type: options.type } : {}),
+            ...(typeof options.confidence === "number" ? { confidence: options.confidence } : {}),
+        }, options.request ?? {});
+        return {
+            saved: Boolean(response.success),
+            id: response.vectorId ?? response.memory?.id,
+        };
+    }
+
+    // ------------------------------------------------------------------
+    // Power-user surface (full layered search, item CRUD, jobs, schedules)
+    // ------------------------------------------------------------------
 
     search(params: LayeredSearchParams, options: MemoryRequestOptions = {}): APIPromise<LayeredSearchResult> {
         return this.request("POST", "/api/memory/items/search", params, options);
