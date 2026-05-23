@@ -2,13 +2,12 @@
 openapi: 3.1.0
 info:
   title: Compose Inference
-  version: 0.6.7
+  version: 0.6.96
   summary: Model discovery, inference, and realtime inference stream contracts.
-  description: 'Canonical contract for Compose model discovery, serverless inference,
+  description: |
+    Canonical contract for Compose model discovery, serverless inference,
     and realtime inference streams. Payment and session primitives are owned by the
     Compose x402 contract.
-
-'
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 servers:
 - url: https://api.compose.market
@@ -415,6 +414,8 @@ paths:
                 properties:
                   image:
                     type: string
+                  mask:
+                    type: string
       responses:
         '200':
           description: Image edit response.
@@ -478,22 +479,6 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/AudioTranscriptionCreateRequest"
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-              - model
-              - file
-              properties:
-                model:
-                  type: string
-                file:
-                  type: string
-                  format: binary
-                language:
-                  type: string
-                response_format:
-                  type: string
       responses:
         '200':
           description: Transcription result.
@@ -850,7 +835,9 @@ components:
       - openai
       - fireworks
       - asicloud
+      - alibaba
       - hugging face
+      - azure
       - aiml
       - vertex
       - cloudflare
@@ -999,6 +986,8 @@ components:
       properties:
         modelId:
           type: string
+        upstreamModelId:
+          type: string
         name:
           type:
           - string
@@ -1022,10 +1011,10 @@ components:
         pricing: {}
         maxOutputTokens:
           type: integer
-        capabilities:
-          type: array
-          items:
-            type: string
+        capabilities: {}
+        modelType: {}
+        sourceMetadata: {}
+        params: {}
         ownedBy:
           type: string
         createdAt:
@@ -1211,6 +1200,35 @@ components:
       type: array
       items:
         "$ref": "#/components/schemas/ComposeAttachmentInput"
+    ResponseFormat:
+      type: object
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+          enum:
+          - text
+          - json_object
+          - json_schema
+        json_schema:
+          type: object
+          additionalProperties: true
+    StreamOptions:
+      type: object
+      additionalProperties: true
+      properties:
+        include_usage:
+          type: boolean
+        include_obfuscation:
+          type: boolean
+    ReasoningOptions:
+      type: object
+      additionalProperties: true
+      properties:
+        effort:
+          type: string
+        summary:
+          type: string
     ChatCompletionsCreateRequest:
       type: object
       required:
@@ -1234,14 +1252,66 @@ components:
           "$ref": "#/components/schemas/ComposeAttachmentInput"
         temperature:
           type: number
+        top_p:
+          type: number
+        n:
+          type: integer
+        stop:
+          oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
         max_tokens:
           type: integer
+        max_completion_tokens:
+          type: integer
+        presence_penalty:
+          type: number
+        frequency_penalty:
+          type: number
+        logit_bias:
+          type: object
+          additionalProperties:
+            type: number
+        user:
+          type: string
         tools:
           type: array
           items:
             type: object
             additionalProperties: true
         tool_choice: {}
+        response_format:
+          "$ref": "#/components/schemas/ResponseFormat"
+        seed:
+          type: integer
+        stream_options:
+          "$ref": "#/components/schemas/StreamOptions"
+        parallel_tool_calls:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        service_tier:
+          type: string
+        store:
+          type: boolean
+        reasoning_effort:
+          type: string
+        reasoning:
+          "$ref": "#/components/schemas/ReasoningOptions"
+        include:
+          type: array
+          items:
+            type: string
+        prompt_cache_key:
+          type: string
+        prompt_cache_retention:
+          type: string
+        text:
+          type: object
+          additionalProperties: true
     ChatMessage:
       type: object
       required:
@@ -1253,6 +1323,7 @@ components:
           type: string
           enum:
           - system
+          - developer
           - user
           - assistant
           - tool
@@ -1333,9 +1404,68 @@ components:
             - image
             - audio
             - video
+            - embedding
         instructions:
           type: string
         previous_response_id:
+          type: string
+        max_output_tokens:
+          type: integer
+        temperature:
+          type: number
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tool_choice: {}
+        response_format:
+          "$ref": "#/components/schemas/ResponseFormat"
+        stream_options:
+          "$ref": "#/components/schemas/StreamOptions"
+        parallel_tool_calls:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        service_tier:
+          type: string
+        store:
+          type: boolean
+        reasoning_effort:
+          type: string
+        reasoning:
+          "$ref": "#/components/schemas/ReasoningOptions"
+        include:
+          type: array
+          items:
+            type: string
+        prompt_cache_key:
+          type: string
+        prompt_cache_retention:
+          type: string
+        text:
+          type: object
+          additionalProperties: true
+        n:
+          type: integer
+        size:
+          type: string
+        quality:
+          type: string
+        image_url:
+          type: string
+        voice:
+          type: string
+        language:
+          type: string
+        speed:
+          type: number
+        duration:
+          type: number
+        aspect_ratio:
+          type: string
+        resolution:
           type: string
     ResponseObject:
       type: object
@@ -1407,6 +1537,10 @@ components:
           "$ref": "#/components/schemas/ModelProvider"
         dimensions:
           type: integer
+        encoding_format:
+          type: string
+        user:
+          type: string
     EmbeddingsResponse:
       type: object
       required:
@@ -1451,6 +1585,12 @@ components:
           type: string
         quality:
           type: string
+        response_format:
+          type: string
+        style:
+          type: string
+        user:
+          type: string
         provider:
           "$ref": "#/components/schemas/ModelProvider"
     ImagesResponse:
@@ -1490,6 +1630,8 @@ components:
           type: string
         speed:
           type: number
+        user:
+          type: string
         provider:
           "$ref": "#/components/schemas/ModelProvider"
     AudioTranscriptionCreateRequest:
@@ -1513,6 +1655,17 @@ components:
           type: string
         response_format:
           type: string
+        prompt:
+          type: string
+        temperature:
+          type: number
+        timestamp_granularities:
+          type: array
+          items:
+            type: string
+            enum:
+            - word
+            - segment
         provider:
           "$ref": "#/components/schemas/ModelProvider"
     AudioTranscriptionResponse:
@@ -1545,7 +1698,15 @@ components:
           type: string
         resolution:
           type: string
+        size:
+          type: string
+        fps:
+          type: number
+        image:
+          type: string
         image_url:
+          type: string
+        user:
           type: string
         provider:
           "$ref": "#/components/schemas/ModelProvider"

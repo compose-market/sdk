@@ -3,6 +3,7 @@
  */
 
 import * as z from "zod/v4-mini";
+import { remap as remap$ } from "../lib/primitives.js";
 import { smartUnion } from "../types/smart-union.js";
 import {
   ComposeAttachmentInput,
@@ -23,6 +24,8 @@ export type EmbeddingsCreateRequest = {
   attachment?: ComposeAttachmentInput | undefined;
   provider?: ModelProvider | undefined;
   dimensions?: number | undefined;
+  encodingFormat?: string | undefined;
+  user?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -45,6 +48,8 @@ export type EmbeddingsCreateRequest$Outbound = {
   attachment?: ComposeAttachmentInput$Outbound | undefined;
   provider?: string | undefined;
   dimensions?: number | undefined;
+  encoding_format?: string | undefined;
+  user?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -52,16 +57,27 @@ export type EmbeddingsCreateRequest$Outbound = {
 export const EmbeddingsCreateRequest$outboundSchema: z.ZodMiniType<
   EmbeddingsCreateRequest$Outbound,
   EmbeddingsCreateRequest
-> = z.catchall(
-  z.object({
-    model: z.string(),
-    input: smartUnion([z.string(), z.array(z.string())]),
-    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-    provider: z.optional(ModelProvider$outboundSchema),
-    dimensions: z.optional(z.int()),
+> = z.pipe(
+  z.catchall(
+    z.object({
+      model: z.string(),
+      input: smartUnion([z.string(), z.array(z.string())]),
+      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      provider: z.optional(ModelProvider$outboundSchema),
+      dimensions: z.optional(z.int()),
+      encodingFormat: z.optional(z.string()),
+      user: z.optional(z.string()),
+    }),
+    z.any(),
+  ),
+  z.transform((v) => {
+    return {
+      ...remap$(v, {
+        encodingFormat: "encoding_format",
+      }),
+    };
   }),
-  z.any(),
 );
 
 export function embeddingsCreateRequestToJSON(

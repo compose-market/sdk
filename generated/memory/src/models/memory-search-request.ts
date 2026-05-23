@@ -21,7 +21,6 @@ export type MemorySearchRequestMode = ClosedEnum<
 export type MemorySearchRequest = {
   query: string;
   agentWallet?: string | undefined;
-  agentId?: string | undefined;
   userAddress?: string | undefined;
   userId?: string | undefined;
   threadId?: string | undefined;
@@ -64,7 +63,6 @@ export const MemorySearchRequest$outboundSchema: z.ZodMiniType<
   z.object({
     query: z.string(),
     agentWallet: z.optional(z.string()),
-    agentId: z.optional(z.string()),
     userAddress: z.optional(z.string()),
     userId: z.optional(z.string()),
     threadId: z.optional(z.string()),
@@ -78,8 +76,8 @@ export const MemorySearchRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      agentId: "agent_id",
-      userId: "user_id",
+      agentWallet: "agent_wallet",
+      userAddress: "user_address",
     });
   }),
 );

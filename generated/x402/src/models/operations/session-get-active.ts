@@ -29,7 +29,7 @@ export type SessionGetActiveResponse = {
    */
   rawResponse: Response;
   /**
-   * Active Compose Key session metadata. The token is never returned here.
+   * Active Compose Key session metadata, including the active session token for cross-device hydration.
    */
   activeSessionMetadata?: models.ActiveSessionMetadata | undefined;
 };

@@ -1,5 +1,102 @@
 # Changelog
 
+## 0.6.96 — Native SDK parity guards and third-party web integration cleanup
+
+### Highlights
+
+- Kept `sdk.inference` as explicit endpoint wrappers only: chat completions, responses, embeddings, images, audio speech/transcriptions, and videos.
+- Added contract guards that prevent reintroducing `/external/*`, metrics, internal avatar/banner services, or fake `sdk.inference.plan/run` dispatcher methods.
+- Preserved the existing published runtime/memory/manowar surface without expanding it in this pass.
+- Updated first-party `web/` integration to use SDK catalog operation data and explicit SDK endpoint calls instead of the removed planner/runner path.
+- Replaced raw Backpack and workflow stop calls in `web/` with existing typed SDK resources.
+
+### Tests
+
+- `npx tsc --noEmit -p tsconfig.json --pretty false`
+- `node --import tsx --test tests/sdk.unit.test.ts tests/sdk.streaming.test.ts tests/sdk.contract.test.ts tests/sdk.session-events.test.ts tests/sdk.events.test.ts tests/sdk.runtime-streams.test.ts` — 83 passing tests.
+- Web third-party integrator checks pass after consuming the SDK from `web/`.
+
+## 0.6.94 — Native SDK parity for x402 metering, local control, and directory APIs
+
+### Highlights
+
+- Added `sdk.x402.payments.prepare(...)`, `.settle(...)`, `.abort(...)`, and `.meterModel(...)` as thin typed wrappers over the API payment intent and authoritative model-metering routes.
+- Added model-metering public types: `MeteredInput`, `MeterLineItem`, `MeteredQuote`, `ModelMeterQuote`, and payment intent request/response shapes.
+- Added `sdk.models.pricing()` for the API pricing table used by quote previews and cost calculators.
+- Added `sdk.directory.agents.*` and `sdk.directory.workflows.*` for public Compose agent/workflow discovery plus the Agentverse bridge.
+- Added `sdk.system.health()` and `.frameworks()` for API health/runtime framework discovery.
+- Added `sdk.local.*` for local-link tokens, local deployment registration, peer summaries, Synapse session-key provisioning, and Filecoin Pin storage preparation.
+- Added `sdk.backpack.*` for permission storage, Composio connection lifecycle, toolkit/action discovery, action execution, and Telegram binding helpers.
+- Added `sdk.dispenser.*` and `sdk.settlement.status(...)` for stable public dispenser and wallet settlement-status routes.
+- Fixed fragile multiline OpenAPI descriptions in the inference and x402 specs so YAML parsing and Speakeasy linting are clean.
+
+### Tests
+
+- Added hermetic contract coverage for x402 payment intent prepare/settle/abort, model metering, pricing, public directory routes, Agentverse query forwarding, system routes, local routes, Backpack, dispenser, settlement status, and package exclusion guards.
+- Verified OpenAPI specs parse locally and Speakeasy lint reports 0 errors / 0 warnings for inference, x402, memory, and manowar.
+- `npm run typecheck`
+- `npm test` — 82 passing tests.
+
+## 0.6.92 — Provable mal plans + fire-and-forget Daytona Sandboxes
+
+### Highlights
+
+- **`MalPlan.requireProof: boolean`** — when set, the harness accumulates a typed proof bundle through plan execution (every step's input/output hashes, dedup'd inference run ids, sandbox metadata when isolation is active) and pins it to IPFS via Pinata at plan termination. The CIDv1 + gateway URL come back on `MalRunResult.proofCid` / `proofUrl` for receipt embedding. Schema: `compose.proof.v1`. Verifiers fetch the bundle from any IPFS gateway and cross-check `inferenceRunIds` against x402 receipts.
+- **`MalPlan.requireIsolation: boolean`** — round-tripped through `parseMalPlan` and ships the field on `MalPlan`.
+- **New SDK exports** from `@compose-market/sdk` (re-exported from `harness`):
+  - `createProofAccumulator`, `pinProofBundleToIPFS`, `signProofBundle`, `canonicalJson`, `hashValue`
+  - Types: `ProofBundle`, `ProofStepRecord`, `ProofSandboxMetadata`, `ProofAccumulator`
+
+### Backwards compatibility
+
+- Both new flags default to `false`;
+- `MalRunResult.proofCid` and `MalRunResult.proofUrl` are optional; existing consumers that ignore them are unaffected.
+
+## 0.6.91 — Agentic loop hardening
+
+### Highlights
+
+- **`memory_recall` tool removed.** The `memory.arazzo.yaml` contract states "ranker picks for you" — pre-injection (~900 chars / 6 items per turn) is sufficient. The tool let the model second-guess the ranker mid-turn, doubling work and contradicting the contract. `memory_remember` stays (orthogonal use case: explicit user-stated facts the auto-extractor missed).
+- **Memory `type: "other"` removed.** The 6 typed categories (`preference / identity / context / skill / relationship / event`) cover everything stable. The SDK union type narrowed accordingly; `memory.save({ type: "context" })` is the new default for unknown types.
+- **`stored.graph` is now always `false` on `record_turn`.** Fact extraction is fire-and-forget; facts surface in the next pre_turn recall. p50 is now <50ms (was up to 8s when Gemini extraction blocked).
+- **Voyage `input_type` semantics honored.** Query embeddings now use `input_type: "query"`; document indexing keeps `"document"`. Real recall improvement (Voyage's asymmetric encoding).
+- **Gemini `response_format` now plumbed end-to-end.** `{ type: "json_object" | "json_schema" }` translates to AI-SDK's `Output.json()`/`Output.object()`, which @ai-sdk/google maps to `responseMimeType` + `responseSchema`. Affects every chat-completions / responses caller.
+- **`/api/agentverse/agents` route wired** (was advertised in startup banner but never registered).
+- **Inner-loop budget gate replaces 6-batch hard cap.** Three axes: wall time (default 4 min), consecutive tool failures (default 4), Manus-grade safety ceiling (default 50 batches). Tunable via `COMPOSE_AGENT_MAX_WALL_MS_PER_TURN`, `COMPOSE_AGENT_MAX_TOOL_FAILURES_IN_ROW`, `COMPOSE_AGENT_MAX_TOOL_BATCHES_PER_TURN`.
+- **Stable tool binding** (Manus / KV-cache discipline). Bound tools no longer re-scored per turn — KV cache stays warm across iterations.
+- **Tightened discipline footer.** Six-rule directive list aware of memory/a2a/loop contracts. ~140 tokens.
+
+### Breaking changes
+
+- `MemoryToolType` no longer includes `"other"`. Migration: replace with `"context"`.
+- `memory_recall` tool removed from agent tool surface. Migration: rely on the automatic ranker pre-injection (no caller change needed).
+
+### Internal
+
+- Tool-call extraction consolidated to a single source of truth in `runtime/src/manowar/agent/tool-calls.ts`. The 3 prior implementations (graph.ts, framework.ts, harness/engine.ts) now share `readToolMallsFromRecord` + `readToolCallChunksFromRecord`. ~150 LOC of duplicate logic eliminated.
+- `workflow/agentic.ts` deleted (deprecated hardcoded coordinator list — `harness/coordinators.ts` is the dynamic source of truth).
+
+## 0.6.8
+
+### Highlights
+
+- **First-party 6-layer memory framework.** Mem0 cloud removed entirely. Graph-layer durable facts now live in the same Mongo `memory` collection as conversational vectors (with `source: "fact"`, `metadata.layer: "graph"`), extracted by `gemini-3.1-flash-lite-preview` via our own inference gateway. Voyage `voyage-4-large` (1024-d) is the sole embedder; Cloudflare `bge-reranker-base` is the cross-encoder. Recall p50 dropped from ~905ms (mem0 round-trip) to <120ms.
+- **Cross-thread durable recall now actually works.** The vectors layer was thread-scoped by mistake — fixed; `(agentWallet, userAddress)` is the durability boundary, threadId narrows working+scene only.
+- **Agent memory tools simplified.** `save_memory` + `search_memory` + `search_all_memory` collapsed into `memory_recall` and `memory_remember`. The cross-layer ranker handles which layers contribute; agents do NOT pick layers.
+- **Post-turn persistence is fire-and-forget.** Fact extraction never blocks the agent response.
+- **SDK ergonomic shortcuts:**
+  - `sdk.memory.recall(query, { agentWallet, userAddress })` — string-first pre-turn block
+  - `sdk.memory.save(content, { agentWallet, userAddress, type? })` — string-first durable fact
+- **`MemoryShorthandOptions`** type added for the helpers above.
+- **`AgentMemoryRecordTurnResponse.stored`** now exposes `graph` alongside `transcript`/`working`/`vector` so callers can assert all four bookend layers landed.
+- **Memory Arazzo workflow rewritten** as a 10/10 onboarding doc — covers the canonical `agent_turn_loop`, `maintenance_loop`, `pattern_promotion_loop`, and `eval_loop`. No mem0 references; explicit scope rules; explicit cost / latency budget; per-step descriptions explain when and why.
+
+### Bug fixes
+
+- The vectors layer filter no longer includes `threadId` — durable cross-thread recall now works.
+- API gateway no longer aborts the prepared x402 payment when the SSE `[DONE]` terminator passes through `parseSseEventBlock`.
+- `stopped` and `error` SSE events now carry usage payload so the gateway settles partial work on user-initiated abort.
+
 ## 0.6.7
 
 ### Highlights

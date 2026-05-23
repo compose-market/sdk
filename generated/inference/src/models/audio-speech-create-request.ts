@@ -22,6 +22,7 @@ export type AudioSpeechCreateRequest = {
   voice?: string | undefined;
   responseFormat?: string | undefined;
   speed?: number | undefined;
+  user?: string | undefined;
   provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -35,6 +36,7 @@ export type AudioSpeechCreateRequest$Outbound = {
   voice?: string | undefined;
   response_format?: string | undefined;
   speed?: number | undefined;
+  user?: string | undefined;
   provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -53,6 +55,7 @@ export const AudioSpeechCreateRequest$outboundSchema: z.ZodMiniType<
       voice: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
       speed: z.optional(z.number()),
+      user: z.optional(z.string()),
       provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),

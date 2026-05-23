@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Memory
-  version: 0.6.7
+  version: 0.6.96
   summary: Agent-first memory loop and low-level memory primitives.
   description: |
     Standalone Compose Memory contract. This SDK surface is intentionally

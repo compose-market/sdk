@@ -15,7 +15,7 @@ let value: GraphMemoryItem = {};
 | `id`                    | *string*                | :heavy_minus_sign:      | N/A                     |
 | `memory`                | *string*                | :heavy_minus_sign:      | N/A                     |
 | `userId`                | *string*                | :heavy_minus_sign:      | N/A                     |
-| `agentId`               | *string*                | :heavy_minus_sign:      | N/A                     |
+| `agentWallet`               | *string*                | :heavy_minus_sign:      | N/A                     |
 | `runId`                 | *string*                | :heavy_minus_sign:      | N/A                     |
 | `metadata`              | Record<string, *any*>   | :heavy_minus_sign:      | N/A                     |
 | `createdAt`             | *string*                | :heavy_minus_sign:      | N/A                     |

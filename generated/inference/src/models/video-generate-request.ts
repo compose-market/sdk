@@ -22,7 +22,11 @@ export type VideoGenerateRequest = {
   duration?: number | undefined;
   aspectRatio?: string | undefined;
   resolution?: string | undefined;
+  size?: string | undefined;
+  fps?: number | undefined;
+  image?: string | undefined;
   imageUrl?: string | undefined;
+  user?: string | undefined;
   provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -36,7 +40,11 @@ export type VideoGenerateRequest$Outbound = {
   duration?: number | undefined;
   aspect_ratio?: string | undefined;
   resolution?: string | undefined;
+  size?: string | undefined;
+  fps?: number | undefined;
+  image?: string | undefined;
   image_url?: string | undefined;
+  user?: string | undefined;
   provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -55,7 +63,11 @@ export const VideoGenerateRequest$outboundSchema: z.ZodMiniType<
       duration: z.optional(z.int()),
       aspectRatio: z.optional(z.string()),
       resolution: z.optional(z.string()),
+      size: z.optional(z.string()),
+      fps: z.optional(z.number()),
+      image: z.optional(z.string()),
       imageUrl: z.optional(z.string()),
+      user: z.optional(z.string()),
       provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),

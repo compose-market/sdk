@@ -8,6 +8,7 @@ import { safeParse } from "../../lib/schemas.js";
 import { Result as SafeParseResult } from "../../types/fp.js";
 import * as types from "../../types/primitives.js";
 import { SDKValidationError } from "../errors/sdk-validation-error.js";
+import * as models from "../index.js";
 
 export type PaymentsSettleRequest = {
   paymentIntentId: string;
@@ -15,7 +16,7 @@ export type PaymentsSettleRequest = {
    * Non-negative integer amount in USDC atomic units.
    */
   finalAmountWei?: string | undefined;
-  metering?: { [k: string]: any } | undefined;
+  meter?: models.MeteredInput | undefined;
 };
 
 export type PaymentsSettleResponse = {
@@ -41,7 +42,7 @@ export type PaymentsSettleResponse = {
 export type PaymentsSettleRequest$Outbound = {
   paymentIntentId: string;
   finalAmountWei?: string | undefined;
-  metering?: { [k: string]: any } | undefined;
+  meter?: models.MeteredInput$Outbound | undefined;
 };
 
 /** @internal */
@@ -51,7 +52,7 @@ export const PaymentsSettleRequest$outboundSchema: z.ZodMiniType<
 > = z.object({
   paymentIntentId: z.string(),
   finalAmountWei: z.optional(z.string()),
-  metering: z.optional(z.record(z.string(), z.any())),
+  meter: z.optional(models.MeteredInput$outboundSchema),
 });
 
 export function paymentsSettleRequestToJSON(

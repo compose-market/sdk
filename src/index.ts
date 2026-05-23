@@ -6,9 +6,9 @@
  * apps (web/, mesh/) and lets any third-party integrator embed:
  *
  *   - Compose Key lifecycle (create / list / get / revoke, session metadata)
- *   - 45k+ model catalog (list / listAll / search / get / getParams)
- *   - OpenAI-shaped inference (chat.completions, responses, embeddings, images,
- *     audio.speech, audio.transcriptions, videos) with full SSE streaming,
+ *   - Multi-provider model catalog (list / listAll / search / get / getParams)
+ *   - Native inference (chat.completions, responses, embeddings, images,
+ *     audio.speech, audio.transcriptions, videos) with SSE streaming,
  *     typed tool-call deltas and reasoning deltas, typed cost receipts, and
  *     live session-budget updates emitted on every response.
  *   - x402 facilitator access (supported / chains / verify / settle) and typed
@@ -59,6 +59,12 @@ import { AgentResource } from "./resources/agent.js";
 import { WorkflowResource } from "./resources/workflow.js";
 import { MemoryResource } from "./resources/memory.js";
 import { FeedbackResource } from "./resources/feedback.js";
+import { DirectoryResource } from "./resources/directory.js";
+import { SystemResource } from "./resources/system.js";
+import { LocalResource } from "./resources/local.js";
+import { DispenserResource } from "./resources/dispenser.js";
+import { SettlementResource } from "./resources/settlement.js";
+import { BackpackResource } from "./resources/backpack.js";
 import { instrumentBillableResponse } from "./resources/instrumentation.js";
 import { encodePaymentSignature } from "./resources/x402.js";
 import { BadRequestError } from "./errors.js";
@@ -113,6 +119,12 @@ export type { AgentResource } from "./resources/agent.js";
 export type { WorkflowResource } from "./resources/workflow.js";
 export type { MemoryResource } from "./resources/memory.js";
 export type { FeedbackResource } from "./resources/feedback.js";
+export type { DirectoryResource } from "./resources/directory.js";
+export type { SystemResource } from "./resources/system.js";
+export type { LocalResource } from "./resources/local.js";
+export type { DispenserResource } from "./resources/dispenser.js";
+export type { SettlementResource } from "./resources/settlement.js";
+export type { BackpackResource } from "./resources/backpack.js";
 
 export { decodeReceiptHeader, extractReceiptFromResponse, parseReceiptEvent } from "./streaming/receipt.js";
 export { parseSSEStream } from "./streaming/sse.js";
@@ -235,6 +247,12 @@ export class ComposeSDK {
     readonly workflow: WorkflowResource;
     readonly memory: MemoryResource;
     readonly feedback: FeedbackResource;
+    readonly directory: DirectoryResource;
+    readonly system: SystemResource;
+    readonly local: LocalResource;
+    readonly dispenser: DispenserResource;
+    readonly settlement: SettlementResource;
+    readonly backpack: BackpackResource;
 
     readonly wallets: {
         attach: (input: { address: string; chainId: number }) => void;
@@ -360,9 +378,31 @@ export class ComposeSDK {
             getX402SignerMaybe: () => this.x402Signer,
             events: this.events,
         });
-        this.x402 = new X402Resource(this.http, (input, init) => this.fetch(input, { ...(init ?? {}), paymentMode: "x402" } as RequestInit & ComposeCallOptions));
+        this.x402 = new X402Resource(
+            this.http,
+            {
+                getWalletMaybe,
+                getTokenMaybe: () => this.composeKey,
+            },
+            (input, init) => this.fetch(input, { ...(init ?? {}), paymentMode: "x402" } as RequestInit & ComposeCallOptions),
+        );
         this.webhooks = new WebhooksResource();
         this.feedback = new FeedbackResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
+        this.directory = new DirectoryResource(this.http);
+        this.system = new SystemResource(this.http);
+        this.local = new LocalResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
+        this.dispenser = new DispenserResource(this.http, { getWalletMaybe });
+        this.settlement = new SettlementResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
+        this.backpack = new BackpackResource(this.http, {
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
         });

@@ -12,6 +12,7 @@ let value: PaymentsPrepareRequest = {
     service: "<value>",
     action: "<value>",
     resource: "<value>",
+    method: "<value>",
     maxAmountWei: "1000000",
   },
 };

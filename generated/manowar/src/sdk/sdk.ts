@@ -4,9 +4,9 @@
 
 import { ClientSDK } from "../lib/sdks.js";
 import { Agents } from "./agents.js";
+import { Connectors } from "./connectors.js";
 import { Health } from "./health.js";
 import { Mesh } from "./mesh.js";
-import { Tools } from "./tools.js";
 import { Workflows } from "./workflows.js";
 import { Workspace } from "./workspace.js";
 
@@ -31,9 +31,9 @@ export class ComposeMarket extends ClientSDK {
     return (this._workspace ??= new Workspace(this._options));
   }
 
-  private _tools?: Tools;
-  get tools(): Tools {
-    return (this._tools ??= new Tools(this._options));
+  private _connectors?: Connectors;
+  get connectors(): Connectors {
+    return (this._connectors ??= new Connectors(this._options));
   }
 
   private _mesh?: Mesh;

@@ -1,66 +1,76 @@
-speakeasyVersion: 1.761.9
+speakeasyVersion: 1.763.2
 sources:
-    manowar:
-        sourceNamespace: manowar
-        sourceRevisionDigest: sha256:f6dd6665228edc1325f23da6b7e281c9b762075ba6de941480a459250ba5b3e9
-        sourceBlobDigest: sha256:790131f7ab7cec4d0ac94cb0ecb93d2ddcf9a014ebd0dd1ccfc8b9c72490179e
-        tags:
-            - latest
-            - 0.5.0
     inference:
         sourceNamespace: inference
-        sourceRevisionDigest: sha256:1df82c14e6ec3747b14046dac9a88550f593d4d24214c7002a020c1da772ba4c
-        sourceBlobDigest: sha256:e2d4c5026126501db109f9efabf1d86e2b96e954aff6bab6f5944512cf6cc8ac
+        sourceRevisionDigest: sha256:d09f5ec9b43de4fb55afa2ed437479a096db7fc4395712d80abcd0d90efc0a03
+        sourceBlobDigest: sha256:2d5b899ce5fe9a776c2af9521723443f775f2180262e9324dffedd4e3e877cc4
         tags:
             - latest
-            - 0.5.0
+            - 0.6.93
+    manowar:
+        sourceNamespace: manowar
+        sourceRevisionDigest: sha256:cee24c351a6d145ac3a791fe6199b2d5fe4e790a044b053ecd072d55e5871a47
+        sourceBlobDigest: sha256:03b29867adf95e3518f1c2a06e957fb163eed679dc1f69a43e149f9fe4666cb3
+        tags:
+            - latest
+            - 0.6.92
+    memory:
+        sourceNamespace: memory
+        sourceRevisionDigest: sha256:da40b98704d12bccfbd4b6fbe5d7c8d1c155adc0d6b55e4d3151b452ec1fe560
+        sourceBlobDigest: sha256:fe369845b3e4f321c5f016727b9879eab796d8281002f33664c1a0d0f1857551
+        tags:
+            - latest
+            - 0.6.91
     x402:
         sourceNamespace: x-402
-        sourceRevisionDigest: sha256:bc9e9513d6a0fcd4dddb4198bddcefec596471a757bf04c9a564379cb37bc00e
-        sourceBlobDigest: sha256:84e283585bad71eb6e1f76ee6b769625bf9e675c52ce63ee9ae567da71d461f9
+        sourceRevisionDigest: sha256:fe30efb274d0d18c7ecf5ad789bd70618bb4fd9949e3d6d7fb861dceaeaad496
+        sourceBlobDigest: sha256:e30844c044d9bb86aa36ee205067109252b9d0d423e36f9f778001ac78aca5a0
         tags:
             - latest
-            - 0.5.0
+            - 0.6.93
 targets:
-    manowar:
-        source: manowar
-        sourceNamespace: manowar
-        sourceRevisionDigest: sha256:f6dd6665228edc1325f23da6b7e281c9b762075ba6de941480a459250ba5b3e9
-        sourceBlobDigest: sha256:790131f7ab7cec4d0ac94cb0ecb93d2ddcf9a014ebd0dd1ccfc8b9c72490179e
-        codeSamplesNamespace: manowar-typescript-code-samples
-        codeSamplesRevisionDigest: sha256:7285d9bc2ae2fce507bc066d890d499668a8128b147b3fdd2e0ec4c455792c30
     inference:
         source: inference
         sourceNamespace: inference
-        sourceRevisionDigest: sha256:1df82c14e6ec3747b14046dac9a88550f593d4d24214c7002a020c1da772ba4c
-        sourceBlobDigest: sha256:e2d4c5026126501db109f9efabf1d86e2b96e954aff6bab6f5944512cf6cc8ac
+        sourceRevisionDigest: sha256:d09f5ec9b43de4fb55afa2ed437479a096db7fc4395712d80abcd0d90efc0a03
+        sourceBlobDigest: sha256:2d5b899ce5fe9a776c2af9521723443f775f2180262e9324dffedd4e3e877cc4
         codeSamplesNamespace: inference-typescript-code-samples
-        codeSamplesRevisionDigest: sha256:804b4720aa559362652b87d42a2213ba8e65420d4e919a97e6ca7d28f3280984
+        codeSamplesRevisionDigest: sha256:b621ef83b555406a561cfd19f8ae4a3f24c80e77caf2ff7ad20610a9c51c50bb
+    manowar:
+        source: manowar
+        sourceNamespace: manowar
+        sourceRevisionDigest: sha256:cee24c351a6d145ac3a791fe6199b2d5fe4e790a044b053ecd072d55e5871a47
+        sourceBlobDigest: sha256:03b29867adf95e3518f1c2a06e957fb163eed679dc1f69a43e149f9fe4666cb3
+        codeSamplesNamespace: manowar-typescript-code-samples
+        codeSamplesRevisionDigest: sha256:97795f789b5e577f2d03631d100a4e77dfd3960074344ae7432ca5bec81755aa
     memory:
         source: memory
+        sourceNamespace: memory
+        sourceRevisionDigest: sha256:da40b98704d12bccfbd4b6fbe5d7c8d1c155adc0d6b55e4d3151b452ec1fe560
+        sourceBlobDigest: sha256:fe369845b3e4f321c5f016727b9879eab796d8281002f33664c1a0d0f1857551
         codeSamplesNamespace: memory-typescript-code-samples
-        codeSamplesRevisionDigest: sha256:b9e4287f7fec4d613cab12a6081ede1c8632230230a31f6867312a0f3b03367c
+        codeSamplesRevisionDigest: sha256:ead3d5e841ab9879adca8ee9060ea9f73d4822dacbdbe7cd4c1017f268304973
     x402:
         source: x402
         sourceNamespace: x-402
-        sourceRevisionDigest: sha256:bc9e9513d6a0fcd4dddb4198bddcefec596471a757bf04c9a564379cb37bc00e
-        sourceBlobDigest: sha256:84e283585bad71eb6e1f76ee6b769625bf9e675c52ce63ee9ae567da71d461f9
+        sourceRevisionDigest: sha256:fe30efb274d0d18c7ecf5ad789bd70618bb4fd9949e3d6d7fb861dceaeaad496
+        sourceBlobDigest: sha256:e30844c044d9bb86aa36ee205067109252b9d0d423e36f9f778001ac78aca5a0
         codeSamplesNamespace: x-402-typescript-code-samples
-        codeSamplesRevisionDigest: sha256:3f6c878995a003e4de4450fd8d6156f3872f3654958bb39b2eaa2d9501e73961
+        codeSamplesRevisionDigest: sha256:d1e62de64e8f3af8a2a5b3e354f373362ef9e3998531f7f195d5aa7e76052271
 workflow:
     workflowVersion: 1.0.0
     speakeasyVersion: latest
     sources:
-        manowar:
-            inputs:
-                - location: ./specs/manowar.openapi.yaml
-            registry:
-                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
         inference:
             inputs:
                 - location: ./specs/inference.openapi.yaml
             registry:
                 location: registry.speakeasyapi.dev/compose-market/compose-market/inference
+        manowar:
+            inputs:
+                - location: ./specs/manowar.openapi.yaml
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
         memory:
             inputs:
                 - location: ./specs/memory.openapi.yaml
@@ -72,16 +82,6 @@ workflow:
             registry:
                 location: registry.speakeasyapi.dev/compose-market/compose-market/x-402
     targets:
-        manowar:
-            target: typescript
-            source: manowar
-            output: ./generated/manowar
-            codeSamples:
-                registry:
-                    location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
-                labelOverride:
-                    fixedValue: Typescript (SDK)
-                blocking: false
         inference:
             target: typescript
             source: inference
@@ -89,6 +89,16 @@ workflow:
             codeSamples:
                 registry:
                     location: registry.speakeasyapi.dev/compose-market/compose-market/inference-typescript-code-samples
+                labelOverride:
+                    fixedValue: Typescript (SDK)
+                blocking: false
+        manowar:
+            target: typescript
+            source: manowar
+            output: ./generated/manowar
+            codeSamples:
+                registry:
+                    location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
                 labelOverride:
                     fixedValue: Typescript (SDK)
                 blocking: false

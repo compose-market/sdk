@@ -151,6 +151,7 @@ async function run() {
       service: "<value>",
       action: "<value>",
       resource: "<value>",
+      method: "<value>",
       maxAmountWei: "1000000",
     },
   });

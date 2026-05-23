@@ -23,6 +23,7 @@ export * from "./feedback-target-type.js";
 export * from "./feedback-target.js";
 export * from "./feedback-verification-kind.js";
 export * from "./health-response.js";
+export * from "./metered-input.js";
 export * from "./model-meter-request.js";
 export * from "./model-provider.js";
 export * from "./payment-payload.js";

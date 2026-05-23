@@ -13,7 +13,7 @@ export type GraphMemoryItem = {
   id?: string | undefined;
   memory?: string | undefined;
   userId?: string | undefined;
-  agentId?: string | undefined;
+  agentWallet?: string | undefined;
   runId?: string | undefined;
   metadata?: { [k: string]: any } | undefined;
   createdAt?: string | undefined;
@@ -44,7 +44,7 @@ export const GraphMemoryItem$inboundSchema: z.ZodMiniType<
   z.transform((v) => {
     return remap$(v, {
       "user_id": "userId",
-      "agent_id": "agentId",
+      "agent_wallet": "agentWallet",
       "run_id": "runId",
       "created_at": "createdAt",
       "updated_at": "updatedAt",

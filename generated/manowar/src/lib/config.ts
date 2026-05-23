@@ -10,7 +10,7 @@ import { Params, pathToFunc } from "./url.js";
 /**
  * Production manowar endpoint
  */
-export const ServerAgentic = "manowar";
+export const ServerManowar = "manowar";
 /**
  * Production API gateway for public agent and workflow execution endpoints
  */
@@ -23,7 +23,7 @@ export const ServerLocal = "local";
  * Contains the list of servers available to the SDK
  */
 export const ServerList = {
-  [ServerAgentic]: "https://runtime.compose.market",
+  [ServerManowar]: "https://runtime.compose.market",
   [ServerComposeApi]: "https://api.compose.market",
   [ServerLocal]: "http://127.0.0.1:8787",
 } as const;
@@ -58,7 +58,7 @@ export function serverURLFromOptions(options: SDKOptions): URL | null {
   const params: Params = {};
 
   if (!serverURL) {
-    const server = options.server ?? ServerAgentic;
+    const server = options.server ?? ServerManowar;
     serverURL = ServerList[server] || "";
   }
 
@@ -68,8 +68,9 @@ export function serverURLFromOptions(options: SDKOptions): URL | null {
 
 export const SDK_METADATA = {
   language: "typescript",
-  openapiDocVersion: "0.6.7",
-  sdkVersion: "0.6.7",
-  genVersion: "2.881.4",
-  userAgent: "speakeasy-sdk/typescript 0.6.7 2.881.4 0.5.1 @compose-market/sdk",
+  openapiDocVersion: "0.6.96",
+  sdkVersion: "0.6.96",
+  genVersion: "2.884.4",
+  userAgent:
+    "speakeasy-sdk/typescript 0.6.96 2.884.4 0.6.92 @compose-market/sdk",
 } as const;

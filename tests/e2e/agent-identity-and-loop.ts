@@ -47,7 +47,7 @@ const FACTORY_ABI = [
         name: "getAgentData",
         type: "function",
         stateMutability: "view",
-        inputs: [{ name: "agentId", type: "uint256" }],
+        inputs: [{ name: "agentWallet", type: "uint256" }],
         outputs: [{
             name: "data",
             type: "tuple",
@@ -67,7 +67,7 @@ const FACTORY_ABI = [
 ] as const;
 
 interface AgentSummary {
-    agentId: bigint;
+    agentWallet: bigint;
     walletAddress: string;
     name: string;
     description: string;
@@ -123,7 +123,7 @@ async function discoverFujiAgents(): Promise<AgentSummary[]> {
             const card = await fetchAgentCard(cardCid);
             if (!card?.walletAddress || typeof card.walletAddress !== "string") continue;
             out.push({
-                agentId: BigInt(i),
+                agentWallet: BigInt(i),
                 walletAddress: card.walletAddress.toLowerCase(),
                 name: typeof card.name === "string" ? card.name : `Agent #${i}`,
                 description: typeof card.description === "string" ? card.description : "",
@@ -161,7 +161,7 @@ async function pickAgent(): Promise<AgentSummary> {
     return withPlugins ?? manowar[0];
 }
 
-interface StreamMetric {
+interface StreamTrace {
     runId?: string;
     requestStart: number;
     firstEventAt?: number;
@@ -197,9 +197,9 @@ function buildSdk(userAddress: string): ComposeSDK {
 async function streamChat(sdk: ComposeSDK, agent: AgentSummary, userAddress: string, message: string, options: {
     runId?: string;
     threadId?: string;
-} = {}): Promise<StreamMetric> {
+} = {}): Promise<StreamTrace> {
     const requestStart = Date.now();
-    const metric: StreamMetric = {
+    const trace: StreamTrace = {
         runId: options.runId,
         requestStart,
         toolStarts: [],
@@ -220,29 +220,29 @@ async function streamChat(sdk: ComposeSDK, agent: AgentSummary, userAddress: str
         timeoutMs: 120_000,
     });
 
-    metric.firstEventAt = Date.now() - requestStart;
+    trace.firstEventAt = Date.now() - requestStart;
     let final: unknown;
     try {
         for await (const event of iter) {
             const e = event as AgentRuntimeEvent;
             if (e.type === "text-delta") {
-                metric.firstTextDeltaAt = metric.firstTextDeltaAt ?? (Date.now() - requestStart);
-                metric.text += e.delta;
+                trace.firstTextDeltaAt = trace.firstTextDeltaAt ?? (Date.now() - requestStart);
+                trace.text += e.delta;
             } else if (e.type === "reasoning-delta") {
-                metric.reasoning += e.delta;
+                trace.reasoning += e.delta;
             } else if (e.type === "tool-start") {
-                metric.firstToolStartAt = metric.firstToolStartAt ?? (Date.now() - requestStart);
-                metric.toolStarts.push(e.toolName);
+                trace.firstToolStartAt = trace.firstToolStartAt ?? (Date.now() - requestStart);
+                trace.toolStarts.push(e.toolName);
             } else if (e.type === "tool-end") {
-                metric.toolEnds.push(e.toolName);
-                if (e.failed) metric.failedTools.push(e.toolName);
+                trace.toolEnds.push(e.toolName);
+                if (e.failed) trace.failedTools.push(e.toolName);
             } else if (e.type === "tool-args-delta") {
-                metric.firstToolArgsDeltaAt = metric.firstToolArgsDeltaAt ?? (Date.now() - requestStart);
+                trace.firstToolArgsDeltaAt = trace.firstToolArgsDeltaAt ?? (Date.now() - requestStart);
             } else if (e.type === "stopped") {
-                metric.stopped = true;
-                metric.finishedAt = metric.finishedAt ?? (Date.now() - requestStart);
+                trace.stopped = true;
+                trace.finishedAt = trace.finishedAt ?? (Date.now() - requestStart);
             } else if (e.type === "done") {
-                metric.finishedAt = metric.finishedAt ?? (Date.now() - requestStart);
+                trace.finishedAt = trace.finishedAt ?? (Date.now() - requestStart);
             } else if (e.type === "error") {
                 throw new Error(`runtime error: ${e.message}`);
             }
@@ -250,22 +250,22 @@ async function streamChat(sdk: ComposeSDK, agent: AgentSummary, userAddress: str
         final = await iter.final();
     } catch (err) {
         if ((err as { name?: string }).name === "AbortError") {
-            metric.finishedAt = metric.finishedAt ?? (Date.now() - requestStart);
+            trace.finishedAt = trace.finishedAt ?? (Date.now() - requestStart);
         } else {
             throw err;
         }
     }
     if (final && typeof final === "object") {
         const f = final as { receipt?: unknown; budget?: unknown; requestId?: unknown };
-        metric.receipt = f.receipt;
-        if (f.receipt) metric.firstReceiptAt = metric.firstReceiptAt ?? (Date.now() - requestStart);
+        trace.receipt = f.receipt;
+        if (f.receipt) trace.firstReceiptAt = trace.firstReceiptAt ?? (Date.now() - requestStart);
     }
-    return metric;
+    return trace;
 }
 
-async function probeIdentity(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; metric: StreamMetric }> {
-    const metric = await streamChat(sdk, agent, userAddress, "Who are you, briefly? State your name and what you can do for me.");
-    const t = metric.text.toLowerCase();
+async function probeIdentity(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; trace: StreamTrace }> {
+    const trace = await streamChat(sdk, agent, userAddress, "Who are you, briefly? State your name and what you can do for me.");
+    const t = trace.text.toLowerCase();
     const expectedName = agent.name.toLowerCase();
     const nameTokens = expectedName.split(/\s+/).filter((tok) => tok.length >= 3);
     const nameMatch = nameTokens.length > 0
@@ -277,24 +277,24 @@ async function probeIdentity(sdk: ComposeSDK, agent: AgentSummary, userAddress: 
         reason: nameMatch
             ? (fallback ? "name found but fallback persona leaked" : "ok")
             : `agent.name "${agent.name}" not found in response`,
-        metric,
+        trace,
     };
 }
 
-async function probeMultiStep(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; metric: StreamMetric }> {
+async function probeMultiStep(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; trace: StreamTrace }> {
     const isPricey = agent.plugins.some((p) => /coin|price|dex|0x|cmc|coingecko|allora|defill/.test(p.toLowerCase()));
     const message = isPricey
         ? "What is the current USD price of bitcoin and how has it moved in the last 24h? Be concise."
         : "Search your memory for anything you remember about me, then summarise what you know.";
-    const metric = await streamChat(sdk, agent, userAddress, message);
+    const trace = await streamChat(sdk, agent, userAddress, message);
     return {
-        pass: metric.toolEnds.length >= 1,
-        reason: `tool_ends=${metric.toolEnds.length} (${metric.toolEnds.join(", ") || "none"})`,
-        metric,
+        pass: trace.toolEnds.length >= 1,
+        reason: `tool_ends=${trace.toolEnds.length} (${trace.toolEnds.join(", ") || "none"})`,
+        trace,
     };
 }
 
-async function probeStopResume(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; first: StreamMetric; second: StreamMetric }> {
+async function probeStopResume(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; first: StreamTrace; second: StreamTrace }> {
     const threadId = `e2e-thread-stop-${Math.random().toString(36).slice(2, 8)}`;
     const runIdA = `e2e-stop-${Math.random().toString(36).slice(2, 8)}`;
     const longPrompt = "Write a thoughtful 800-word essay on the history of computational logic, citing at least five thinkers and explaining the lineage of ideas in detail.";
@@ -318,7 +318,7 @@ async function probeStopResume(sdk: ComposeSDK, agent: AgentSummary, userAddress
         failedTools: [],
         stopped: true,
         error: String(err),
-    } as StreamMetric & { error?: string }));
+    } as StreamTrace & { error?: string }));
 
     const second = await streamChat(sdk, agent, userAddress, "Continue from where you stopped. Pick up where you left off and finish the essay.", {
         runId: `e2e-resume-${Math.random().toString(36).slice(2, 8)}`,
@@ -363,6 +363,56 @@ async function probeMemory(sdk: ComposeSDK, agent: AgentSummary, userAddress: st
     }
 }
 
+async function submitRunFeedback(
+    sdk: ComposeSDK,
+    agent: AgentSummary,
+    overallPass: boolean,
+    traces: {
+        identity: StreamTrace;
+        multiStep: StreamTrace;
+        stopResumeSecond: StreamTrace;
+    },
+): Promise<string> {
+    const identityReceipt = traces.identity.receipt as { txHash?: unknown } | undefined;
+    const txHash = typeof identityReceipt?.txHash === "string" ? identityReceipt.txHash : undefined;
+    const response = await sdk.feedback.agent(agent.agentWallet.toString(), {
+        category: overallPass ? "quality" : "integration",
+        rating: overallPass ? 5 : 2,
+        message: overallPass
+            ? "A2A identity, multi-step execution, stop/resume, and memory probes completed."
+            : "A2A e2e probes produced at least one failing check.",
+        labels: ["a2a", "x402", "e2e"],
+        context: {
+            agentWallet: agent.agentWallet.toString(),
+            agentWallet: agent.walletAddress,
+            chainId: CHAIN_ID,
+            endpoint: {
+                method: "POST",
+                path: `/agent/${agent.walletAddress}/stream`,
+            },
+            receipt: {
+                network: `eip155:${CHAIN_ID}`,
+                ...(txHash ? { txHash } : {}),
+            },
+        },
+        metadata: {
+            agentName: agent.name,
+            framework: agent.framework,
+            model: agent.model,
+            cardCid: agent.cardCid,
+            timingsMs: {
+                identity: traces.identity.finishedAt,
+                multiStep: traces.multiStep.finishedAt,
+                stopResume: traces.stopResumeSecond.finishedAt,
+            },
+            toolEnds: traces.multiStep.toolEnds,
+            failedTools: traces.multiStep.failedTools,
+        },
+    });
+
+    return response.feedbackId;
+}
+
 async function main() {
     const wallet = createPrivateKeyX402EvmWallet({ privateKey: DEPLOYER_KEY!, rpcUrl: FUJI_RPC });
     const userAddress = wallet.address.toLowerCase();
@@ -374,15 +424,15 @@ async function main() {
 
     const idResult = await probeIdentity(sdk, agent, userAddress);
     console.log(`[e2e] identity: pass=${idResult.pass} reason="${idResult.reason}"`);
-    console.log(`[e2e] identity: ttfb=${idResult.metric.firstTextDeltaAt}ms total=${idResult.metric.finishedAt}ms`);
-    console.log(`[e2e] identity reply (first 400 chars): ${idResult.metric.text.slice(0, 400)}`);
-    if (idResult.metric.receipt) console.log(`[e2e] identity receipt: ${JSON.stringify(idResult.metric.receipt).slice(0, 300)}`);
+    console.log(`[e2e] identity: ttfb=${idResult.trace.firstTextDeltaAt}ms total=${idResult.trace.finishedAt}ms`);
+    console.log(`[e2e] identity reply (first 400 chars): ${idResult.trace.text.slice(0, 400)}`);
+    if (idResult.trace.receipt) console.log(`[e2e] identity receipt: ${JSON.stringify(idResult.trace.receipt).slice(0, 300)}`);
 
     const stepResult = await probeMultiStep(sdk, agent, userAddress);
     console.log(`[e2e] multi-step: pass=${stepResult.pass} reason="${stepResult.reason}"`);
-    console.log(`[e2e] multi-step: ttfb=${stepResult.metric.firstTextDeltaAt}ms total=${stepResult.metric.finishedAt}ms tools=${JSON.stringify(stepResult.metric.toolStarts)} -> ${JSON.stringify(stepResult.metric.toolEnds)}`);
-    console.log(`[e2e] multi-step reply (first 400 chars): ${stepResult.metric.text.slice(0, 400)}`);
-    if (stepResult.metric.receipt) console.log(`[e2e] multi-step receipt: ${JSON.stringify(stepResult.metric.receipt).slice(0, 300)}`);
+    console.log(`[e2e] multi-step: ttfb=${stepResult.trace.firstTextDeltaAt}ms total=${stepResult.trace.finishedAt}ms tools=${JSON.stringify(stepResult.trace.toolStarts)} -> ${JSON.stringify(stepResult.trace.toolEnds)}`);
+    console.log(`[e2e] multi-step reply (first 400 chars): ${stepResult.trace.text.slice(0, 400)}`);
+    if (stepResult.trace.receipt) console.log(`[e2e] multi-step receipt: ${JSON.stringify(stepResult.trace.receipt).slice(0, 300)}`);
 
     const stopResult = await probeStopResume(sdk, agent, userAddress);
     console.log(`[e2e] stop-resume: pass=${stopResult.pass} reason="${stopResult.reason}"`);
@@ -392,6 +442,13 @@ async function main() {
     console.log(`[e2e] memory: pass=${memoryResult.pass} reason="${memoryResult.reason}"`);
 
     const overall = idResult.pass && stepResult.pass && stopResult.pass && memoryResult.pass;
+    const feedbackId = await submitRunFeedback(sdk, agent, overall, {
+        identity: idResult.trace,
+        multiStep: stepResult.trace,
+        stopResumeSecond: stopResult.second,
+    });
+    console.log(`[e2e] feedback: id=${feedbackId} target=agent:${agent.agentWallet.toString()}`);
+
     console.log(`\n[e2e] OVERALL: ${overall ? "PASS" : "FAIL"}`);
     process.exit(overall ? 0 : 1);
 }

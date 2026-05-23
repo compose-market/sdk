@@ -1,18 +1,18 @@
 lockVersion: 2.0.0
 id: 6e2c6fd0-75eb-4655-9d1f-7665953d049a
 management:
-  docChecksum: 537c5cc2c2fe1be72fdc51d5dd0c674f
-  docVersion: 0.6.7
-  speakeasyVersion: 1.761.9
-  generationVersion: 2.881.4
-  releaseVersion: 0.6.7
-  configChecksum: d66b7bba91ef092c3381641cf7adbaae
+  docChecksum: 52f894cfe1c28de7e70bb00f4c38f321
+  docVersion: 0.6.96
+  speakeasyVersion: 1.761.11
+  generationVersion: 2.881.17
+  releaseVersion: 0.6.96
+  configChecksum: 9e2aed257187413f574e3677a6e8d426
 features:
   typescript:
     additionalDependencies: 0.1.0
     additionalProperties: 0.1.3
     constsAndDefaults: 0.1.14
-    core: 3.26.49
+    core: 3.26.50
     defaultEnabledRetries: 0.1.0
     enumUnions: 0.1.0
     envVarSecurityUsage: 0.1.2
@@ -33,7 +33,7 @@ trackedFiles:
   .oxlintrc.json:
     last_write_checksum: sha1:f14bd09c455fa2de0d94641369b7888d23ee62f2
   FUNCTIONS.md:
-    last_write_checksum: sha1:962b950c60ea427fbed1525ca600066f6654c214
+    last_write_checksum: sha1:eeaf2b903676cdb1aaa379496bba2ee77441bafd
   RUNTIMES.md:
     last_write_checksum: sha1:e45b854f02c357cbcfdb8c3663000e8339e16505
   USAGE.md:
@@ -433,9 +433,9 @@ trackedFiles:
   examples/package.json:
     last_write_checksum: sha1:aa1778fdb03426f9cede8721a85b937f71a6c1a3
   jsr.json:
-    last_write_checksum: sha1:68d6b065de02a8f116a38099f47502a75997d0c7
+    last_write_checksum: sha1:f36bbad850c973fc2a9eebea339a9f06b57f4a0a
   package.json:
-    last_write_checksum: sha1:1db32f4c230ebe426be99de120990099e2920dff
+    last_write_checksum: sha1:e9e75eaa13ba24cfdf20fde4b6e8c47c7779602f
   src/core.ts:
     last_write_checksum: sha1:cb3551149fbc59958c7f1fa9c9c229dcf638792b
   src/funcs/memory-archives-sync.ts:
@@ -531,7 +531,7 @@ trackedFiles:
   src/lib/base64.ts:
     last_write_checksum: sha1:8c94164f2f78e6041c853186fa01f659591f5913
   src/lib/config.ts:
-    last_write_checksum: sha1:2d4a41918deb548310df2651e032ac92bdeaf97f
+    last_write_checksum: sha1:cb358dc56bc01d5fe8a2db702f9e3aecdb2eaa5c
   src/lib/dlv.ts:
     last_write_checksum: sha1:1dd3e3fbb4550c4bf31f5ef997faff355d6f3250
   src/lib/encodings.ts:
@@ -831,7 +831,7 @@ trackedFiles:
   src/types/operations.ts:
     last_write_checksum: sha1:c49e724cfb1259296381cb57bc0fcdd2eae45865
   src/types/primitives.ts:
-    last_write_checksum: sha1:7bdf6c790bdbcb8e369088557c42878f5270a701
+    last_write_checksum: sha1:c3ce85778bf82bc0f0d464067b04856d99ff4365
   src/types/rfcdate.ts:
     last_write_checksum: sha1:8e5f382e02fe21c2f2e24deb1b7bbf8cddd3dd16
   src/types/smart-union.ts:
@@ -997,6 +997,8 @@ examples:
       responses:
         "200":
           application/json: [{}]
+        default:
+          application/json: {}
   graph_search:
     speakeasy-default-graph-search:
       requestBody:
@@ -1004,6 +1006,8 @@ examples:
       responses:
         "200":
           application/json: [{}]
+        default:
+          application/json: {}
   list:
     speakeasy-default-list:
       parameters:
@@ -1012,6 +1016,8 @@ examples:
       responses:
         "200":
           application/json: [{}]
+        default:
+          application/json: {}
   vector_search:
     speakeasy-default-vector-search:
       requestBody:
@@ -1019,6 +1025,8 @@ examples:
       responses:
         "200":
           application/json: {"results": []}
+        default:
+          application/json: {}
   vector_index:
     speakeasy-default-vector-index:
       requestBody:
@@ -1026,6 +1034,8 @@ examples:
       responses:
         "200":
           application/json: {"success": true}
+        default:
+          application/json: {}
   transcript_store:
     speakeasy-default-transcript-store:
       requestBody:
@@ -1033,6 +1043,8 @@ examples:
       responses:
         "200":
           application/json: {"success": false}
+        default:
+          application/json: {}
   transcript_get:
     speakeasy-default-transcript-get:
       parameters:
@@ -1050,6 +1062,8 @@ examples:
       responses:
         "200":
           application/json: {"results": [{"key": "<value>"}]}
+        default:
+          application/json: {}
   layers_search:
     speakeasy-default-layers-search:
       requestBody:
@@ -1057,6 +1071,8 @@ examples:
       responses:
         "200":
           application/json: {"query": "<value>", "layers": {"key": ["<value 1>", "<value 2>"], "key1": []}, "totals": {"key": 678865, "key1": 46693}}
+        default:
+          application/json: {}
   stats_get:
     speakeasy-default-stats-get:
       parameters:
@@ -1065,6 +1081,8 @@ examples:
       responses:
         "200":
           application/json: {"totalVectors": 629975, "totalTranscripts": 536548, "avgDecayScore": 2495.87, "oldestVector": 11606, "newestVector": 563322, "byType": {}}
+        default:
+          application/json: {}
   items_search:
     speakeasy-default-items-search:
       requestBody:
@@ -1072,6 +1090,8 @@ examples:
       responses:
         "200":
           application/json: {"query": "<value>", "layers": {"key": ["<value 1>", "<value 2>"], "key1": ["<value 1>", "<value 2>", "<value 3>"]}, "totals": {"key": 191937}}
+        default:
+          application/json: {}
   items_get:
     speakeasy-default-items-get:
       parameters:
@@ -1114,6 +1134,8 @@ examples:
       responses:
         "200":
           application/json: {"resolved": true, "memoryId": "<id>"}
+        default:
+          application/json: {}
   jobs_create:
     speakeasy-default-jobs-create:
       requestBody:
@@ -1121,6 +1143,8 @@ examples:
       responses:
         "200":
           application/json: {"jobId": "<id>", "type": "decay_update", "execution": "inline", "status": "completed", "createdAt": 70350}
+        default:
+          application/json: {}
   jobs_get:
     speakeasy-default-jobs-get:
       parameters:
@@ -1138,11 +1162,15 @@ examples:
       responses:
         "200":
           application/json: {"evalRunId": "<id>", "status": "completed", "scores": {"recallAtK": 4287.4, "precisionAtK": 4816.14, "avgContextCharacters": 4287.4, "cases": 175844}, "results": []}
+        default:
+          application/json: {}
   workflows_list:
     speakeasy-default-workflows-list:
       responses:
         "200":
           application/json: {"workflows": []}
+        default:
+          application/json: {}
   workflows_get:
     speakeasy-default-workflows-get:
       parameters:
@@ -1158,6 +1186,8 @@ examples:
       responses:
         "200":
           application/json: {"patterns": []}
+        default:
+          application/json: {}
   patterns_get:
     speakeasy-default-patterns-get:
       parameters:
@@ -1176,6 +1206,8 @@ examples:
       responses:
         "200":
           application/json: {"valid": false, "confidence": 2248.09, "occurrences": 907063, "successRate": 1470.97, "toolSequence": []}
+        default:
+          application/json: {}
   patterns_promote:
     speakeasy-default-patterns-promote:
       parameters:
@@ -1193,6 +1225,8 @@ examples:
       responses:
         "200":
           application/json: {"skills": [{"skillId": "<id>", "name": "<value>", "description": "sting unbalance anti yet mmm jungle hence pro", "category": "<value>", "successRate": 5430.2, "usageCount": 154792, "creator": "<value>", "agents": ["<value 1>"], "createdAt": 820213}]}
+        default:
+          application/json: {}
   skills_get:
     speakeasy-default-skills-get:
       parameters:
@@ -1265,6 +1299,8 @@ examples:
       responses:
         "200":
           application/json: {"schedules": [{"scheduleId": "<id>", "paused": true}]}
+        default:
+          application/json: {}
   schedules_create:
     speakeasy-default-schedules-create:
       requestBody:
@@ -1272,11 +1308,15 @@ examples:
       responses:
         "200":
           application/json: {"created": false}
+        default:
+          application/json: {}
   schedules_delete:
     speakeasy-default-schedules-delete:
       responses:
         "200":
           application/json: {"deleted": true}
+        default:
+          application/json: {}
   schedules_pause:
     speakeasy-default-schedules-pause:
       parameters:
@@ -1285,6 +1325,8 @@ examples:
       responses:
         "200":
           application/json: {"paused": true}
+        default:
+          application/json: {}
   schedules_resume:
     speakeasy-default-schedules-resume:
       parameters:
@@ -1293,6 +1335,8 @@ examples:
       responses:
         "200":
           application/json: {"resumed": false}
+        default:
+          application/json: {}
   schedules_trigger:
     speakeasy-default-schedules-trigger:
       parameters:
@@ -1301,4 +1345,6 @@ examples:
       responses:
         "200":
           application/json: {"triggered": true}
+        default:
+          application/json: {}
 examplesVersion: 1.0.2

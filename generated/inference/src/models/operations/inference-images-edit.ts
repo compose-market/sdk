@@ -23,8 +23,12 @@ export type InferenceImagesEditRequestBody = {
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
+  responseFormat?: string | undefined;
+  style?: string | undefined;
+  user?: string | undefined;
   provider?: models.ModelProvider | undefined;
   image?: string | undefined;
+  mask?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -97,8 +101,12 @@ export type InferenceImagesEditRequestBody$Outbound = {
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
+  response_format?: string | undefined;
+  style?: string | undefined;
+  user?: string | undefined;
   provider?: string | undefined;
   image?: string | undefined;
+  mask?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -106,21 +114,34 @@ export type InferenceImagesEditRequestBody$Outbound = {
 export const InferenceImagesEditRequestBody$outboundSchema: z.ZodMiniType<
   InferenceImagesEditRequestBody$Outbound,
   InferenceImagesEditRequestBody
-> = z.catchall(
-  z.object({
-    model: z.string(),
-    prompt: z.string(),
-    attachments: z.optional(
-      z.array(models.ComposeAttachmentInput$outboundSchema),
-    ),
-    attachment: z.optional(models.ComposeAttachmentInput$outboundSchema),
-    n: z.optional(z.int()),
-    size: z.optional(z.string()),
-    quality: z.optional(z.string()),
-    provider: z.optional(models.ModelProvider$outboundSchema),
-    image: z.optional(z.string()),
+> = z.pipe(
+  z.catchall(
+    z.object({
+      model: z.string(),
+      prompt: z.string(),
+      attachments: z.optional(
+        z.array(models.ComposeAttachmentInput$outboundSchema),
+      ),
+      attachment: z.optional(models.ComposeAttachmentInput$outboundSchema),
+      n: z.optional(z.int()),
+      size: z.optional(z.string()),
+      quality: z.optional(z.string()),
+      responseFormat: z.optional(z.string()),
+      style: z.optional(z.string()),
+      user: z.optional(z.string()),
+      provider: z.optional(models.ModelProvider$outboundSchema),
+      image: z.optional(z.string()),
+      mask: z.optional(z.string()),
+    }),
+    z.any(),
+  ),
+  z.transform((v) => {
+    return {
+      ...remap$(v, {
+        responseFormat: "response_format",
+      }),
+    };
   }),
-  z.any(),
 );
 
 export function inferenceImagesEditRequestBodyToJSON(

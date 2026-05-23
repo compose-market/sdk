@@ -7,7 +7,7 @@ import { Model } from "@compose-market/sdk/models";
 
 let value: Model = {
   modelId: "<id>",
-  provider: "vertex",
+  provider: "aiml",
 };
 ```
 
@@ -16,6 +16,7 @@ let value: Model = {
 | Field                                               | Type                                                | Required                                            | Description                                         |
 | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
 | `modelId`                                           | *string*                                            | :heavy_check_mark:                                  | N/A                                                 |
+| `upstreamModelId`                                   | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `name`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `provider`                                          | [models.ModelProvider](../models/model-provider.md) | :heavy_check_mark:                                  | N/A                                                 |
 | `type`                                              | *models.ModelType*                                  | :heavy_minus_sign:                                  | N/A                                                 |
@@ -25,7 +26,10 @@ let value: Model = {
 | `contextWindow`                                     | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
 | `pricing`                                           | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
 | `maxOutputTokens`                                   | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `capabilities`                                      | *string*[]                                          | :heavy_minus_sign:                                  | N/A                                                 |
+| `capabilities`                                      | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
+| `modelType`                                         | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
+| `sourceMetadata`                                    | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
+| `params`                                            | *any*                                               | :heavy_minus_sign:                                  | N/A                                                 |
 | `ownedBy`                                           | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `createdAt`                                         | *models.ModelCreatedAt*                             | :heavy_minus_sign:                                  | N/A                                                 |
 | `available`                                         | *boolean*                                           | :heavy_minus_sign:                                  | N/A                                                 |

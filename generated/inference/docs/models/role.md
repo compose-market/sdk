@@ -5,11 +5,11 @@
 ```typescript
 import { Role } from "@compose-market/sdk/models";
 
-let value: Role = "user";
+let value: Role = "developer";
 ```
 
 ## Values
 
 ```typescript
-"system" | "user" | "assistant" | "tool"
+"system" | "developer" | "user" | "assistant" | "tool"
 ```

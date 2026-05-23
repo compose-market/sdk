@@ -53,7 +53,7 @@ export class FeedbackResource {
             getWalletMaybe(): { address: string | null; chainId: number | null };
             getTokenMaybe(): string | null;
         },
-    ) {}
+    ) { }
 
     /**
      * Submit feedback against a stable Compose target.
@@ -116,13 +116,13 @@ export class FeedbackResource {
         });
     }
 
-    agent(agentId: string, input: FeedbackWithoutTarget): APIPromise<FeedbackSubmitResponse> {
+    agent(agentWallet: string, input: FeedbackWithoutTarget): APIPromise<FeedbackSubmitResponse> {
         return this.submit({
             ...input,
-            target: { type: "agent", id: agentId },
+            target: { type: "agent", id: agentWallet },
             context: {
                 ...(input.context ?? {}),
-                agentId: input.context?.agentId ?? agentId,
+                agentWallet: input.context?.agentWallet ?? agentWallet,
             },
         });
     }

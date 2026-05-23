@@ -15,7 +15,6 @@ export type MemoryAddRequestMode = ClosedEnum<typeof MemoryAddRequestMode>;
 export type MemoryAddRequest = {
   messages: Array<{ [k: string]: any }>;
   agentWallet?: string | undefined;
-  agentId?: string | undefined;
   userAddress?: string | undefined;
   userId?: string | undefined;
   runId?: string | undefined;
@@ -34,7 +33,6 @@ export const MemoryAddRequestMode$outboundSchema: z.ZodMiniEnum<
 export type MemoryAddRequest$Outbound = {
   messages: Array<{ [k: string]: any }>;
   agentWallet?: string | undefined;
-  agent_id?: string | undefined;
   userAddress?: string | undefined;
   user_id?: string | undefined;
   runId?: string | undefined;
@@ -52,7 +50,6 @@ export const MemoryAddRequest$outboundSchema: z.ZodMiniType<
   z.object({
     messages: z.array(z.record(z.string(), z.any())),
     agentWallet: z.optional(z.string()),
-    agentId: z.optional(z.string()),
     userAddress: z.optional(z.string()),
     userId: z.optional(z.string()),
     runId: z.optional(z.string()),
@@ -63,7 +60,7 @@ export const MemoryAddRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      agentId: "agent_id",
+      agentWallet: "agent_id",
       userId: "user_id",
     });
   }),

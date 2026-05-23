@@ -12,6 +12,7 @@ export type ActiveSessionMetadata = {
   hasSession: boolean;
   reason?: string | undefined;
   keyId?: string | undefined;
+  token?: string | undefined;
   /**
    * Non-negative integer amount in USDC atomic units.
    */
@@ -42,6 +43,7 @@ export const ActiveSessionMetadata$inboundSchema: z.ZodMiniType<
   hasSession: types.boolean(),
   reason: types.optional(types.string()),
   keyId: types.optional(types.string()),
+  token: types.optional(types.string()),
   budgetLimit: types.optional(types.string()),
   budgetUsed: types.optional(types.string()),
   budgetLocked: types.optional(types.string()),

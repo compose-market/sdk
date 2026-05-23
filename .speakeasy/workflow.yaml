@@ -1,16 +1,16 @@
 workflowVersion: 1.0.0
 speakeasyVersion: latest
 sources:
-    manowar:
-        inputs:
-            - location: ./specs/manowar.openapi.yaml
-        registry:
-            location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
     inference:
         inputs:
             - location: ./specs/inference.openapi.yaml
         registry:
             location: registry.speakeasyapi.dev/compose-market/compose-market/inference
+    manowar:
+        inputs:
+            - location: ./specs/manowar.openapi.yaml
+        registry:
+            location: registry.speakeasyapi.dev/compose-market/compose-market/manowar
     memory:
         inputs:
             - location: ./specs/memory.openapi.yaml
@@ -22,16 +22,6 @@ sources:
         registry:
             location: registry.speakeasyapi.dev/compose-market/compose-market/x-402
 targets:
-    manowar:
-        target: typescript
-        source: manowar
-        output: ./generated/manowar
-        codeSamples:
-            registry:
-                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
-            labelOverride:
-                fixedValue: Typescript (SDK)
-            blocking: false
     inference:
         target: typescript
         source: inference
@@ -39,6 +29,16 @@ targets:
         codeSamples:
             registry:
                 location: registry.speakeasyapi.dev/compose-market/compose-market/inference-typescript-code-samples
+            labelOverride:
+                fixedValue: Typescript (SDK)
+            blocking: false
+    manowar:
+        target: typescript
+        source: manowar
+        output: ./generated/manowar
+        codeSamples:
+            registry:
+                location: registry.speakeasyapi.dev/compose-market/compose-market/manowar-typescript-code-samples
             labelOverride:
                 fixedValue: Typescript (SDK)
             blocking: false

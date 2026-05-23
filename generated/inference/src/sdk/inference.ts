@@ -3,7 +3,6 @@
  */
 
 import { inferenceInferenceAudioSpeechCreate } from "../funcs/inference-inference-audio-speech-create.js";
-import { inferenceInferenceAudioTranscriptionsCreateMultipart } from "../funcs/inference-inference-audio-transcriptions-create-multipart.js";
 import { inferenceInferenceAudioTranscriptionsCreate } from "../funcs/inference-inference-audio-transcriptions-create.js";
 import { inferenceInferenceChatCompletionsCreate } from "../funcs/inference-inference-chat-completions-create.js";
 import { inferenceInferenceEmbeddingsCreate } from "../funcs/inference-inference-embeddings-create.js";
@@ -139,19 +138,6 @@ export class Inference extends ClientSDK {
     options?: RequestOptions,
   ): Promise<operations.InferenceAudioTranscriptionsCreateResponse> {
     return unwrapAsync(inferenceInferenceAudioTranscriptionsCreate(
-      this,
-      security,
-      request,
-      options,
-    ));
-  }
-
-  async inferenceAudioTranscriptionsCreateMultipart(
-    security: operations.InferenceAudioTranscriptionsCreateMultipartSecurity,
-    request: operations.InferenceAudioTranscriptionsCreateMultipartRequest,
-    options?: RequestOptions,
-  ): Promise<operations.InferenceAudioTranscriptionsCreateMultipartResponse> {
-    return unwrapAsync(inferenceInferenceAudioTranscriptionsCreateMultipart(
       this,
       security,
       request,

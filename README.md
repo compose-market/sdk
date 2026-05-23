@@ -1,6 +1,6 @@
 # `@compose-market/sdk`
 
-Official Compose.Market SDK: Compose Keys, x402 v2 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed cost receipts, and feedback/reputation for endpoints, payment flows, models, agents, and workflows.
+Official Compose.Market SDK: Compose Keys, x402 v2 facilitator, multi-provider model catalog, OpenAI-shaped streaming inference with typed cost receipts, and feedback/reputation for endpoints, payment flows, models, agents, and workflows.
 
 [![npm](https://img.shields.io/npm/v/@compose-market/sdk.svg)](https://www.npmjs.com/package/@compose-market/sdk)
 [![license](https://img.shields.io/npm/l/@compose-market/sdk.svg)](./LICENSE)
@@ -84,8 +84,9 @@ import { ComposeMarket as Agentic } from "@compose-market/sdk/manowar";
 - `@compose-market/sdk/x402/keys`, `@compose-market/sdk/x402/session`, `@compose-market/sdk/x402/payments`, and `@compose-market/sdk/x402/feedback` expose generated payment/session/feedback resources directly.
 - `@compose-market/sdk/inference` exposes generated contracts for model discovery, inference, and realtime inference streams.
 - `@compose-market/sdk/inference/modality` exposes the generated modality catalog resource directly.
-- `@compose-market/sdk/manowar` exposes generated contracts for agents, workflows, memory, workspace search, tools, MCP, and mesh execution.
-- `@compose-market/sdk/manowar/agent`, `@compose-market/sdk/manowar/workflow`, `@compose-market/sdk/manowar/memory`, and `@compose-market/sdk/manowar/tools` expose generated manowar resources directly.
+- `@compose-market/sdk/manowar` exposes generated contracts for agents, workflows, memory, workspace search, connectors, MCP, onchain, and mesh execution.
+- `@compose-market/sdk/manowar/agent`, `@compose-market/sdk/manowar/workflow`, `@compose-market/sdk/manowar/connectors`, `@compose-market/sdk/manowar/workspace`, and `@compose-market/sdk/manowar/mesh` expose generated manowar resources directly.
+- `@compose-market/sdk/memory` and `@compose-market/sdk/memory/framework` expose the generated memory contracts directly.
 - `@compose-market/sdk/inference/schemas`, `@compose-market/sdk/inference/operations`, `@compose-market/sdk/manowar/schemas`, and `@compose-market/sdk/manowar/operations` expose generated schema and operation types.
 
 The default `ComposeSDK` remains the higher-level orchestration surface: Compose Key first, raw x402 challenge/sign/retry fallback, typed receipts, streaming aggregation, storage, feedback, and event bus.
@@ -99,13 +100,14 @@ The default `ComposeSDK` remains the higher-level orchestration surface: Compose
 - `sdk.keys.revoke(keyId)` — revokes a key. Requires possession of that key's JWT.
 - `sdk.keys.use(token)` / `sdk.keys.currentToken()` / `sdk.keys.clearToken()` — in-memory token management.
 
-### 45k+ Model Catalog
+### Model Catalog
 
-- `sdk.models.list()` — curated ~612-model set, canonical Compose shape (`{ modelId, name, provider, type, contextWindow, pricing, input, output, ... }`).
-- `sdk.models.listAll()` — full ~45k catalog.
+- `sdk.models.list()` — curated, fast-loading model set, canonical Compose shape (`{ modelId, upstreamModelId?, name, provider, type, contextWindow, pricing, input, output, ... }`).
+- `sdk.models.listAll()` — full compiled catalog.
 - `sdk.models.search({ q, modality, operation, provider, priceMaxPerMTok, contextWindowMin, streaming, cursor, limit })` — cursor-paginated search.
 - `sdk.models.get(modelId)` — single model details.
 - `sdk.models.getParams(modelId)` — optional per-model parameters for image/video generation.
+- `sdk.models.pricing()` — priced model table from `/api/pricing` for calculators and quote previews.
 - `sdk.models.modalities.list()` — canonical modality catalog derived from `models.json` / the registry source of truth.
 - `sdk.models.modalities.get(modality)` — one modality with operations and pricing unit metadata.
 - `sdk.models.modalities.operations(modality)` — operation catalog for a modality.
@@ -128,6 +130,10 @@ Every billable call resolves to `{ data, receipt, requestId, response }`. The re
 - `sdk.x402.facilitator.supported()` — enumerate schemes + CAIP-2 networks the facilitator is configured for.
 - `sdk.x402.facilitator.chains()` — full chain metadata (USDC contract, explorer, testnet flag).
 - `sdk.x402.facilitator.verify(body)` / `.settle(body)` — direct facilitator access.
+- `sdk.x402.payments.prepare({ service, action, resource, method, maxAmountWei | meter, ... })` — authorize a reusable Compose Key payment intent.
+- `sdk.x402.payments.settle({ paymentIntentId, finalAmountWei | meter })` — settle a prepared intent with the final server-side amount.
+- `sdk.x402.payments.abort({ paymentIntentId, reason })` — release a prepared intent that will not be settled.
+- `sdk.x402.payments.meterModel({ modelId, provider?, modality, usage?, media? })` — ask the API to produce the authoritative model-meter quote from catalog pricing and telemetry evidence.
 - `sdk.x402.decodePaymentRequired(headerValue)` / `.decodePaymentResponse(headerValue)` / `.decodeReceipt(headerValue)` — typed base64-url decoders for the three x402 v2 headers.
 - `sdk.x402.encodePaymentSignature(value)` / `encodePaymentSignature(value)` — encode a signed x402 `PaymentPayload` for `PAYMENT-SIGNATURE`.
 
@@ -136,11 +142,48 @@ Every billable call resolves to `{ data, receipt, requestId, response }`. The re
 Feedback is a side channel. It records reports against stable IDs without blocking inference, settlement, or runtime streams.
 
 - `sdk.feedback.submit({ target, rating, message, category, context })` — submit feedback for `endpoint`, `x402`, `model`, `agent`, or `workflow`.
-- `sdk.feedback.model(modelId, input)`, `.agent(agentId, input)`, `.workflow(workflowId, input)`, `.x402(targetId, input)`, `.endpoint(targetId, input)` — target-specific helpers.
+- `sdk.feedback.model(modelId, input)`, `.agent(agentWallet, input)`, `.workflow(workflowId, input)`, `.x402(targetId, input)`, `.endpoint(targetId, input)` — target-specific helpers.
 - `sdk.feedback.summary({ type, id })` — reputation summary with rating distribution and verification counts.
 - `sdk.feedback.list({ type, id })` — recent public feedback records.
 
 When a Compose Key is present, feedback is submitted as `compose_key` verified. Without a key, the SDK forwards attached wallet headers when available; otherwise feedback is anonymous. Feedback context can carry `requestId`, `paymentIntentId`, `composeRunId`, `modelId`, `provider`, receipt tx hash, and SDK version. Prompts and responses are never required.
+
+### Public Directory
+
+- `sdk.directory.agents.list()` — public Compose agents.
+- `sdk.directory.agents.search(query, { limit? })` — public agent search.
+- `sdk.directory.agents.get(walletAddress)` — one public agent card.
+- `sdk.directory.agents.agentverse({ search?, category?, tags?, limit?, offset?, sort?, direction? })` — Fetch.ai Agentverse bridge exposed by the API gateway.
+- `sdk.directory.workflows.list()` — public Compose workflows.
+- `sdk.directory.workflows.get(walletAddress)` — one public workflow card.
+
+### System
+
+- `sdk.system.health()` — API health response from `/health`.
+- `sdk.system.frameworks()` — runtime framework catalog from `/frameworks`.
+
+### Local Control Plane
+
+- `sdk.local.link.create({ userAddress?, chainId?, agentWallet?, agentCardCid?, deviceId? })` — create a Manowar local-link token for web-to-local handoff.
+- `sdk.local.link.redeem({ token, deviceId, connectedUserAddress? })` — redeem a local-link token and receive the API-provided local context.
+- `sdk.local.deployments.register({ agentWallet, composeKeyId, agentCardCid, localVersion, deployedAt, ... })` — register a local deployment against the active Compose Key.
+- `sdk.local.network.upsert({ peers, ... })` / `.peers({ ... })` — update and read local peer summaries.
+- `sdk.local.synapse.session({ agentWallet, deviceId, sessionKeyAddress, sessionKeyExpiresAt, depositAmount? })` — provision a Synapse session-key control-plane session.
+- `sdk.local.filecoin.session({ agentWallet, deviceId, sessionKeyAddress, sessionKeyExpiresAt, fileSizeBytes, copies? })` — provision Filecoin Pin storage context for local learning data.
+
+### Backpack
+
+- `sdk.backpack.permissions.list()` / `.grant({ consentType, ... })` / `.revoke({ consentType, ... })` — user permission storage.
+- `sdk.backpack.connect({ toolkit })`, `.connections()`, `.status(toolkit)`, `.disconnect({ toolkit })` — Composio connection lifecycle.
+- `sdk.backpack.execute({ toolkit, action, params?, text? })` — execute a connected toolkit action through the API.
+- `sdk.backpack.toolkits.list({ search?, limit? })` / `.actions(toolkit, { limit? })` — discover available toolkits and actions.
+- `sdk.backpack.telegram.link()` / `.status()` — Telegram channel binding helpers. The server webhook route is intentionally not exposed as a client helper.
+
+### Dispenser And Settlement
+
+- `sdk.dispenser.claim({ address?, chainId? })` — claim starter USDC through the API dispenser route.
+- `sdk.dispenser.status()` / `.status(chainId)` / `.check({ address? })` — inspect dispenser availability and claim status.
+- `sdk.settlement.status({ userAddress?, chainId? })` — read the active session settlement/budget status for a wallet.
 
 ### Webhooks
 
@@ -224,6 +267,7 @@ Solana support ships in v1.1. Enumerate live chains with `sdk.x402.facilitator.c
 - Not a wallet. The SDK never prompts for a signature, never creates a smart account, never runs KYC. Identity is whatever you already have.
 - Not a retry-forever loop on payment-required errors. With an x402 signer, the SDK performs one challenge/sign/retry cycle; otherwise 402 responses are surfaced as typed errors.
 - Not a Thirdweb/Privy/Clerk/Auth0 adapter. It's transport-agnostic on purpose — integrators bring whatever identity stack they already use.
+- Not an OpenAI compatibility shim. The SDK targets Compose's native `/v1/*`, x402, feedback, memory, and runtime contracts; `/external/*` compatibility routes are intentionally not part of this package.
 
 Not bundled:
 - No wallet client, no identity provider, no auth SDK. Bring the wallet address your stack produced and keep the rest of your infrastructure unchanged.

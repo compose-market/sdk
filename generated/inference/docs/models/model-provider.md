@@ -13,5 +13,5 @@ let value: ModelProvider = "roboflow";
 ## Values
 
 ```typescript
-"gemini" | "openai" | "fireworks" | "asicloud" | "hugging face" | "aiml" | "vertex" | "cloudflare" | "deepgram" | "elevenlabs" | "cartesia" | "roboflow" | Unrecognized<string>
+"gemini" | "openai" | "fireworks" | "asicloud" | "alibaba" | "hugging face" | "azure" | "aiml" | "vertex" | "cloudflare" | "deepgram" | "elevenlabs" | "cartesia" | "roboflow" | Unrecognized<string>
 ```

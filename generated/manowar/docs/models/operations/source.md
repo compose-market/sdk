@@ -5,11 +5,11 @@
 ```typescript
 import { Source } from "@compose-market/sdk/models/operations";
 
-let value: Source = "goat";
+let value: Source = "onchain";
 ```
 
 ## Values
 
 ```typescript
-"goat" | "mcp"
+"onchain" | "mcp"
 ```

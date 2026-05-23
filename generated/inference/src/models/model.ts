@@ -19,6 +19,7 @@ export type ModelCreatedAt = string | number;
 
 export type Model = {
   modelId: string;
+  upstreamModelId?: string | undefined;
   name?: string | null | undefined;
   provider: ModelProvider;
   type?: string | Array<string> | null | undefined;
@@ -28,7 +29,10 @@ export type Model = {
   contextWindow?: any | undefined;
   pricing?: any | undefined;
   maxOutputTokens?: number | undefined;
-  capabilities?: Array<string> | undefined;
+  capabilities?: any | undefined;
+  modelType?: any | undefined;
+  sourceMetadata?: any | undefined;
+  params?: any | undefined;
   ownedBy?: string | undefined;
   createdAt?: string | number | undefined;
   available?: boolean | undefined;
@@ -70,6 +74,7 @@ export function modelCreatedAtFromJSON(
 /** @internal */
 export const Model$inboundSchema: z.ZodMiniType<Model, unknown> = z.object({
   modelId: types.string(),
+  upstreamModelId: types.optional(types.string()),
   name: z.optional(z.nullable(types.string())),
   provider: ModelProvider$inboundSchema,
   type: z.optional(
@@ -81,7 +86,10 @@ export const Model$inboundSchema: z.ZodMiniType<Model, unknown> = z.object({
   contextWindow: types.optional(z.any()),
   pricing: types.optional(z.any()),
   maxOutputTokens: types.optional(types.number()),
-  capabilities: types.optional(z.array(types.string())),
+  capabilities: types.optional(z.any()),
+  modelType: types.optional(z.any()),
+  sourceMetadata: types.optional(z.any()),
+  params: types.optional(z.any()),
   ownedBy: types.optional(types.string()),
   createdAt: types.optional(smartUnion([types.string(), types.number()])),
   available: types.optional(types.boolean()),

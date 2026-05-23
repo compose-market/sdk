@@ -10,6 +10,7 @@ import type {
     EmbeddingsCreateParams,
     EmbeddingsResponse,
     ImagesGenerateParams,
+    ImagesEditParams,
     ImagesResponse,
     ComposePaymentMode,
     ResponseObject,
@@ -320,6 +321,47 @@ function emitStreamingEvents(
 // (budget.ts is a pure leaf, so we just import it directly).
 import * as budgetExtractor from "../streaming/budget.js";
 
+function bytesToBase64(bytes: Uint8Array): string {
+    if (typeof Buffer !== "undefined") {
+        return Buffer.from(bytes).toString("base64");
+    }
+
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        const chunk = bytes.subarray(offset, offset + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+    return globalThis.btoa(binary);
+}
+
+function isByteArray(value: unknown): value is Uint8Array {
+    return value instanceof Uint8Array
+        || Boolean(
+            value
+            && typeof value === "object"
+            && "byteLength" in value
+            && "buffer" in value
+            && typeof (value as { byteLength?: unknown }).byteLength === "number",
+        );
+}
+
+async function encodeAudioFile(value: AudioTranscriptionCreateParams["file"]): Promise<string> {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (typeof Blob !== "undefined" && value instanceof Blob) {
+        return bytesToBase64(new Uint8Array(await value.arrayBuffer()));
+    }
+
+    if (isByteArray(value)) {
+        return bytesToBase64(value);
+    }
+
+    throw new BadRequestError({ message: "audio transcriptions: unsupported file type" });
+}
+
 /**
  * Async iterable returned by `inference.chat.completions.stream(...)` and
  * `inference.responses.stream(...)`. Exposes `.final()` for consumers that
@@ -589,6 +631,17 @@ function buildChatCompletionAggregator(modelHint: string) {
             return Array.from(toolCalls.values());
         },
         finalize(): ChatCompletion {
+            const message: ChatCompletion["choices"][number]["message"] = {
+                role: role ?? "assistant",
+                content,
+            };
+            if (toolCalls.size > 0) {
+                message.tool_calls = Array.from(toolCalls.values());
+            }
+            if (reasoningContent.length > 0) {
+                message.reasoning_content = reasoningContent;
+            }
+
             return {
                 id,
                 object: "chat.completion",
@@ -597,12 +650,7 @@ function buildChatCompletionAggregator(modelHint: string) {
                 choices: [
                     {
                         index: 0,
-                        message: {
-                            role: role ?? "assistant",
-                            content,
-                            ...(toolCalls.size > 0 ? { tool_calls: Array.from(toolCalls.values()) } : {}),
-                            ...(reasoningContent.length > 0 ? { reasoning_content: reasoningContent } as unknown as { role: "assistant"; content: string | null } : {}),
-                        } as ChatCompletion["choices"][number]["message"],
+                        message,
                         finish_reason: finishReason,
                     },
                 ],
@@ -894,7 +942,7 @@ class ImagesNamespace {
         return toComposeCompletion(this.ctx, response, data);
     }
 
-    async edit(params: ImagesGenerateParams & { image?: string }, options?: ComposeCallOptions): Promise<ComposeCompletion<ImagesResponse>> {
+    async edit(params: ImagesEditParams, options?: ComposeCallOptions): Promise<ComposeCompletion<ImagesResponse>> {
         const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/images/edits",
@@ -951,53 +999,20 @@ class AudioNamespace {
     }
 
     /**
-     * Speech-to-text. Supports both multipart/form-data (preferred, OpenAI-
-     * compatible) when `file` is a `Blob`/`File`/`Uint8Array`, and base64-in-
-     * JSON (Compose legacy) when `file` is a string.
+     * Speech-to-text. The native API accepts JSON with `file` as base64 audio.
+     * Blob, File, and Uint8Array inputs are converted locally before sending.
      */
     async transcriptions(params: AudioTranscriptionCreateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<AudioTranscriptionResponse>> {
-        const useMultipart = typeof File !== "undefined" && params.file instanceof File
-            || typeof Blob !== "undefined" && params.file instanceof Blob
-            || (params.file && typeof params.file === "object" && "byteLength" in (params.file as object));
-
-        if (useMultipart) {
-            const form = new FormData();
-            form.append("model", params.model);
-            const { file, filename, model: _model, ...rest } = params;
-            void _model;
-            const name = filename ?? "audio";
-            let blob: Blob;
-            if (typeof File !== "undefined" && file instanceof File) blob = file;
-            else if (typeof Blob !== "undefined" && file instanceof Blob) blob = file;
-            else if ((file as Uint8Array).byteLength !== undefined) {
-                const bytes = file as Uint8Array;
-                const copy = new Uint8Array(new ArrayBuffer(bytes.byteLength));
-                copy.set(bytes);
-                blob = new Blob([copy.buffer]);
-            }
-            else throw new BadRequestError({ message: "audio transcriptions: unsupported file type" });
-            form.append("file", blob, name);
-            for (const [key, value] of Object.entries(rest)) {
-                if (value === undefined) continue;
-                form.append(key, typeof value === "string" ? value : JSON.stringify(value));
-            }
-
-            const { data, response } = await requestJsonWithPayment<AudioTranscriptionResponse>(this.client, this.ctx, {
-                method: "POST",
-                path: "/v1/audio/transcriptions",
-                rawBody: form,
-                bodyType: "form-data",
-                headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
-                signal: options?.signal,
-                timeoutMs: options?.timeoutMs,
-            }, options);
-            return toComposeCompletion(this.ctx, response, data);
-        }
+        const { file, ...rest } = params;
+        const body = {
+            ...rest,
+            file: await encodeAudioFile(file),
+        };
 
         const { data, response } = await requestJsonWithPayment<AudioTranscriptionResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/audio/transcriptions",
-            body: params,
+            body,
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,

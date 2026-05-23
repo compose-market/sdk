@@ -3,17 +3,24 @@
  */
 
 import * as z from "zod/v4-mini";
+import {
+  MeteredInput,
+  MeteredInput$Outbound,
+  MeteredInput$outboundSchema,
+} from "./metered-input.js";
 
 export type PaymentPrepareRequest = {
   service: string;
   action: string;
   resource: string;
-  method?: string | undefined;
+  method: string;
   /**
    * Non-negative integer amount in USDC atomic units.
    */
-  maxAmountWei: string;
-  metering?: { [k: string]: any } | undefined;
+  maxAmountWei?: string | undefined;
+  meter?: MeteredInput | undefined;
+  composeRunId?: string | undefined;
+  idempotencyKey?: string | undefined;
 };
 
 /** @internal */
@@ -21,9 +28,11 @@ export type PaymentPrepareRequest$Outbound = {
   service: string;
   action: string;
   resource: string;
-  method?: string | undefined;
-  maxAmountWei: string;
-  metering?: { [k: string]: any } | undefined;
+  method: string;
+  maxAmountWei?: string | undefined;
+  meter?: MeteredInput$Outbound | undefined;
+  composeRunId?: string | undefined;
+  idempotencyKey?: string | undefined;
 };
 
 /** @internal */
@@ -34,9 +43,11 @@ export const PaymentPrepareRequest$outboundSchema: z.ZodMiniType<
   service: z.string(),
   action: z.string(),
   resource: z.string(),
-  method: z.optional(z.string()),
-  maxAmountWei: z.string(),
-  metering: z.optional(z.record(z.string(), z.any())),
+  method: z.string(),
+  maxAmountWei: z.optional(z.string()),
+  meter: z.optional(MeteredInput$outboundSchema),
+  composeRunId: z.optional(z.string()),
+  idempotencyKey: z.optional(z.string()),
 });
 
 export function paymentPrepareRequestToJSON(

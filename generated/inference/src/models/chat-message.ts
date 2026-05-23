@@ -9,6 +9,7 @@ import { smartUnion } from "../types/smart-union.js";
 
 export const Role = {
   System: "system",
+  Developer: "developer",
   User: "user",
   Assistant: "assistant",
   Tool: "tool",

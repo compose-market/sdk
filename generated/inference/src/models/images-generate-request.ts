@@ -3,6 +3,7 @@
  */
 
 import * as z from "zod/v4-mini";
+import { remap as remap$ } from "../lib/primitives.js";
 import {
   ComposeAttachmentInput,
   ComposeAttachmentInput$Outbound,
@@ -21,6 +22,9 @@ export type ImagesGenerateRequest = {
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
+  responseFormat?: string | undefined;
+  style?: string | undefined;
+  user?: string | undefined;
   provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -34,6 +38,9 @@ export type ImagesGenerateRequest$Outbound = {
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
+  response_format?: string | undefined;
+  style?: string | undefined;
+  user?: string | undefined;
   provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -42,18 +49,30 @@ export type ImagesGenerateRequest$Outbound = {
 export const ImagesGenerateRequest$outboundSchema: z.ZodMiniType<
   ImagesGenerateRequest$Outbound,
   ImagesGenerateRequest
-> = z.catchall(
-  z.object({
-    model: z.string(),
-    prompt: z.string(),
-    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-    n: z.optional(z.int()),
-    size: z.optional(z.string()),
-    quality: z.optional(z.string()),
-    provider: z.optional(ModelProvider$outboundSchema),
+> = z.pipe(
+  z.catchall(
+    z.object({
+      model: z.string(),
+      prompt: z.string(),
+      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      n: z.optional(z.int()),
+      size: z.optional(z.string()),
+      quality: z.optional(z.string()),
+      responseFormat: z.optional(z.string()),
+      style: z.optional(z.string()),
+      user: z.optional(z.string()),
+      provider: z.optional(ModelProvider$outboundSchema),
+    }),
+    z.any(),
+  ),
+  z.transform((v) => {
+    return {
+      ...remap$(v, {
+        responseFormat: "response_format",
+      }),
+    };
   }),
-  z.any(),
 );
 
 export function imagesGenerateRequestToJSON(

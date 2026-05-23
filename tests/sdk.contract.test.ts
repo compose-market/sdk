@@ -14,7 +14,7 @@
 
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
@@ -32,6 +32,7 @@ import {
     NotFoundError,
     PermissionDeniedError,
     RateLimitError,
+    type ModelProvider,
 } from "../src/index.ts";
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,20 @@ function sendJson(res: ServerResponse, status: number, body: unknown, headers: R
 const WALLET = "0x0000000000000000000000000000000000000001";
 const SDK_PACKAGE_ROOT = new URL("../", import.meta.url);
 
+async function files(root: URL): Promise<URL[]> {
+    const out: URL[] = [];
+    for (const entry of await readdir(root, { withFileTypes: true })) {
+        if (entry.name === "node_modules" || entry.name === "dist" || entry.name === ".git") continue;
+        const child = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, root);
+        if (entry.isDirectory()) {
+            out.push(...await files(child));
+        } else if (/\.(?:ts|js|json|ya?ml|md)$/.test(entry.name)) {
+            out.push(child);
+        }
+    }
+    return out;
+}
+
 // ---------------------------------------------------------------------------
 // Package export surface
 // ---------------------------------------------------------------------------
@@ -138,6 +153,47 @@ test("package exports expose generated SDK schemas and operations", async () => 
             );
         }
     }
+});
+
+test("package source excludes compatibility routes and unstable analytics resources", async () => {
+    const roots = ["src/", "specs/", "generated/", "tests/"].map((path) => new URL(path, SDK_PACKAGE_ROOT));
+    const deny = [
+        new RegExp("/ex" + "ternal"),
+        new RegExp("ex" + "ternal\\.ts"),
+        new RegExp("register" + "External"),
+        new RegExp("\\b[Mm]" + "etrics?\\b"),
+        new RegExp("/api/" + "met" + "rics"),
+        new RegExp("/api/generate-" + "avatar"),
+        new RegExp("/api/generate-" + "banner"),
+        new RegExp("inference\\." + "plan"),
+        new RegExp("inference\\." + "run"),
+    ];
+
+    for (const root of roots) {
+        for (const file of await files(root)) {
+            const text = await readFile(file, "utf-8");
+            const relative = fileURLToPath(file).replace(fileURLToPath(SDK_PACKAGE_ROOT), "");
+            for (const pattern of deny) {
+                assert.equal(pattern.test(text), false, `${relative} contains ${pattern}`);
+            }
+        }
+    }
+});
+
+test("handwritten SDK exposes explicit inference endpoints without planner or internal services", () => {
+    const sdk = new ComposeSDK({ baseUrl: "https://api.example.test" });
+
+    assert.equal(typeof sdk.inference.chat.completions.create, "function");
+    assert.equal(typeof sdk.inference.responses.create, "function");
+    assert.equal(typeof sdk.inference.embeddings.create, "function");
+    assert.equal(typeof sdk.inference.images.generate, "function");
+    assert.equal(typeof sdk.inference.audio.speech, "function");
+    assert.equal(typeof sdk.inference.audio.transcriptions, "function");
+    assert.equal(typeof sdk.inference.videos.generate, "function");
+    assert.equal("plan" in sdk.inference, false);
+    assert.equal("run" in sdk.inference, false);
+    assert.equal("avatar" in sdk.system, false);
+    assert.equal("banner" in sdk.system, false);
 });
 
 // ---------------------------------------------------------------------------
@@ -719,6 +775,64 @@ test("models.list sends GET /v1/models and parses the canonical Compose model ca
     }
 });
 
+test("models expose native provider coverage and rich catalog metadata", async () => {
+    const providers: ModelProvider[] = ["azure", "openai", "alibaba"];
+    assert.deepEqual(providers, ["azure", "openai", "alibaba"]);
+
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "GET");
+        assert.equal(req.path, "/v1/models");
+        sendJson(res, 200, {
+            object: "list",
+            data: [
+                {
+                    modelId: "gpt-5.5",
+                    name: "GPT 5.5",
+                    provider: "azure",
+                    type: "chat-completions",
+                    description: null,
+                    input: ["text", "image"],
+                    output: ["text"],
+                    contextWindow: { inputTokens: 272000, outputTokens: 32768 },
+                    pricing: { sections: [] },
+                    capabilities: { tools: true, reasoning: true },
+                    modelType: { upstream: "chat" },
+                    sourceMetadata: { catalog: "azure" },
+                    params: { reasoning_effort: { type: "string" } },
+                    availableFrom: ["azure"],
+                },
+                {
+                    modelId: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+                    name: "Llama 3.3 70B Instruct FP8 Fast",
+                    provider: "cloudflare",
+                    type: "chat-completions",
+                    description: null,
+                    input: ["text"],
+                    output: ["text"],
+                    contextWindow: { inputTokens: 128000, outputTokens: 32768 },
+                    pricing: { sections: [] },
+                    capabilities: { tools: true },
+                    availableFrom: ["cloudflare"],
+                },
+            ],
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const result = await sdk.models.list();
+        assert.equal(result.data[0].modelId, "gpt-5.5");
+        assert.equal(result.data[0].provider, "azure");
+        assert.deepEqual(result.data[0].capabilities, { tools: true, reasoning: true });
+        assert.deepEqual(result.data[0].modelType, { upstream: "chat" });
+        assert.deepEqual(result.data[0].sourceMetadata, { catalog: "azure" });
+        assert.deepEqual(result.data[0].params, { reasoning_effort: { type: "string" } });
+        assert.equal(result.data[1].modelId, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+        assert.equal(result.data[1].provider, "cloudflare");
+    } finally {
+        await server.close();
+    }
+});
+
 test("models.search POSTs the filter body and forwards cursor pagination", async () => {
     const server = await startMockServer((req, res) => {
         assert.equal(req.method, "POST");
@@ -867,6 +981,43 @@ test("models.modalities exposes canonical modality and operation routes", async 
     }
 });
 
+test("models.pricing reads the API pricing table without catalog heuristics", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "GET");
+        assert.equal(req.path, "/api/pricing");
+        sendJson(res, 200, {
+            models: [
+                {
+                    modelId: "gpt-4.1-mini",
+                    provider: "openai",
+                    pricing: {
+                        text: {
+                            input_tokens: 0.4,
+                            output_tokens: 1.6,
+                        },
+                    },
+                },
+            ],
+            version: "2.0",
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const pricing = await sdk.models.pricing();
+        assert.equal(pricing.version, "2.0");
+        assert.equal(pricing.models[0].modelId, "gpt-4.1-mini");
+        assert.equal(pricing.models[0].provider, "openai");
+        assert.deepEqual(pricing.models[0].pricing, {
+            text: {
+                input_tokens: 0.4,
+                output_tokens: 1.6,
+            },
+        });
+    } finally {
+        await server.close();
+    }
+});
+
 test("APIPromise withResponse and await share one HTTP execution", async () => {
     const server = await startMockServer((_req, res) => {
         sendJson(res, 200, { object: "list", data: [] });
@@ -906,6 +1057,33 @@ test("models.get URL-encodes the model id and returns the canonical flat card", 
         assert.equal(model.modelId, "meta-llama/Llama-3.1-8B-Instruct");
         assert.equal(model.provider, "hugging face");
         assert.equal(model.type, "chat-completions");
+    } finally {
+        await server.close();
+    }
+});
+
+test("models.get encodes native URL-like model IDs", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "GET");
+        assert.equal(req.path, "/v1/models/roboflow%2Fhttps%3A%2F%2Fserverless.roboflow.com");
+        sendJson(res, 200, {
+            modelId: "roboflow/https://serverless.roboflow.com",
+            name: "Roboflow Serverless",
+            provider: "roboflow",
+            type: "image-object-detection",
+            description: null,
+            input: ["image"],
+            output: ["detections"],
+            contextWindow: null,
+            pricing: null,
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const model = await sdk.models.get("roboflow/https://serverless.roboflow.com");
+        assert.equal(model.modelId, "roboflow/https://serverless.roboflow.com");
+        assert.equal(model.provider, "roboflow");
+        assert.equal(model.type, "image-object-detection");
     } finally {
         await server.close();
     }
@@ -984,20 +1162,20 @@ test("keys.create surfaces insufficient_balance 402 as ComposePaymentRequiredErr
     }
 });
 
-test("keys.getActive sends GET /api/session and does NOT expect a token in the body", async () => {
+test("keys.getActive sends GET /api/session and persists the returned session token", async () => {
     const server = await startMockServer((req, res) => {
         assert.equal(req.method, "GET");
         assert.equal(req.path, "/api/session");
         sendJson(res, 200, {
             hasSession: true,
             keyId: "key_abc",
+            token: "compose-session-jwt",
             budgetLimit: "10000000",
             budgetUsed: "250000",
             budgetLocked: "0",
             budgetRemaining: "9750000",
             expiresAt: Date.now() + 3600_000,
             chainId: 43114,
-            // deliberately no `token` — Phase 0.6 server contract
         });
     });
     try {
@@ -1005,8 +1183,8 @@ test("keys.getActive sends GET /api/session and does NOT expect a token in the b
         const status = await sdk.keys.getActive();
         assert.equal(status.hasSession, true);
         assert.equal(status.keyId, "key_abc");
-        // The SDK's typed ActiveSessionMetadata does not include `token`.
-        assert.equal((status as Record<string, unknown>).token, undefined);
+        assert.equal(status.token, "compose-session-jwt");
+        assert.equal(sdk.keys.currentToken(), "compose-session-jwt");
     } finally {
         await server.close();
     }
@@ -1041,6 +1219,608 @@ test("keys.revoke sends DELETE /api/keys/:id with the caller's JWT and leaves th
         // revoking an API key while still holding a valid session token, or
         // vice versa. If they want to clear it, they must call keys.clearToken().
         assert.equal(sdk.keys.currentToken(), "compose-jwt-abc");
+    } finally {
+        await server.close();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Public directory
+// ---------------------------------------------------------------------------
+
+test("directory wraps public agent, workflow, and Agentverse routes", async () => {
+    const agent = {
+        schemaVersion: "1.0",
+        name: "Research Agent",
+        description: "Finds useful things.",
+        skills: ["research"],
+        x402Support: true,
+        dnaHash: "hash_agent",
+        walletAddress: WALLET,
+        chain: 43113,
+        model: "gpt-4.1-mini",
+        licensePrice: "0",
+        licenses: 0,
+        cloneable: true,
+        protocols: [{ name: "x402", version: "2" }],
+        createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const workflow = {
+        schemaVersion: "1.0",
+        title: "Research Workflow",
+        description: "Coordinates research.",
+        dnaHash: "hash_workflow",
+        walletAddress: WALLET,
+        walletTimestamp: 1,
+        agents: [agent],
+        pricing: { totalAgentPrice: "0" },
+        creator: WALLET,
+        createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/agents") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { agents: [agent], total: 1 });
+            return;
+        }
+
+        if (req.path === "/agents/search") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("q"), "research");
+            assert.equal(req.query.get("limit"), "3");
+            sendJson(res, 200, { agents: [{ ...agent, score: 0.92 }], total: 1 });
+            return;
+        }
+
+        if (req.path === `/agent/${WALLET}`) {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, agent);
+            return;
+        }
+
+        if (req.path === "/workflows") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { workflows: [workflow], total: 1 });
+            return;
+        }
+
+        if (req.path === `/workflow/${WALLET}`) {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, workflow);
+            return;
+        }
+
+        assert.equal(req.path, "/api/agentverse/agents");
+        assert.equal(req.method, "GET");
+        assert.equal(req.query.get("search"), "compose");
+        assert.equal(req.query.get("tags"), "x402,agent");
+        assert.equal(req.query.get("limit"), "10");
+        sendJson(res, 200, { agents: [{ name: "agentverse" }], total: 1 });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+
+        const agents = await sdk.directory.agents.list();
+        assert.equal(agents.total, 1);
+        assert.equal(agents.agents[0].name, "Research Agent");
+
+        const found = await sdk.directory.agents.search("research", { limit: 3 });
+        assert.equal(found.agents[0].score, 0.92);
+
+        const one = await sdk.directory.agents.get(WALLET);
+        assert.equal(one.walletAddress, WALLET);
+
+        const workflows = await sdk.directory.workflows.list();
+        assert.equal(workflows.total, 1);
+        assert.equal(workflows.workflows[0].title, "Research Workflow");
+
+        const workflowByWallet = await sdk.directory.workflows.get(WALLET);
+        assert.equal(workflowByWallet.walletAddress, WALLET);
+
+        const agentverse = await sdk.directory.agents.agentverse({
+            search: "compose",
+            tags: ["x402", "agent"],
+            limit: 10,
+        });
+        assert.deepEqual(agentverse, { agents: [{ name: "agentverse" }], total: 1 });
+    } finally {
+        await server.close();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Native API utility surfaces
+// ---------------------------------------------------------------------------
+
+test("system wraps health and framework discovery routes", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/health") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { status: "ok", timestamp: "2026-05-21T00:00:00.000Z" });
+            return;
+        }
+
+        assert.equal(req.path, "/frameworks");
+        assert.equal(req.method, "GET");
+        sendJson(res, 200, { frameworks: [{ id: "manowar", name: "ManoWar" }] });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const health = await sdk.system.health();
+        assert.equal(health.status, "ok");
+        const frameworks = await sdk.system.frameworks();
+        assert.equal(frameworks.frameworks[0].id, "manowar");
+    } finally {
+        await server.close();
+    }
+});
+
+test("local wraps link, deployment, peer, and storage-control routes", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/api/local/link-token") {
+            assert.equal(req.method, "POST");
+            assert.equal(req.headers.authorization, "Bearer compose-local");
+            assert.equal(req.headers["x-session-user-address"], WALLET);
+            assert.equal(req.headers["x-chain-id"], "43113");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.chainId, 43113);
+            assert.equal(body.agentWallet, "0x00000000000000000000000000000000000000a1");
+            assert.equal(body.deviceId, "device-local-1");
+            sendJson(res, 201, {
+                success: true,
+                token: "local-token",
+                mode: "local-first",
+                expiresAt: 1_800_000_000_000,
+                deepLinkUrl: "manowar://open?token=local-token",
+                hasSession: true,
+            });
+            return;
+        }
+
+        if (req.path === "/api/local/link-token/redeem") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.deepEqual(body, {
+                token: "local-token",
+                deviceId: "device-local-1",
+                connectedUserAddress: WALLET,
+            });
+            sendJson(res, 200, {
+                success: true,
+                context: {
+                    agentWallet: "0x00000000000000000000000000000000000000a1",
+                    userAddress: WALLET,
+                    chainId: 43113,
+                    composeKey: { keyId: "key_1", token: "compose-local", expiresAt: 1_800_000_000_000 },
+                    session: { sessionId: "key_1", budget: "1000000", duration: 60000, expiresAt: 1_800_000_000_000 },
+                    market: { entry: "local", agentWallet: "0x00000000000000000000000000000000000000a1", agentCardCid: "bafytest" },
+                    deviceId: "device-local-1",
+                    hasSession: true,
+                    linkMode: "local-first",
+                },
+            });
+            return;
+        }
+
+        if (req.path === "/api/local/deployments/register") {
+            assert.equal(req.method, "POST");
+            assert.equal(req.headers.authorization, "Bearer compose-local");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.composeKeyId, "key_1");
+            sendJson(res, 201, {
+                success: true,
+                idempotent: false,
+                deployment: {
+                    version: 1,
+                    deploymentId: "dep_1",
+                    agentWallet: body.agentWallet,
+                    userAddress: body.userAddress,
+                    composeKeyId: body.composeKeyId,
+                    agentCardCid: body.agentCardCid,
+                    localVersion: body.localVersion,
+                    deployedAt: body.deployedAt,
+                    chainId: body.chainId,
+                    registeredAt: 1,
+                    updatedAt: 1,
+                },
+            });
+            return;
+        }
+
+        if (req.path === "/api/local/network/peers/upsert") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.peers[0].peerId, "peer-1");
+            sendJson(res, 200, { success: true, upserted: 1, chainId: 43113 });
+            return;
+        }
+
+        if (req.path === "/api/local/network/peers") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("userAddress"), WALLET);
+            assert.equal(req.query.get("chainId"), "43113");
+            sendJson(res, 200, {
+                success: true,
+                chainId: 43113,
+                userAddress: WALLET,
+                peers: [{ peerId: "peer-1", lastSeenAt: 1, stale: false, caps: ["chat"], listenMultiaddrs: [] }],
+            });
+            return;
+        }
+
+        if (req.path === "/api/local/synapse/session") {
+            assert.equal(req.method, "POST");
+            assert.equal(req.headers.authorization, "Bearer compose-local");
+            const body = JSON.parse(req.body);
+            assert.equal(body.sessionKeyAddress, "0x00000000000000000000000000000000000000b1");
+            sendJson(res, 200, {
+                success: true,
+                agentWallet: body.agentWallet,
+                deviceId: body.deviceId,
+                payerAddress: "0x00000000000000000000000000000000000000c1",
+                sessionKeyAddress: body.sessionKeyAddress,
+                sessionKeyExpiresAt: body.sessionKeyExpiresAt,
+                availableFunds: "1000",
+                depositAmount: "0",
+                depositExecuted: false,
+                network: "calibration",
+                source: "compose",
+            });
+            return;
+        }
+
+        assert.equal(req.path, "/api/local/filecoin-pin/session");
+        assert.equal(req.method, "POST");
+        const body = JSON.parse(req.body);
+        assert.equal(body.fileSizeBytes, 1234);
+        sendJson(res, 200, {
+            success: true,
+            agentWallet: body.agentWallet,
+            deviceId: body.deviceId,
+            payerAddress: "0x00000000000000000000000000000000000000c1",
+            sessionKeyAddress: body.sessionKeyAddress,
+            sessionKeyExpiresAt: body.sessionKeyExpiresAt,
+            availableFunds: "1000",
+            depositAmount: "0",
+            depositExecuted: false,
+            network: "calibration",
+            source: "compose",
+            fileSizeBytes: body.fileSizeBytes,
+            providerIds: ["101"],
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-local",
+        });
+
+        const linked = await sdk.local.link.create({
+            agentWallet: "0x00000000000000000000000000000000000000a1",
+            deviceId: "device-local-1",
+        });
+        assert.equal(linked.token, "local-token");
+
+        const redeemed = await sdk.local.link.redeem({
+            token: "local-token",
+            deviceId: "device-local-1",
+            connectedUserAddress: WALLET,
+        });
+        assert.equal(redeemed.context.hasSession, true);
+
+        const deployment = await sdk.local.deployments.register({
+            agentWallet: "0x00000000000000000000000000000000000000a1",
+            composeKeyId: "key_1",
+            agentCardCid: "bafytestlocaldeploymentcid1234567890",
+            localVersion: "0.1.0",
+            deployedAt: 1_800_000_000_000,
+        });
+        assert.equal(deployment.deployment.deploymentId, "dep_1");
+
+        const upserted = await sdk.local.network.upsert({
+            peers: [{ peerId: "peer-1", lastSeenAt: 1, stale: false, caps: ["chat"], listenMultiaddrs: [] }],
+        });
+        assert.equal(upserted.upserted, 1);
+
+        const peers = await sdk.local.network.peers();
+        assert.equal(peers.peers[0].peerId, "peer-1");
+
+        const synapse = await sdk.local.synapse.session({
+            agentWallet: "0x00000000000000000000000000000000000000a1",
+            deviceId: "device-local-1",
+            sessionKeyAddress: "0x00000000000000000000000000000000000000b1",
+            sessionKeyExpiresAt: 1_800_000_000_000,
+            depositAmount: "0",
+        });
+        assert.equal(synapse.depositExecuted, false);
+
+        const filecoin = await sdk.local.filecoin.session({
+            agentWallet: "0x00000000000000000000000000000000000000a1",
+            deviceId: "device-local-1",
+            sessionKeyAddress: "0x00000000000000000000000000000000000000b1",
+            sessionKeyExpiresAt: 1_800_000_000_000,
+            fileSizeBytes: 1234,
+            copies: 1,
+        });
+        assert.deepEqual(filecoin.providerIds, ["101"]);
+    } finally {
+        await server.close();
+    }
+});
+
+test("dispenser and settlement wrap public claim and status routes", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/api/dispenser/claim") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.deepEqual(body, { address: WALLET, chainId: 43113 });
+            sendJson(res, 200, {
+                success: true,
+                txHash: "0xclaim",
+                amount: "1000000",
+                amountFormatted: "$1.00 USDC",
+                chainId: 43113,
+                chainName: "Avalanche Fuji",
+            });
+            return;
+        }
+
+        if (req.path === "/api/dispenser/status") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, {
+                dispensers: [
+                    {
+                        chainId: 43113,
+                        chainName: "Avalanche Fuji",
+                        available: true,
+                        remainingClaims: 999,
+                        maxClaims: 1000,
+                        totalClaims: 1,
+                        dispenserBalance: "999000000",
+                        dispenserBalanceFormatted: "999 USDC",
+                        claimAmount: "1000000",
+                        claimAmountFormatted: "1 USDC",
+                        dispenserAddress: "0x000000000000000000000000000000000000d15c",
+                    },
+                ],
+                claimAmount: 1000000,
+                claimAmountFormatted: "$1.00 USDC",
+                maxClaims: 1000,
+            });
+            return;
+        }
+
+        if (req.path === "/api/dispenser/status/43113") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { available: true, status: { chainId: 43113, chainName: "Avalanche Fuji" } });
+            return;
+        }
+
+        if (req.path === `/api/dispenser/check/${WALLET}`) {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { address: WALLET, hasClaimed: false });
+            return;
+        }
+
+        assert.equal(req.path, "/api/settlement/status");
+        assert.equal(req.method, "GET");
+        assert.equal(req.query.get("chainId"), "43113");
+        assert.equal(req.headers.authorization, "Bearer compose-settlement");
+        assert.equal(req.headers["x-session-user-address"], WALLET);
+        sendJson(res, 200, {
+            hasActiveBudget: true,
+            budget: {
+                budgetLimit: "1000000",
+                budgetUsed: "25",
+                budgetRemaining: "999975",
+                chainId: 43113,
+            },
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-settlement",
+        });
+
+        const claim = await sdk.dispenser.claim();
+        assert.equal(claim.txHash, "0xclaim");
+
+        const status = await sdk.dispenser.status();
+        assert.equal(status.dispensers[0].available, true);
+
+        const chainStatus = await sdk.dispenser.status(43113);
+        assert.equal(chainStatus.available, true);
+
+        const check = await sdk.dispenser.check();
+        assert.equal(check.hasClaimed, false);
+
+        const settlement = await sdk.settlement.status();
+        assert.equal(settlement.hasActiveBudget, true);
+        assert.equal(settlement.budget?.budgetRemaining, "999975");
+    } finally {
+        await server.close();
+    }
+});
+
+test("backpack wraps permissions, connections, toolkits, execution, and telegram helpers", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/api/backpack/permissions") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("userAddress"), WALLET);
+            sendJson(res, 200, {
+                permissions: [
+                    {
+                        userAddress: WALLET,
+                        consentType: "filesystem",
+                        granted: true,
+                        grantedAt: 1,
+                    },
+                ],
+            });
+            return;
+        }
+
+        if (req.path === "/api/backpack/permissions/grant") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.consentType, "clipboard");
+            sendJson(res, 200, { success: true });
+            return;
+        }
+
+        if (req.path === "/api/backpack/permissions/revoke") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.consentType, "clipboard");
+            sendJson(res, 200, { success: true });
+            return;
+        }
+
+        if (req.path === "/api/backpack/connect") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.toolkit, "gmail");
+            sendJson(res, 200, { redirectUrl: "https://connect.example/gmail" });
+            return;
+        }
+
+        if (req.path === "/api/backpack/connections") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("userAddress"), WALLET);
+            sendJson(res, 200, { connections: [{ slug: "gmail", name: "gmail", connected: true, accountId: "acct_1" }] });
+            return;
+        }
+
+        if (req.path === "/api/backpack/status/gmail") {
+            assert.equal(req.method, "GET");
+            sendJson(res, 200, { toolkit: "gmail", connected: true, accountId: "acct_1" });
+            return;
+        }
+
+        if (req.path === "/api/backpack/disconnect") {
+            assert.equal(req.method, "POST");
+            sendJson(res, 200, { success: true });
+            return;
+        }
+
+        if (req.path === "/api/backpack/execute") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.action, "GMAIL_SEND_EMAIL");
+            assert.deepEqual(body.params, { to: "builder@example.com" });
+            sendJson(res, 200, { success: true, result: { sent: true } });
+            return;
+        }
+
+        if (req.path === "/api/backpack/toolkits") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("search"), "mail");
+            assert.equal(req.query.get("limit"), "2");
+            sendJson(res, 200, {
+                toolkits: [
+                    {
+                        slug: "gmail",
+                        name: "Gmail",
+                        logo: "",
+                        description: "Email",
+                        categories: ["productivity"],
+                        authSchemes: ["oauth2"],
+                        composioManagedSchemes: ["oauth2"],
+                    },
+                ],
+            });
+            return;
+        }
+
+        if (req.path === "/api/backpack/toolkits/gmail/actions") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("limit"), "3");
+            sendJson(res, 200, {
+                toolkit: "gmail",
+                actions: [
+                    {
+                        slug: "GMAIL_SEND_EMAIL",
+                        name: "Send Email",
+                        description: "Send",
+                        toolkitSlug: "gmail",
+                        toolkitName: "Gmail",
+                        noAuth: false,
+                        scopes: ["gmail.send"],
+                        inputParameters: {},
+                    },
+                ],
+            });
+            return;
+        }
+
+        if (req.path === "/api/backpack/telegram/link") {
+            assert.equal(req.method, "POST");
+            sendJson(res, 200, { deepLinkUrl: "https://t.me/bot?start=code", linkCode: "code" });
+            return;
+        }
+
+        assert.equal(req.path, "/api/backpack/telegram/status");
+        assert.equal(req.method, "GET");
+        sendJson(res, 200, { toolkit: "telegram", bound: true, chatId: "123" });
+    });
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-backpack",
+        });
+
+        const permissions = await sdk.backpack.permissions.list();
+        assert.equal(permissions.permissions[0].consentType, "filesystem");
+
+        const granted = await sdk.backpack.permissions.grant({ consentType: "clipboard" });
+        assert.equal(granted.success, true);
+
+        const revoked = await sdk.backpack.permissions.revoke({ consentType: "clipboard" });
+        assert.equal(revoked.success, true);
+
+        const connect = await sdk.backpack.connect({ toolkit: "gmail" });
+        assert.equal(connect.redirectUrl, "https://connect.example/gmail");
+
+        const connections = await sdk.backpack.connections();
+        assert.equal(connections.connections[0].accountId, "acct_1");
+
+        const status = await sdk.backpack.status("gmail");
+        assert.equal(status.connected, true);
+
+        const executed = await sdk.backpack.execute({
+            toolkit: "gmail",
+            action: "GMAIL_SEND_EMAIL",
+            params: { to: "builder@example.com" },
+        });
+        assert.deepEqual(executed.result, { sent: true });
+
+        const toolkits = await sdk.backpack.toolkits.list({ search: "mail", limit: 2 });
+        assert.equal(toolkits.toolkits[0].slug, "gmail");
+
+        const actions = await sdk.backpack.toolkits.actions("gmail", { limit: 3 });
+        assert.equal(actions.actions[0].slug, "GMAIL_SEND_EMAIL");
+
+        const disconnected = await sdk.backpack.disconnect({ toolkit: "gmail" });
+        assert.equal(disconnected.success, true);
+
+        const link = await sdk.backpack.telegram.link();
+        assert.equal(link.linkCode, "code");
+
+        const telegram = await sdk.backpack.telegram.status();
+        assert.equal(telegram.chatId, "123");
     } finally {
         await server.close();
     }
@@ -1124,6 +1904,152 @@ test("x402 PAYMENT-REQUIRED header decoders round-trip", () => {
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const decoded = sdk.x402.decodePaymentRequired(encoded);
     assert.deepEqual(decoded, original);
+});
+
+test("x402.payments wraps prepare, settle, abort, and model metering routes", async () => {
+    const server = await startMockServer((req, res) => {
+        if (req.path === "/api/payments/prepare") {
+            assert.equal(req.method, "POST");
+            assert.equal(req.headers.authorization, "Bearer compose-jwt-payments");
+            assert.equal(req.headers["x-session-user-address"], WALLET);
+            assert.equal(req.headers["x-chain-id"], "43113");
+            assert.equal(req.headers["x-x402-max-amount-wei"], "1000000");
+            assert.equal(req.headers["x-idempotency-key"], "intent-1");
+            const body = JSON.parse(req.body);
+            assert.deepEqual(body, {
+                service: "inference",
+                action: "chat",
+                resource: "/v1/chat/completions",
+                method: "POST",
+                maxAmountWei: "1000000",
+                idempotencyKey: "intent-1",
+            });
+            sendJson(res, 200, {
+                paymentIntentId: "pi_1",
+                maxAmountWei: "1000000",
+                status: "authorized",
+            }, { "x-payment-intent-id": "pi_1" });
+            return;
+        }
+
+        if (req.path === "/api/payments/settle") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.deepEqual(body, {
+                paymentIntentId: "pi_1",
+                meter: {
+                    subject: "openai:gpt-4.1-mini",
+                    lineItems: [
+                        { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 100, unitPriceUsd: 0.4 },
+                    ],
+                },
+            });
+            sendJson(res, 200, {
+                paymentIntentId: "pi_1",
+                maxAmountWei: "1000000",
+                finalAmountWei: "41",
+                status: "settled",
+                meterSubject: "openai:gpt-4.1-mini",
+                lineItems: [
+                    { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 100, unitPriceUsd: 0.4, amountWei: "40" },
+                ],
+                providerAmountWei: "40",
+                platformFeeWei: "1",
+                txHash: "0xsettled",
+            });
+            return;
+        }
+
+        if (req.path === "/api/payments/abort") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.deepEqual(body, { paymentIntentId: "pi_2", reason: "client_cancelled" });
+            sendJson(res, 200, {
+                paymentIntentId: "pi_2",
+                status: "aborted",
+                reason: "client_cancelled",
+            });
+            return;
+        }
+
+        assert.equal(req.path, "/api/payments/meter/model");
+        assert.equal(req.method, "POST");
+        const body = JSON.parse(req.body);
+        assert.deepEqual(body, {
+            modelId: "gpt-4.1-mini",
+            provider: "openai",
+            modality: "text",
+            usage: { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
+        });
+        sendJson(res, 200, {
+            modelId: "gpt-4.1-mini",
+            provider: "openai",
+            known: true,
+            meter: {
+                subject: "openai:gpt-4.1-mini",
+                lineItems: [
+                    { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 100, unitPriceUsd: 0.4 },
+                ],
+            },
+            subject: "openai:gpt-4.1-mini",
+            lineItems: [
+                { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 100, unitPriceUsd: 0.4, amountWei: "40" },
+            ],
+            providerAmountWei: "40",
+            platformFeeWei: "1",
+            finalAmountWei: "41",
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-jwt-payments",
+        });
+
+        const prepared = await sdk.x402.payments.prepare({
+            service: "inference",
+            action: "chat",
+            resource: "/v1/chat/completions",
+            method: "POST",
+            maxAmountWei: "1000000",
+            idempotencyKey: "intent-1",
+        });
+        assert.equal(prepared.paymentIntentId, "pi_1");
+        assert.equal(prepared.status, "authorized");
+
+        const quote = await sdk.x402.payments.meterModel({
+            modelId: "gpt-4.1-mini",
+            provider: "openai",
+            modality: "text",
+            usage: { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
+        });
+        assert.equal(quote.finalAmountWei, "41");
+        assert.equal(quote.lineItems[0].amountWei, "40");
+
+        const settled = await sdk.x402.payments.settle({
+            paymentIntentId: "pi_1",
+            meter: {
+                subject: "openai:gpt-4.1-mini",
+                lineItems: [
+                    { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 100, unitPriceUsd: 0.4 },
+                ],
+            },
+        });
+        assert.equal(settled.status, "settled");
+        assert.equal(settled.finalAmountWei, "41");
+        assert.equal(settled.txHash, "0xsettled");
+
+        const aborted = await sdk.x402.payments.abort({
+            paymentIntentId: "pi_2",
+            reason: "client_cancelled",
+        });
+        assert.equal(aborted.status, "aborted");
+        assert.equal(aborted.reason, "client_cancelled");
+    } finally {
+        await server.close();
+    }
 });
 
 test("inference auto-negotiates raw x402 when no Compose Key is present", async () => {
@@ -1439,6 +2365,192 @@ test("inference.chat.completions.create forwards universal attachments without c
         });
 
         assert.equal(result.data.id, "chatcmpl-attachments");
+    } finally {
+        await server.close();
+    }
+});
+
+test("inference.chat.completions.create forwards rich native inference fields unchanged", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "POST");
+        assert.equal(req.path, "/v1/chat/completions");
+        const body = JSON.parse(req.body);
+        assert.equal(body.model, "gpt-5.5");
+        assert.equal(body.stream, false);
+        assert.deepEqual(body.response_format, {
+            type: "json_schema",
+            json_schema: {
+                name: "deploy_result",
+                schema: { type: "object", properties: { ok: { type: "boolean" } } },
+                strict: true,
+            },
+        });
+        assert.deepEqual(body.stream_options, { include_usage: false, include_obfuscation: true });
+        assert.equal(body.parallel_tool_calls, true);
+        assert.deepEqual(body.reasoning, { effort: "medium", summary: "auto" });
+        assert.equal(body.reasoningEffort, "low");
+        assert.equal(body.promptCacheKey, "thread-abc");
+        assert.equal(body.prompt_cache_retention, "24h");
+        assert.equal(body.textVerbosity, "low");
+        assert.deepEqual(body.metadata, { source: "contract-test" });
+        assert.equal(body.service_tier, "auto");
+        assert.equal(body.store, false);
+        assert.deepEqual(body.tools, [
+            {
+                type: "function",
+                function: {
+                    name: "deploy",
+                    parameters: { type: "object", properties: {} },
+                    strict: true,
+                },
+            },
+        ]);
+
+        sendJson(res, 200, {
+            id: "chatcmpl-rich",
+            object: "chat.completion",
+            created: 1,
+            model: "gpt-5.5",
+            choices: [
+                {
+                    index: 0,
+                    message: {
+                        role: "assistant",
+                        content: "ok",
+                        reasoning_content: "checked inputs",
+                    },
+                    finish_reason: "stop",
+                },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl, composeKey: "compose-jwt-abc", chainId: 43114, userAddress: WALLET });
+        const result = await sdk.inference.chat.completions.create({
+            model: "gpt-5.5",
+            messages: [{ role: "developer", content: "Return JSON." }, { role: "user", content: "Deploy" }],
+            response_format: {
+                type: "json_schema",
+                json_schema: {
+                    name: "deploy_result",
+                    schema: { type: "object", properties: { ok: { type: "boolean" } } },
+                    strict: true,
+                },
+            },
+            stream_options: { include_usage: false, include_obfuscation: true },
+            parallel_tool_calls: true,
+            reasoning: { effort: "medium", summary: "auto" },
+            reasoningEffort: "low",
+            promptCacheKey: "thread-abc",
+            prompt_cache_retention: "24h",
+            textVerbosity: "low",
+            metadata: { source: "contract-test" },
+            service_tier: "auto",
+            store: false,
+            tools: [
+                {
+                    type: "function",
+                    function: {
+                        name: "deploy",
+                        parameters: { type: "object", properties: {} },
+                        strict: true,
+                    },
+                },
+            ],
+        });
+        assert.equal(result.data.id, "chatcmpl-rich");
+        assert.equal(result.data.choices[0].message.reasoning_content, "checked inputs");
+    } finally {
+        await server.close();
+    }
+});
+
+test("inference.responses.create forwards multimodal and provider parameter fields", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "POST");
+        assert.equal(req.path, "/v1/responses");
+        const body = JSON.parse(req.body);
+        assert.equal(body.model, "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+        assert.equal(body.stream, false);
+        assert.deepEqual(body.modalities, ["text", "image"]);
+        assert.equal(body.max_output_tokens, 512);
+        assert.deepEqual(body.tool_choice, { type: "function", function: { name: "search" } });
+        assert.deepEqual(body.stream_options, { include_usage: true });
+        assert.equal(body.parallel_tool_calls, false);
+        assert.equal(body.reasoning_effort, "minimal");
+        assert.equal(body.prompt_cache_key, "resp-cache");
+        assert.deepEqual(body.text, { verbosity: "medium" });
+        assert.equal(body.n, 2);
+        assert.equal(body.size, "1024x1024");
+        assert.equal(body.quality, "hd");
+        assert.equal(body.image_url, "https://cdn.example.com/ref.png");
+
+        sendJson(res, 200, {
+            id: "resp-rich",
+            object: "response",
+            created_at: 1,
+            status: "completed",
+            model: body.model,
+            output: [{ type: "output_text", role: "assistant", text: "ok" }],
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl, composeKey: "compose-jwt-abc", chainId: 43114, userAddress: WALLET });
+        const result = await sdk.inference.responses.create({
+            model: "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            input: [{ type: "input_text", text: "Render a deployment card" }],
+            modalities: ["text", "image"],
+            max_output_tokens: 512,
+            tools: [{ type: "function", function: { name: "search" } }],
+            tool_choice: { type: "function", function: { name: "search" } },
+            stream_options: { include_usage: true },
+            parallel_tool_calls: false,
+            reasoning_effort: "minimal",
+            prompt_cache_key: "resp-cache",
+            text: { verbosity: "medium" },
+            n: 2,
+            size: "1024x1024",
+            quality: "hd",
+            image_url: "https://cdn.example.com/ref.png",
+        });
+        assert.equal(result.data.id, "resp-rich");
+    } finally {
+        await server.close();
+    }
+});
+
+test("inference.audio.transcriptions sends native JSON/base64 for binary input", async () => {
+    const audio = new Uint8Array([1, 2, 3, 4, 5]);
+    const expected = Buffer.from(audio).toString("base64");
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "POST");
+        assert.equal(req.path, "/v1/audio/transcriptions");
+        assert.match(req.headers["content-type"] ?? "", /^application\/json\b/);
+
+        const body = JSON.parse(req.body);
+        assert.equal(body.model, "whisper-1");
+        assert.equal(body.file, expected);
+        assert.equal(body.language, "en");
+        assert.equal(body.response_format, "json");
+        assert.equal(body.filename, "sample.wav");
+
+        sendJson(res, 200, {
+            text: "deploy complete",
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl, composeKey: "compose-jwt-abc", chainId: 43114, userAddress: WALLET });
+        const result = await sdk.inference.audio.transcriptions({
+            model: "whisper-1",
+            file: audio,
+            filename: "sample.wav",
+            language: "en",
+            response_format: "json",
+        });
+
+        assert.equal(result.data.text, "deploy complete");
     } finally {
         await server.close();
     }

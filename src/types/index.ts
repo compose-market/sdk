@@ -2,9 +2,9 @@
  * Canonical Compose Market API types.
  *
  * These types are the public wire contract between the Compose backend
- * (`api.compose.market`) and the SDK. They mirror the OpenAPI spec under
- * api/openapi.yaml; if a mismatch is ever observed, the spec is authoritative
- * and this file is the one that needs updating.
+ * (`api.compose.market`) and the SDK. They mirror the OpenAPI sources under
+ * `packages/sdk/specs`; if a mismatch is ever observed, the server contract is
+ * authoritative and this file is the one that needs updating.
  */
 
 // =============================================================================
@@ -147,6 +147,101 @@ export interface FacilitatorChainsResponse {
 }
 
 // =============================================================================
+// x402 payment intents / metering
+// =============================================================================
+
+export type PaymentIntentStatus = "authorized" | "settling" | "settled" | "aborted" | "failed";
+
+export interface MeterLineItem {
+    key: string;
+    unit: string;
+    quantity: number;
+    unitPriceUsd: number;
+}
+
+export interface MeteredInput {
+    subject: string;
+    lineItems: MeterLineItem[];
+}
+
+export interface MeteredQuotedLineItem extends MeterLineItem {
+    amountWei: string;
+}
+
+export interface MeteredQuote {
+    subject: string;
+    lineItems: MeteredQuotedLineItem[];
+    providerAmountWei: string;
+    platformFeeWei: string;
+    finalAmountWei: string;
+}
+
+export interface ModelMeterQuote extends MeteredQuote {
+    modelId: string;
+    provider: ModelProvider;
+    known: boolean;
+    meter: MeteredInput;
+}
+
+export interface PaymentPrepareInput {
+    service: string;
+    action: string;
+    resource: string;
+    method: string;
+    maxAmountWei?: string;
+    meter?: MeteredInput;
+    composeRunId?: string;
+    idempotencyKey?: string;
+}
+
+export interface PaymentPrepareResponse {
+    paymentIntentId: string;
+    maxAmountWei: string;
+    status: PaymentIntentStatus;
+    [key: string]: unknown;
+}
+
+export interface PaymentSettleInput {
+    paymentIntentId: string;
+    finalAmountWei?: string;
+    meter?: MeteredInput;
+}
+
+export interface PaymentSettleResponse {
+    paymentIntentId: string;
+    maxAmountWei: string;
+    finalAmountWei: string;
+    status: PaymentIntentStatus;
+    meterSubject?: string;
+    lineItems?: MeteredQuotedLineItem[];
+    providerAmountWei?: string;
+    platformFeeWei?: string;
+    txHash?: string;
+    [key: string]: unknown;
+}
+
+export interface PaymentAbortInput {
+    paymentIntentId: string;
+    reason?: string;
+}
+
+export interface PaymentAbortResponse {
+    success?: boolean;
+    paymentIntentId: string;
+    status?: PaymentIntentStatus;
+    reason?: string;
+    [key: string]: unknown;
+}
+
+export interface ModelMeterInput {
+    modelId: string;
+    provider?: ModelProvider | string;
+    modality: CanonicalModality | string;
+    usage?: Record<string, unknown>;
+    media?: Record<string, unknown>;
+}
+
+// =============================================================================
 // Feedback / Reputation
 // =============================================================================
 
@@ -178,7 +273,6 @@ export interface FeedbackContext {
     chainId?: number;
     modelId?: string;
     provider?: string;
-    agentId?: string;
     agentWallet?: string;
     workflowId?: string;
     endpoint?: {
@@ -281,6 +375,7 @@ export interface ActiveSessionMetadata {
     hasSession: boolean;
     reason?: string;
     keyId?: string;
+    token?: string;
     budgetLimit?: string;
     budgetUsed?: string;
     budgetLocked?: string;
@@ -389,7 +484,9 @@ export type ModelProvider =
     | "openai"
     | "fireworks"
     | "asicloud"
+    | "alibaba"
     | "hugging face"
+    | "azure"
     | "aiml"
     | "vertex"
     | "cloudflare"
@@ -450,6 +547,7 @@ export interface OperationListResponse {
  */
 export interface Model {
     modelId: string;
+    upstreamModelId?: string;
     name: string | null;
     provider: ModelProvider;
     type: string | string[] | null;
@@ -459,11 +557,14 @@ export interface Model {
     contextWindow: unknown;
     pricing: unknown;
     maxOutputTokens?: number;
-    capabilities?: string[];
+    capabilities?: unknown;
+    modelType?: unknown;
+    sourceMetadata?: unknown;
+    params?: unknown;
     ownedBy?: string;
     createdAt?: string | number;
     available?: boolean;
-    availableFrom?: string[];
+    availableFrom?: ModelProvider[];
     hfInferenceProvider?: string;
     hfProviderId?: string;
 }
@@ -512,26 +613,61 @@ export interface OperationModelsResponse {
 }
 
 export interface ModelParamDefinition {
-    type: "string" | "integer" | "number" | "boolean" | "array";
+    type: "string" | "integer" | "number" | "boolean" | "array" | "object";
     required: boolean;
     default?: string | number | boolean;
     options?: Array<string | number>;
+    minimum?: number;
+    maximum?: number;
     description?: string;
 }
 
 export interface ModelParamsResponse {
     modelId: string;
-    type: "video" | "image" | null;
+    type: CanonicalModality | null;
     provider: string | null;
     params: Record<string, ModelParamDefinition>;
     defaults: Record<string, unknown>;
+}
+
+export interface PricingModel {
+    modelId: string;
+    provider: ModelProvider | string;
+    pricing: unknown;
+}
+
+export interface PricingResponse {
+    models: PricingModel[];
+    version: string;
+}
+
+// =============================================================================
+// System / Health
+// =============================================================================
+
+export interface HealthResponse {
+    status: "ok" | string;
+    timestamp?: string;
+    [key: string]: unknown;
+}
+
+export interface RuntimeFramework {
+    id?: string;
+    name?: string;
+    description?: string;
+    version?: string;
+    [key: string]: unknown;
+}
+
+export interface FrameworksResponse {
+    frameworks: RuntimeFramework[];
 }
 
 // =============================================================================
 // Inference — Chat Completions
 // =============================================================================
 
-export type ChatRole = "system" | "user" | "assistant" | "tool";
+export type ChatRole = "system" | "developer" | "user" | "assistant" | "tool";
 
 export type ComposeAttachmentKind =
     | "image"
@@ -608,6 +744,7 @@ export interface ChatToolDefinition {
         name: string;
         description?: string;
         parameters?: Record<string, unknown>;
+        strict?: boolean;
     };
 }
 
@@ -617,14 +754,67 @@ export type ChatToolChoice =
     | "required"
     | { type: "function"; function: { name: string } };
 
-export interface ChatCompletionsCreateParams {
+export interface ResponseFormat {
+    type: "text" | "json_object" | "json_schema";
+    json_schema?: {
+        name?: string;
+        schema?: Record<string, unknown>;
+        strict?: boolean;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
+export interface StreamOptions {
+    include_usage?: boolean;
+    include_obfuscation?: boolean;
+    [key: string]: unknown;
+}
+
+export interface ReasoningOptions {
+    effort?: string;
+    summary?: string;
+    [key: string]: unknown;
+}
+
+export interface OpenAIPassthroughParams {
+    frequency_penalty?: number;
+    include?: string[];
+    logit_bias?: Record<string, number>;
+    metadata?: Record<string, unknown>;
+    parallel_tool_calls?: boolean;
+    presence_penalty?: number;
+    prompt_cache_key?: string;
+    promptCacheKey?: string;
+    prompt_cache_retention?: string;
+    promptCacheRetention?: string;
+    reasoning?: ReasoningOptions;
+    reasoning_effort?: string;
+    reasoningEffort?: string;
+    response_format?: ResponseFormat;
+    seed?: number;
+    service_tier?: string;
+    store?: boolean;
+    stream_options?: StreamOptions;
+    text?: Record<string, unknown>;
+    textVerbosity?: string;
+    top_p?: number;
+    user?: string;
+    verbosity?: string;
+    custom_params?: Record<string, unknown>;
+}
+
+export interface ChatCompletionsCreateParams extends OpenAIPassthroughParams {
     model: string;
     messages: ChatMessage[];
     attachments?: ComposeAttachmentInput[];
     attachment?: ComposeAttachmentInput;
     stream?: boolean;
     temperature?: number;
+    n?: number;
+    stop?: string | string[];
     max_tokens?: number;
+    max_completion_tokens?: number;
     tools?: ChatToolDefinition[];
     tool_choice?: ChatToolChoice;
     provider?: ModelProvider;
@@ -649,6 +839,7 @@ export interface ChatCompletion {
         message: {
             role: "assistant";
             content: string | null;
+            reasoning_content?: string;
             tool_calls?: Array<{
                 id: string;
                 type: "function";
@@ -688,15 +879,29 @@ export interface ChatCompletionChunk {
 // Inference — Responses API
 // =============================================================================
 
-export interface ResponsesCreateParams {
+export interface ResponsesCreateParams extends OpenAIPassthroughParams {
     model: string;
     input: unknown;
     attachments?: ComposeAttachmentInput[];
     attachment?: ComposeAttachmentInput;
-    modalities?: Array<"text" | "image" | "audio" | "video">;
+    modalities?: Array<"text" | "image" | "audio" | "video" | "embedding">;
     stream?: boolean;
     instructions?: string;
     previous_response_id?: string;
+    max_output_tokens?: number;
+    temperature?: number;
+    tools?: ChatToolDefinition[];
+    tool_choice?: ChatToolChoice;
+    n?: number;
+    size?: string;
+    quality?: string;
+    image_url?: string;
+    voice?: string;
+    language?: string;
+    speed?: number;
+    duration?: number;
+    aspect_ratio?: string;
+    resolution?: string;
     provider?: ModelProvider;
     [key: string]: unknown;
 }
@@ -738,6 +943,8 @@ export interface EmbeddingsCreateParams {
     attachments?: ComposeAttachmentInput[];
     attachment?: ComposeAttachmentInput;
     dimensions?: number;
+    encoding_format?: "float" | "base64" | string;
+    user?: string;
     provider?: ModelProvider;
     [key: string]: unknown;
 }
@@ -762,8 +969,16 @@ export interface ImagesGenerateParams {
     n?: number;
     size?: string;
     quality?: string;
+    response_format?: "url" | "b64_json" | string;
+    style?: "vivid" | "natural" | string;
+    user?: string;
     provider?: ModelProvider;
     [key: string]: unknown;
+}
+
+export interface ImagesEditParams extends ImagesGenerateParams {
+    image?: string;
+    mask?: string;
 }
 
 export interface ImagesResponse {
@@ -780,6 +995,7 @@ export interface AudioSpeechCreateParams {
     voice?: string;
     response_format?: string;
     speed?: number;
+    user?: string;
     provider?: ModelProvider;
     [key: string]: unknown;
 }
@@ -792,12 +1008,20 @@ export interface AudioTranscriptionCreateParams {
     filename?: string;
     language?: string;
     response_format?: string;
+    prompt?: string;
+    temperature?: number;
+    timestamp_granularities?: Array<"word" | "segment" | string>;
     provider?: ModelProvider;
     [key: string]: unknown;
 }
 
 export interface AudioTranscriptionResponse {
     text: string;
+    task?: string;
+    language?: string;
+    duration?: number;
+    words?: Array<{ word: string; start: number; end: number }>;
+    segments?: Array<Record<string, unknown>>;
     compose_receipt?: Record<string, unknown>;
 }
 
@@ -809,7 +1033,11 @@ export interface VideoGenerateParams {
     duration?: number;
     aspect_ratio?: string;
     resolution?: string;
+    size?: string;
+    fps?: number;
+    image?: string;
     image_url?: string;
+    user?: string;
     provider?: ModelProvider;
     [key: string]: unknown;
 }
@@ -916,6 +1144,521 @@ export interface WorkflowStreamFinalResult {
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
 }
+
+// =============================================================================
+// Local control plane
+// =============================================================================
+
+export interface LocalLinkCreateInput {
+    userAddress?: string;
+    chainId?: number;
+    agentWallet?: string;
+    agentCardCid?: string;
+    deviceId?: string;
+}
+
+export interface LocalLinkCreateResponse {
+    success: boolean;
+    token: string;
+    mode: "local-first" | "web-first";
+    expiresAt: number;
+    deepLinkUrl: string;
+    hasSession: boolean;
+}
+
+export interface LocalLinkRedeemInput {
+    token: string;
+    deviceId: string;
+    connectedUserAddress?: string;
+}
+
+export interface LocalRedeemedContext {
+    agentWallet: string;
+    userAddress: string;
+    chainId: number;
+    composeKey: {
+        keyId: string;
+        token: string;
+        expiresAt: number;
+    };
+    session: {
+        sessionId: string;
+        budget: string;
+        duration: number;
+        expiresAt: number;
+    };
+    market: {
+        entry: "local" | string;
+        agentWallet: string;
+        agentCardCid: string | null;
+    };
+    deviceId: string;
+    hasSession: boolean;
+    linkMode: "local-first" | "web-first";
+}
+
+export interface LocalLinkRedeemResponse {
+    success: boolean;
+    context: LocalRedeemedContext;
+}
+
+export interface LocalDeploymentRegisterInput {
+    agentWallet: string;
+    userAddress?: string;
+    composeKeyId: string;
+    agentCardCid: string;
+    localVersion: string;
+    deployedAt: number;
+    chainId?: number;
+}
+
+export interface LocalDeploymentRecord {
+    version: number;
+    deploymentId: string;
+    agentWallet: string;
+    userAddress: string;
+    composeKeyId: string;
+    agentCardCid: string;
+    localVersion: string;
+    deployedAt: number;
+    chainId: number;
+    registeredAt: number;
+    updatedAt: number;
+}
+
+export interface LocalDeploymentRegisterResponse {
+    success: boolean;
+    idempotent: boolean;
+    deployment: LocalDeploymentRecord;
+}
+
+export interface LocalPeerSummary {
+    peerId: string;
+    lastSeenAt: number;
+    stale: boolean;
+    caps: string[];
+    listenMultiaddrs: string[];
+    deviceId?: string | null;
+    agentWallet?: string | null;
+}
+
+export interface LocalNetworkUpsertInput {
+    userAddress?: string;
+    chainId?: number;
+    agentWallet?: string;
+    deviceId?: string;
+    peers: LocalPeerSummary[];
+}
+
+export interface LocalNetworkUpsertResponse {
+    success: boolean;
+    upserted: number;
+    chainId: number;
+}
+
+export interface LocalNetworkPeersInput {
+    userAddress?: string;
+    chainId?: number;
+    agentWallet?: string;
+}
+
+export interface LocalNetworkPeersResponse {
+    success: boolean;
+    chainId: number;
+    userAddress: string;
+    peers: LocalPeerSummary[];
+}
+
+export interface LocalSynapseSessionInput {
+    agentWallet: string;
+    deviceId: string;
+    sessionKeyAddress: string;
+    sessionKeyExpiresAt: number;
+    depositAmount?: string | number;
+}
+
+export interface LocalStorageSessionResponse {
+    success: boolean;
+    agentWallet: string;
+    deviceId: string;
+    payerAddress: string;
+    sessionKeyAddress: string;
+    sessionKeyExpiresAt: number;
+    availableFunds: string;
+    depositAmount: string;
+    depositExecuted: boolean;
+    network: string;
+    source: string;
+}
+
+export type LocalSynapseSessionResponse = LocalStorageSessionResponse;
+
+export interface LocalFilecoinPinSessionInput {
+    agentWallet: string;
+    deviceId: string;
+    sessionKeyAddress: string;
+    sessionKeyExpiresAt: number;
+    fileSizeBytes: number;
+    copies?: number;
+}
+
+export interface LocalFilecoinPinSessionResponse extends LocalStorageSessionResponse {
+    fileSizeBytes: number;
+    providerIds: string[];
+}
+
+// =============================================================================
+// Dispenser
+// =============================================================================
+
+export interface DispenserStatus {
+    chainId: number;
+    chainName: string;
+    totalClaims: number;
+    maxClaims: number;
+    remainingClaims: number;
+    dispenserBalance: string;
+    dispenserBalanceFormatted: string;
+    isPaused: boolean;
+    dispenserAddress: string;
+    usdcAddress: string;
+    isConfigured: boolean;
+}
+
+export interface DispenserClaimInput {
+    address?: string;
+    chainId?: number;
+}
+
+export interface DispenserClaimResponse {
+    success: boolean;
+    txHash?: string;
+    alreadyClaimed?: boolean;
+    globalClaimStatus?: {
+        claimedOnChain?: number;
+        claimedOnChainName?: string;
+        claimedAt?: number;
+    };
+    error?: string;
+}
+
+export interface DispenserStatusResponse {
+    dispensers: DispenserStatus[];
+    claimAmount: number;
+    claimAmountFormatted: string;
+    maxClaims: number;
+}
+
+export interface DispenserStatusByChainResponse {
+    available: boolean;
+    reason?: string;
+    status?: DispenserStatus;
+}
+
+export interface DispenserCheckResponse {
+    address: string;
+    hasClaimed: boolean;
+    claimedOnChain?: number;
+    claimedOnChainName?: string;
+    claimedAt?: number;
+}
+
+// =============================================================================
+// Settlement status
+// =============================================================================
+
+export interface SettlementStatusInput {
+    userAddress?: string;
+    chainId?: number;
+}
+
+export interface SettlementBudgetInfo {
+    budgetLimit?: string | number;
+    budgetUsed?: string | number;
+    budgetLocked?: string | number;
+    budgetRemaining?: string | number;
+    expiresAt?: number;
+    chainId?: number;
+    [key: string]: unknown;
+}
+
+export interface SettlementStatusResponse {
+    hasActiveBudget: boolean;
+    message?: string;
+    budget?: SettlementBudgetInfo;
+}
+
+// =============================================================================
+// Backpack
+// =============================================================================
+
+export type BackpackConsentType =
+    | "filesystem"
+    | "camera"
+    | "microphone"
+    | "geolocation"
+    | "clipboard"
+    | "notifications"
+    | string;
+
+export interface BackpackPermission {
+    userAddress: string;
+    sessionId?: string;
+    agentWallet?: string;
+    consentType: BackpackConsentType;
+    granted: boolean;
+    grantedAt: number;
+    expiresAt?: number;
+}
+
+export interface BackpackPermissionListInput {
+    userAddress?: string;
+}
+
+export interface BackpackPermissionListResponse {
+    permissions: BackpackPermission[];
+}
+
+export interface BackpackPermissionGrantInput {
+    userAddress?: string;
+    consentType: BackpackConsentType;
+    sessionId?: string;
+    agentWallet?: string;
+    expiresAt?: number;
+}
+
+export interface BackpackPermissionRevokeInput {
+    userAddress?: string;
+    consentType: BackpackConsentType;
+    sessionId?: string;
+    agentWallet?: string;
+}
+
+export interface BackpackPermissionWriteResponse {
+    success: boolean;
+}
+
+export interface BackpackConnectInput {
+    userAddress?: string;
+    toolkit: string;
+}
+
+export interface BackpackConnectResponse {
+    redirectUrl?: string;
+    url?: string;
+    connectedAccountId?: string;
+    connectionRequestId?: string;
+    [key: string]: unknown;
+}
+
+export interface BackpackConnectionsInput {
+    userAddress?: string;
+}
+
+export interface BackpackConnection {
+    slug: string;
+    name: string;
+    connected: boolean;
+    accountId?: string;
+    status?: string;
+    source?: string;
+    sourceLabel?: string;
+    bindingId?: string;
+}
+
+export interface BackpackConnectionsResponse {
+    connections: BackpackConnection[];
+}
+
+export interface BackpackStatusInput {
+    userAddress?: string;
+}
+
+export interface BackpackStatusResponse {
+    toolkit: string;
+    connected: boolean;
+    accountId?: string;
+}
+
+export interface BackpackDisconnectInput {
+    userAddress?: string;
+    toolkit: string;
+}
+
+export interface BackpackDisconnectResponse {
+    success: boolean;
+}
+
+export interface BackpackExecuteInput {
+    userAddress?: string;
+    toolkit: string;
+    action: string;
+    params?: Record<string, unknown>;
+    text?: string;
+}
+
+export interface BackpackExecuteResponse {
+    success: boolean;
+    result?: unknown;
+    error?: string;
+}
+
+export interface BackpackToolkitsInput {
+    search?: string;
+    limit?: number;
+}
+
+export interface BackpackToolkit {
+    slug: string;
+    name: string;
+    logo: string;
+    description: string;
+    categories: string[];
+    authSchemes: string[];
+    composioManagedSchemes: string[];
+}
+
+export interface BackpackToolkitsResponse {
+    toolkits: BackpackToolkit[];
+}
+
+export interface BackpackToolkitActionsInput {
+    limit?: number;
+}
+
+export interface BackpackToolkitAction {
+    slug: string;
+    name: string;
+    description: string;
+    toolkitSlug: string;
+    toolkitName: string;
+    noAuth: boolean;
+    scopes: string[];
+    inputParameters: Record<string, unknown>;
+}
+
+export interface BackpackToolkitActionsResponse {
+    toolkit: string;
+    actions: BackpackToolkitAction[];
+}
+
+export interface BackpackTelegramLinkInput {
+    userAddress?: string;
+}
+
+export interface BackpackTelegramLinkResponse {
+    deepLinkUrl: string;
+    linkCode: string;
+}
+
+export interface BackpackTelegramStatusInput {
+    userAddress?: string;
+}
+
+export interface BackpackTelegramStatusResponse {
+    toolkit: "telegram" | string;
+    bound: boolean;
+    chatId?: string;
+}
+
+// =============================================================================
+// Public directory
+// =============================================================================
+
+export interface DirectoryAgent {
+    schemaVersion: string;
+    name: string;
+    description: string;
+    skills: string[];
+    x402Support: boolean;
+    image?: string;
+    avatar?: string;
+    dnaHash: string;
+    walletAddress: string;
+    walletTimestamp?: number;
+    chain: number;
+    model: string;
+    framework?: "manowar" | string;
+    licensePrice: string;
+    licenses: number;
+    licensesAvailable?: number;
+    cloneable: boolean;
+    isClone?: boolean;
+    parentAgentId?: number;
+    agentId?: number;
+    knowledge?: string[];
+    endpoint?: string;
+    protocols: Array<{ name: string; version: string }>;
+    plugins?: Array<{
+        registryId: string;
+        name: string;
+        origin: string;
+    }>;
+    createdAt: string;
+    creator?: string;
+    cid?: string;
+    score?: number;
+}
+
+export interface DirectoryWorkflow {
+    schemaVersion: string;
+    title: string;
+    description: string;
+    image?: string;
+    dnaHash: string;
+    walletAddress: string;
+    walletTimestamp: number;
+    agents: DirectoryAgent[];
+    edges?: Array<{
+        source: number;
+        target: number;
+        label?: string;
+    }>;
+    coordinator?: {
+        hasCoordinator: boolean;
+        model: string;
+    };
+    pricing: {
+        totalAgentPrice: string;
+    };
+    lease?: {
+        enabled: boolean;
+        durationDays: number;
+        creatorPercent: number;
+    };
+    rfa?: {
+        title: string;
+        description: string;
+        skills: string[];
+        offerAmount: string;
+    };
+    creator: string;
+    createdAt: string;
+    cid?: string;
+}
+
+export interface DirectoryAgentListResponse {
+    agents: DirectoryAgent[];
+    total: number;
+}
+
+export interface DirectoryWorkflowListResponse {
+    workflows: DirectoryWorkflow[];
+    total: number;
+}
+
+export interface AgentverseQuery {
+    search?: string;
+    q?: string;
+    category?: string;
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+    sort?: "relevancy" | "created-at" | "last-modified" | "interactions";
+    direction?: "asc" | "desc";
+}
+
+export type AgentverseResponse = Record<string, unknown>;
 
 // =============================================================================
 // Agent-first memory loop
@@ -1038,9 +1781,19 @@ export interface AgentMemoryRecordTurnResponse {
     turnId: string;
     vectorId?: string;
     stored: {
+        /** Full transcript persisted to the `scene` layer (Mongo session_transcripts). */
         transcript: boolean;
+        /** Working-memory rolling buffer updated for the active session. */
         working: boolean;
+        /** Per-turn dense vector indexed for hybrid recall (Atlas $vectorSearch). */
         vector: boolean;
+        /**
+         * Durable facts extracted by the first-party graph layer
+         * (gemini-3.1-flash-lite-preview → Voyage embeddings → `source: "fact"`
+         * vectors). True if at least one fact was indexed or an existing
+         * fact's accessCount was bumped.
+         */
+        graph: boolean;
     };
 }
 

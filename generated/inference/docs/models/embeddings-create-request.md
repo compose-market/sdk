@@ -23,4 +23,6 @@ let value: EmbeddingsCreateRequest = {
 | `attachment`                                        | *models.ComposeAttachmentInput*                     | :heavy_minus_sign:                                  | N/A                                                 |
 | `provider`                                          | [models.ModelProvider](../models/model-provider.md) | :heavy_minus_sign:                                  | N/A                                                 |
 | `dimensions`                                        | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
+| `encodingFormat`                                    | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
+| `user`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `additionalProperties`                              | Record<string, *any*>                               | :heavy_minus_sign:                                  | N/A                                                 |

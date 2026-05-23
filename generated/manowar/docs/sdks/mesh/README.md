@@ -4,7 +4,7 @@
 
 ### Available Operations
 
-* [meshToolsExecute](#meshtoolsexecute)
+* [meshActionsExecute](#meshactionsexecute)
 * [meshMemoryExecute](#meshmemoryexecute)
 * [meshHaiRegister](#meshhairegister)
 * [meshReputationSummaryGet](#meshreputationsummaryget)
@@ -12,11 +12,11 @@
 * [meshFilecoinPin](#meshfilecoinpin)
 * [meshConclaveRun](#meshconclaverun)
 
-## meshToolsExecute
+## meshActionsExecute
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="mesh_tools_execute" method="post" path="/mesh/tools/execute" -->
+<!-- UsageSnippet language="typescript" operationID="mesh_actions_execute" method="post" path="/mesh/actions/execute" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
@@ -25,7 +25,7 @@ const composeMarket = new ComposeMarket({
 });
 
 async function run() {
-  const result = await composeMarket.mesh.meshToolsExecute({
+  const result = await composeMarket.mesh.meshActionsExecute({
     body: {
       agentWallet: "<value>",
       toolName: "search_all_memory",
@@ -46,7 +46,7 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { meshMeshToolsExecute } from "@compose-market/sdk/funcs/mesh-mesh-tools-execute.js";
+import { meshMeshActionsExecute } from "@compose-market/sdk/funcs/mesh-mesh-actions-execute.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
@@ -55,7 +55,7 @@ const composeMarket = new ComposeMarketCore({
 });
 
 async function run() {
-  const res = await meshMeshToolsExecute(composeMarket, {
+  const res = await meshMeshActionsExecute(composeMarket, {
     body: {
       agentWallet: "<value>",
       toolName: "search_all_memory",
@@ -67,7 +67,7 @@ async function run() {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("meshMeshToolsExecute failed:", res.error);
+    console.log("meshMeshActionsExecute failed:", res.error);
   }
 }
 
@@ -78,14 +78,14 @@ run();
 
 | Parameter                                                                                                                                                                      | Type                                                                                                                                                                           | Required                                                                                                                                                                       | Description                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `request`                                                                                                                                                                      | [operations.MeshToolsExecuteRequest](../../models/operations/mesh-tools-execute-request.md)                                                                                    | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
+| `request`                                                                                                                                                                      | [operations.MeshActionsExecuteRequest](../../models/operations/mesh-actions-execute-request.md)                                                                                | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
 | `options`                                                                                                                                                                      | RequestOptions                                                                                                                                                                 | :heavy_minus_sign:                                                                                                                                                             | Used to set various options for making HTTP requests.                                                                                                                          |
 | `options.fetchOptions`                                                                                                                                                         | [RequestInit](https://developer.mozilla.org/en-US/docs/Web/API/Request/Request#options)                                                                                        | :heavy_minus_sign:                                                                                                                                                             | Options that are passed to the underlying HTTP request. This can be used to inject extra headers for examples. All `Request` options, except `method` and `body`, are allowed. |
 | `options.retries`                                                                                                                                                              | [RetryConfig](../../lib/utils/retryconfig.md)                                                                                                                                  | :heavy_minus_sign:                                                                                                                                                             | Enables retrying HTTP requests under certain failure conditions.                                                                                                               |
 
 ### Response
 
-**Promise\<[operations.MeshToolsExecuteResponse](../../models/operations/mesh-tools-execute-response.md)\>**
+**Promise\<[operations.MeshActionsExecuteResponse](../../models/operations/mesh-actions-execute-response.md)\>**
 
 ### Errors
 

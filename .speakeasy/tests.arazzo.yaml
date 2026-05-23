@@ -2,7 +2,7 @@ arazzo: 1.0.1
 info:
   title: Compose SDK Agent-First Workflows
   summary: E2E workflow contracts for the Compose SDK, inference, x402, and manowar loops.
-  version: 0.6.7
+  version: 0.6.96
 sourceDescriptions:
   - name: x402
     url: ../specs/x402.openapi.yaml

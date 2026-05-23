@@ -2,11 +2,11 @@
 openapi: 3.1.0
 info:
   title: Compose Manowar
-  version: 0.6.7
-  summary: Agent, workflow, workspace, tool, MCP, and mesh execution contracts.
+  version: 0.6.96
+  summary: Agent, workflow, workspace, connector, MCP, and mesh execution contracts.
   description: |
     Canonical contract for Compose manowar loops: agents, workflows, workspace
-    indexing, MCP/GOAT tool execution, and mesh-local execution helpers.
+    indexing, MCP/onchain connector execution, and mesh-local execution helpers.
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 servers:
 - url: https://runtime.compose.market
@@ -23,7 +23,7 @@ tags:
 - name: agents
 - name: workflows
 - name: workspace
-- name: tools
+- name: connectors
 - name: mesh
 security: []
 paths:
@@ -460,41 +460,41 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
-  "/goat/status":
+  "/onchain/status":
     get:
       tags:
-      - tools
-      operationId: tools_goat_status
+      - connectors
+      operationId: connectors_onchain_status
       security:
       - RuntimeBearerAuth: []
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/goat/plugins":
+  "/onchain/plugins":
     get:
       tags:
-      - tools
-      operationId: tools_goat_plugins_list
+      - connectors
+      operationId: connectors_onchain_plugins_list
       security:
       - RuntimeBearerAuth: []
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/goat/tools":
+  "/onchain/actions":
     get:
       tags:
-      - tools
-      operationId: tools_goat_list
+      - connectors
+      operationId: connectors_onchain_actions_list
       security:
       - RuntimeBearerAuth: []
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/goat/plugins/{pluginId}":
+  "/onchain/plugins/{pluginId}":
     get:
       tags:
-      - tools
-      operationId: tools_goat_plugin_get
+      - connectors
+      operationId: connectors_onchain_plugin_get
       security:
       - RuntimeBearerAuth: []
       parameters:
@@ -502,38 +502,38 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/goat/plugins/{pluginId}/tools/{toolName}":
+  "/onchain/plugins/{pluginId}/actions/{actionName}":
     get:
       tags:
-      - tools
-      operationId: tools_goat_tool_get
+      - connectors
+      operationId: connectors_onchain_action_get
       security:
       - RuntimeBearerAuth: []
       parameters:
       - "$ref": "#/components/parameters/PluginIdPath"
-      - "$ref": "#/components/parameters/ToolNamePath"
+      - "$ref": "#/components/parameters/ActionNamePath"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
     post:
       tags:
-      - tools
-      operationId: tools_goat_tool_execute
+      - connectors
+      operationId: connectors_onchain_action_execute
       security:
       - RuntimeBearerAuth: []
       parameters:
       - "$ref": "#/components/parameters/PluginIdPath"
-      - "$ref": "#/components/parameters/ToolNamePath"
+      - "$ref": "#/components/parameters/ActionNamePath"
       requestBody:
-        "$ref": "#/components/requestBodies/ToolExecuteRequest"
+        "$ref": "#/components/requestBodies/ActionExecuteRequest"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/mcp/inspect":
+  "/mcps/inspect":
     post:
       tags:
-      - tools
-      operationId: tools_mcp_inspect
+      - connectors
+      operationId: connectors_mcp_inspect
       security:
       - RuntimeBearerAuth: []
       requestBody:
@@ -556,11 +556,11 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/mcp/spawn":
+  "/mcps/spawn":
     post:
       tags:
-      - tools
-      operationId: tools_mcp_spawn
+      - connectors
+      operationId: connectors_mcp_spawn
       security:
       - RuntimeBearerAuth: []
       requestBody:
@@ -577,11 +577,11 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/mcp/servers/{serverId}/tools":
+  "/mcps/servers/{serverId}/actions":
     get:
       tags:
-      - tools
-      operationId: tools_mcp_tools_list
+      - connectors
+      operationId: connectors_mcp_actions_list
       security:
       - RuntimeBearerAuth: []
       parameters:
@@ -589,26 +589,26 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/mcp/servers/{serverId}/tools/{toolName}":
+  "/mcps/servers/{serverId}/actions/{actionName}":
     post:
       tags:
-      - tools
-      operationId: tools_mcp_tool_execute
+      - connectors
+      operationId: connectors_mcp_action_execute
       security:
       - RuntimeBearerAuth: []
       parameters:
       - "$ref": "#/components/parameters/ServerIdPath"
-      - "$ref": "#/components/parameters/ToolNamePath"
+      - "$ref": "#/components/parameters/ActionNamePath"
       requestBody:
-        "$ref": "#/components/requestBodies/ToolExecuteRequest"
+        "$ref": "#/components/requestBodies/ActionExecuteRequest"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
   "/runtime/execute":
     post:
       tags:
-      - tools
-      operationId: tools_runtime_execute
+      - connectors
+      operationId: connectors_runtime_execute
       security:
       - RuntimeBearerAuth: []
       requestBody:
@@ -624,7 +624,7 @@ paths:
                 source:
                   type: string
                   enum:
-                  - goat
+                  - onchain
                   - mcp
                 pluginId:
                   type: string
@@ -638,11 +638,11 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/mesh/tools/execute":
+  "/mesh/actions/execute":
     post:
       tags:
       - mesh
-      operationId: mesh_tools_execute
+      operationId: mesh_actions_execute
       parameters:
       - "$ref": "#/components/parameters/LocalRuntimeTokenHeader"
       requestBody:
@@ -650,7 +650,7 @@ paths:
         content:
           application/json:
             schema:
-              "$ref": "#/components/schemas/MeshToolExecuteRequest"
+              "$ref": "#/components/schemas/MeshActionExecuteRequest"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
@@ -793,8 +793,8 @@ components:
       required: true
       schema:
         type: string
-    ToolNamePath:
-      name: toolName
+    ActionNamePath:
+      name: actionName
       in: path
       required: true
       schema:
@@ -834,7 +834,7 @@ components:
           schema:
             type: object
             additionalProperties: true
-    ToolExecuteRequest:
+    ActionExecuteRequest:
       required: true
       content:
         application/json:
@@ -1032,7 +1032,7 @@ components:
       description: SSE frames named `start`, `step`, `agent`, `progress`, `tool_start`,
         `tool_end`, `result`, `error`, `complete`, and `done`.
       type: string
-    MeshToolExecuteRequest:
+    MeshActionExecuteRequest:
       type: object
       required:
       - agentWallet

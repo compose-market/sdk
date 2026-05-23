@@ -13,10 +13,10 @@ Developer-friendly & type-safe Typescript SDK specifically catered to leverage *
 <!-- Start Summary [summary] -->
 ## Summary
 
-Compose Agentic: Agent, workflow, workspace, tool, MCP, and mesh execution contracts.
+Compose Manowar: Agent, workflow, workspace, connector, MCP, and mesh execution contracts.
 
 Canonical contract for Compose manowar loops: agents, workflows, workspace
-indexing, MCP/GOAT tool execution, and mesh-local execution helpers.
+indexing, MCP/onchain connector execution, and mesh-local execution helpers.
 <!-- End Summary [summary] -->
 
 <!-- Start Table of Contents [toc] -->
@@ -150,6 +150,20 @@ run();
 * [agentsResponsesCreate](docs/sdks/agents/README.md#agentsresponsescreate)
 * [agentsRunsStateGet](docs/sdks/agents/README.md#agentsrunsstateget)
 
+### [Connectors](docs/sdks/connectors/README.md)
+
+* [connectorsOnchainStatus](docs/sdks/connectors/README.md#connectorsonchainstatus)
+* [connectorsOnchainPluginsList](docs/sdks/connectors/README.md#connectorsonchainpluginslist)
+* [connectorsOnchainActionsList](docs/sdks/connectors/README.md#connectorsonchainactionslist)
+* [connectorsOnchainPluginGet](docs/sdks/connectors/README.md#connectorsonchainpluginget)
+* [connectorsOnchainActionGet](docs/sdks/connectors/README.md#connectorsonchainactionget)
+* [connectorsOnchainActionExecute](docs/sdks/connectors/README.md#connectorsonchainactionexecute)
+* [connectorsMcpInspect](docs/sdks/connectors/README.md#connectorsmcpinspect)
+* [connectorsMcpSpawn](docs/sdks/connectors/README.md#connectorsmcpspawn)
+* [connectorsMcpActionsList](docs/sdks/connectors/README.md#connectorsmcpactionslist)
+* [connectorsMcpActionExecute](docs/sdks/connectors/README.md#connectorsmcpactionexecute)
+* [connectorsRuntimeExecute](docs/sdks/connectors/README.md#connectorsruntimeexecute)
+
 ### [Health](docs/sdks/health/README.md)
 
 * [runtimeHealthCheck](docs/sdks/health/README.md#runtimehealthcheck)
@@ -157,27 +171,13 @@ run();
 
 ### [Mesh](docs/sdks/mesh/README.md)
 
-* [meshToolsExecute](docs/sdks/mesh/README.md#meshtoolsexecute)
+* [meshActionsExecute](docs/sdks/mesh/README.md#meshactionsexecute)
 * [meshMemoryExecute](docs/sdks/mesh/README.md#meshmemoryexecute)
 * [meshHaiRegister](docs/sdks/mesh/README.md#meshhairegister)
 * [meshReputationSummaryGet](docs/sdks/mesh/README.md#meshreputationsummaryget)
 * [meshSynapseAnchor](docs/sdks/mesh/README.md#meshsynapseanchor)
 * [meshFilecoinPin](docs/sdks/mesh/README.md#meshfilecoinpin)
 * [meshConclaveRun](docs/sdks/mesh/README.md#meshconclaverun)
-
-### [Tools](docs/sdks/tools/README.md)
-
-* [toolsGoatStatus](docs/sdks/tools/README.md#toolsgoatstatus)
-* [toolsGoatPluginsList](docs/sdks/tools/README.md#toolsgoatpluginslist)
-* [toolsGoatList](docs/sdks/tools/README.md#toolsgoatlist)
-* [toolsGoatPluginGet](docs/sdks/tools/README.md#toolsgoatpluginget)
-* [toolsGoatToolGet](docs/sdks/tools/README.md#toolsgoattoolget)
-* [toolsGoatToolExecute](docs/sdks/tools/README.md#toolsgoattoolexecute)
-* [toolsMcpInspect](docs/sdks/tools/README.md#toolsmcpinspect)
-* [toolsMcpSpawn](docs/sdks/tools/README.md#toolsmcpspawn)
-* [toolsMcpToolsList](docs/sdks/tools/README.md#toolsmcptoolslist)
-* [toolsMcpToolExecute](docs/sdks/tools/README.md#toolsmcptoolexecute)
-* [toolsRuntimeExecute](docs/sdks/tools/README.md#toolsruntimeexecute)
 
 ### [Workflows](docs/sdks/workflows/README.md)
 
@@ -216,26 +216,26 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 - [`agentsAgentsResponsesCreate`](docs/sdks/agents/README.md#agentsresponsescreate)
 - [`agentsAgentsRunsStateGet`](docs/sdks/agents/README.md#agentsrunsstateget)
 - [`agentsAgentsStreamCreate`](docs/sdks/agents/README.md#agentsstreamcreate)
+- [`connectorsConnectorsMcpActionExecute`](docs/sdks/connectors/README.md#connectorsmcpactionexecute)
+- [`connectorsConnectorsMcpActionsList`](docs/sdks/connectors/README.md#connectorsmcpactionslist)
+- [`connectorsConnectorsMcpInspect`](docs/sdks/connectors/README.md#connectorsmcpinspect)
+- [`connectorsConnectorsMcpSpawn`](docs/sdks/connectors/README.md#connectorsmcpspawn)
+- [`connectorsConnectorsOnchainActionExecute`](docs/sdks/connectors/README.md#connectorsonchainactionexecute)
+- [`connectorsConnectorsOnchainActionGet`](docs/sdks/connectors/README.md#connectorsonchainactionget)
+- [`connectorsConnectorsOnchainActionsList`](docs/sdks/connectors/README.md#connectorsonchainactionslist)
+- [`connectorsConnectorsOnchainPluginGet`](docs/sdks/connectors/README.md#connectorsonchainpluginget)
+- [`connectorsConnectorsOnchainPluginsList`](docs/sdks/connectors/README.md#connectorsonchainpluginslist)
+- [`connectorsConnectorsOnchainStatus`](docs/sdks/connectors/README.md#connectorsonchainstatus)
+- [`connectorsConnectorsRuntimeExecute`](docs/sdks/connectors/README.md#connectorsruntimeexecute)
 - [`healthRuntimeHealthCheck`](docs/sdks/health/README.md#runtimehealthcheck)
 - [`healthRuntimeStatusGet`](docs/sdks/health/README.md#runtimestatusget)
+- [`meshMeshActionsExecute`](docs/sdks/mesh/README.md#meshactionsexecute)
 - [`meshMeshConclaveRun`](docs/sdks/mesh/README.md#meshconclaverun)
 - [`meshMeshFilecoinPin`](docs/sdks/mesh/README.md#meshfilecoinpin)
 - [`meshMeshHaiRegister`](docs/sdks/mesh/README.md#meshhairegister)
 - [`meshMeshMemoryExecute`](docs/sdks/mesh/README.md#meshmemoryexecute)
 - [`meshMeshReputationSummaryGet`](docs/sdks/mesh/README.md#meshreputationsummaryget)
 - [`meshMeshSynapseAnchor`](docs/sdks/mesh/README.md#meshsynapseanchor)
-- [`meshMeshToolsExecute`](docs/sdks/mesh/README.md#meshtoolsexecute)
-- [`toolsToolsGoatList`](docs/sdks/tools/README.md#toolsgoatlist)
-- [`toolsToolsGoatPluginGet`](docs/sdks/tools/README.md#toolsgoatpluginget)
-- [`toolsToolsGoatPluginsList`](docs/sdks/tools/README.md#toolsgoatpluginslist)
-- [`toolsToolsGoatStatus`](docs/sdks/tools/README.md#toolsgoatstatus)
-- [`toolsToolsGoatToolExecute`](docs/sdks/tools/README.md#toolsgoattoolexecute)
-- [`toolsToolsGoatToolGet`](docs/sdks/tools/README.md#toolsgoattoolget)
-- [`toolsToolsMcpInspect`](docs/sdks/tools/README.md#toolsmcpinspect)
-- [`toolsToolsMcpSpawn`](docs/sdks/tools/README.md#toolsmcpspawn)
-- [`toolsToolsMcpToolExecute`](docs/sdks/tools/README.md#toolsmcptoolexecute)
-- [`toolsToolsMcpToolsList`](docs/sdks/tools/README.md#toolsmcptoolslist)
-- [`toolsToolsRuntimeExecute`](docs/sdks/tools/README.md#toolsruntimeexecute)
 - [`workflowsWorkflowsChatStream`](docs/sdks/workflows/README.md#workflowschatstream)
 - [`workflowsWorkflowsExecute`](docs/sdks/workflows/README.md#workflowsexecute)
 - [`workflowsWorkflowsPricesGet`](docs/sdks/workflows/README.md#workflowspricesget)

@@ -14,7 +14,6 @@
 * [inferenceImagesEdit](#inferenceimagesedit)
 * [inferenceAudioSpeechCreate](#inferenceaudiospeechcreate)
 * [inferenceAudioTranscriptionsCreate](#inferenceaudiotranscriptionscreate)
-* [inferenceAudioTranscriptionsCreateMultipart](#inferenceaudiotranscriptionscreatemultipart)
 * [inferenceVideosGenerate](#inferencevideosgenerate)
 * [inferenceVideosGet](#inferencevideosget)
 * [inferenceVideosStream](#inferencevideosstream)
@@ -822,92 +821,6 @@ run();
 ### Response
 
 **Promise\<[operations.InferenceAudioTranscriptionsCreateResponse](../../models/operations/inference-audio-transcriptions-create-response.md)\>**
-
-### Errors
-
-| Error Type                       | Status Code                      | Content Type                     |
-| -------------------------------- | -------------------------------- | -------------------------------- |
-| errors.PaymentRequiredError      | 402                              | application/json                 |
-| errors.ErrorEnvelope             | 402                              | application/json                 |
-| errors.ComposeMarketDefaultError | 4XX, 5XX                         | \*/\*                            |
-
-## inferenceAudioTranscriptionsCreateMultipart
-
-### Example Usage
-
-<!-- UsageSnippet language="typescript" operationID="inference_audio_transcriptions_create_multipart" method="post" path="/v1/audio/transcriptions" -->
-```typescript
-import { ComposeMarket } from "@compose-market/sdk";
-import { openAsBlob } from "node:fs";
-
-const composeMarket = new ComposeMarket();
-
-async function run() {
-  const result = await composeMarket.inference.inferenceAudioTranscriptionsCreateMultipart({
-    composeKeyAuth: "<YOUR_BEARER_TOKEN_HERE>",
-  }, {
-    xSessionUserAddress: "0x1111111111111111111111111111111111111111",
-    xX402MaxAmountWei: "1000000",
-    body: {
-      model: "V90",
-      file: await openAsBlob("example.file"),
-    },
-  });
-
-  console.log(result);
-}
-
-run();
-```
-
-### Standalone function
-
-The standalone function version of this method:
-
-```typescript
-import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { inferenceInferenceAudioTranscriptionsCreateMultipart } from "@compose-market/sdk/funcs/inference-inference-audio-transcriptions-create-multipart.js";
-import { openAsBlob } from "node:fs";
-
-// Use `ComposeMarketCore` for best tree-shaking performance.
-// You can create one instance of it to use across an application.
-const composeMarket = new ComposeMarketCore();
-
-async function run() {
-  const res = await inferenceInferenceAudioTranscriptionsCreateMultipart(composeMarket, {
-    composeKeyAuth: "<YOUR_BEARER_TOKEN_HERE>",
-  }, {
-    xSessionUserAddress: "0x1111111111111111111111111111111111111111",
-    xX402MaxAmountWei: "1000000",
-    body: {
-      model: "V90",
-      file: await openAsBlob("example.file"),
-    },
-  });
-  if (res.ok) {
-    const { value: result } = res;
-    console.log(result);
-  } else {
-    console.log("inferenceInferenceAudioTranscriptionsCreateMultipart failed:", res.error);
-  }
-}
-
-run();
-```
-
-### Parameters
-
-| Parameter                                                                                                                                                                      | Type                                                                                                                                                                           | Required                                                                                                                                                                       | Description                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `request`                                                                                                                                                                      | [operations.InferenceAudioTranscriptionsCreateMultipartRequest](../../models/operations/inference-audio-transcriptions-create-multipart-request.md)                            | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
-| `security`                                                                                                                                                                     | [operations.InferenceAudioTranscriptionsCreateMultipartSecurity](../../models/operations/inference-audio-transcriptions-create-multipart-security.md)                          | :heavy_check_mark:                                                                                                                                                             | The security requirements to use for the request.                                                                                                                              |
-| `options`                                                                                                                                                                      | RequestOptions                                                                                                                                                                 | :heavy_minus_sign:                                                                                                                                                             | Used to set various options for making HTTP requests.                                                                                                                          |
-| `options.fetchOptions`                                                                                                                                                         | [RequestInit](https://developer.mozilla.org/en-US/docs/Web/API/Request/Request#options)                                                                                        | :heavy_minus_sign:                                                                                                                                                             | Options that are passed to the underlying HTTP request. This can be used to inject extra headers for examples. All `Request` options, except `method` and `body`, are allowed. |
-| `options.retries`                                                                                                                                                              | [RetryConfig](../../lib/utils/retryconfig.md)                                                                                                                                  | :heavy_minus_sign:                                                                                                                                                             | Enables retrying HTTP requests under certain failure conditions.                                                                                                               |
-
-### Response
-
-**Promise\<[operations.InferenceAudioTranscriptionsCreateMultipartResponse](../../models/operations/inference-audio-transcriptions-create-multipart-response.md)\>**
 
 ### Errors
 

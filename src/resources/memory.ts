@@ -79,8 +79,8 @@ export interface MemoryShorthandOptions {
     budgetCharacters?: number;
     /** Remember: confidence override (default 1 for explicit saves). */
     confidence?: number;
-    /** Remember: durable-fact category. Default "other". */
-    type?: "preference" | "identity" | "context" | "skill" | "relationship" | "event" | "other";
+    /** Remember: durable-fact category. Default "context". */
+    type?: "preference" | "identity" | "context" | "skill" | "relationship" | "event";
     request?: MemoryRequestOptions;
 }
 

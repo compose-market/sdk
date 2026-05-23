@@ -35,7 +35,6 @@ export type FeedbackContext = {
   chainId?: number | undefined;
   modelId?: string | undefined;
   provider?: string | undefined;
-  agentId?: string | undefined;
   agentWallet?: string | undefined;
   workflowId?: string | undefined;
   endpoint?: Endpoint | undefined;
@@ -155,7 +154,6 @@ export const FeedbackContext$inboundSchema: z.ZodMiniType<
   chainId: types.optional(types.number()),
   modelId: types.optional(types.string()),
   provider: types.optional(types.string()),
-  agentId: types.optional(types.string()),
   agentWallet: types.optional(types.string()),
   workflowId: types.optional(types.string()),
   endpoint: types.optional(z.lazy(() => Endpoint$inboundSchema)),
@@ -170,7 +168,6 @@ export type FeedbackContext$Outbound = {
   chainId?: number | undefined;
   modelId?: string | undefined;
   provider?: string | undefined;
-  agentId?: string | undefined;
   agentWallet?: string | undefined;
   workflowId?: string | undefined;
   endpoint?: Endpoint$Outbound | undefined;
@@ -189,7 +186,6 @@ export const FeedbackContext$outboundSchema: z.ZodMiniType<
   chainId: z.optional(z.int()),
   modelId: z.optional(z.string()),
   provider: z.optional(z.string()),
-  agentId: z.optional(z.string()),
   agentWallet: z.optional(z.string()),
   workflowId: z.optional(z.string()),
   endpoint: z.optional(z.lazy(() => Endpoint$outboundSchema)),

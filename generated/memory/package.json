@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.6.7",
+  "version": "0.6.96",
   "author": "Compose.Market",
   "type": "module",
   "main": "./esm/index.js",
@@ -45,12 +45,11 @@
   "sideEffects": false,
   "scripts": {
     "lint": "oxlint --max-warnings=0 --deny-warnings src/**/*.ts src/**/*.tsx",
-    "build": "tsgo",
+    "build": "tsc",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {},
   "devDependencies": {
-    "@typescript/native-preview": "7.0.0-dev.20260302.1",
     "oxlint": "^1.60.0",
     "typescript": "~5.8.3"
   },

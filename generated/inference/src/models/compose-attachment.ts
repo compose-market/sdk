@@ -8,7 +8,7 @@ import { ClosedEnum } from "../types/enums.js";
 /**
  * Advisory attachment kind. The SDK/server do not reject unsupported model combinations.
  */
-export const TypeEnum = {
+export const ComposeAttachmentType = {
   Image: "image",
   Audio: "audio",
   Video: "video",
@@ -21,7 +21,7 @@ export const TypeEnum = {
 /**
  * Advisory attachment kind. The SDK/server do not reject unsupported model combinations.
  */
-export type TypeEnum = ClosedEnum<typeof TypeEnum>;
+export type ComposeAttachmentType = ClosedEnum<typeof ComposeAttachmentType>;
 
 export const Detail = {
   Auto: "auto",
@@ -34,7 +34,7 @@ export type ComposeAttachment = {
   /**
    * Advisory attachment kind. The SDK/server do not reject unsupported model combinations.
    */
-  type?: TypeEnum | undefined;
+  type?: ComposeAttachmentType | undefined;
   url?: string | undefined;
   uri?: string | undefined;
   /**
@@ -54,9 +54,9 @@ export type ComposeAttachment = {
 };
 
 /** @internal */
-export const TypeEnum$outboundSchema: z.ZodMiniEnum<typeof TypeEnum> = z.enum(
-  TypeEnum,
-);
+export const ComposeAttachmentType$outboundSchema: z.ZodMiniEnum<
+  typeof ComposeAttachmentType
+> = z.enum(ComposeAttachmentType);
 
 /** @internal */
 export const Detail$outboundSchema: z.ZodMiniEnum<typeof Detail> = z.enum(
@@ -87,7 +87,7 @@ export const ComposeAttachment$outboundSchema: z.ZodMiniType<
   ComposeAttachment
 > = z.catchall(
   z.object({
-    type: z.optional(TypeEnum$outboundSchema),
+    type: z.optional(ComposeAttachmentType$outboundSchema),
     url: z.optional(z.string()),
     uri: z.optional(z.string()),
     data: z.optional(z.string()),

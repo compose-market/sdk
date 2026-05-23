@@ -4,6 +4,7 @@
 
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
+import { ClosedEnum } from "../types/enums.js";
 import {
   ComposeAttachmentInput,
   ComposeAttachmentInput$Outbound,
@@ -14,6 +15,12 @@ import {
   ModelProvider$outboundSchema,
 } from "./model-provider.js";
 
+export const TimestampGranularity = {
+  Word: "word",
+  Segment: "segment",
+} as const;
+export type TimestampGranularity = ClosedEnum<typeof TimestampGranularity>;
+
 export type AudioTranscriptionCreateRequest = {
   model: string;
   file: string;
@@ -22,9 +29,17 @@ export type AudioTranscriptionCreateRequest = {
   filename?: string | undefined;
   language?: string | undefined;
   responseFormat?: string | undefined;
+  prompt?: string | undefined;
+  temperature?: number | undefined;
+  timestampGranularities?: Array<TimestampGranularity> | undefined;
   provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
+
+/** @internal */
+export const TimestampGranularity$outboundSchema: z.ZodMiniEnum<
+  typeof TimestampGranularity
+> = z.enum(TimestampGranularity);
 
 /** @internal */
 export type AudioTranscriptionCreateRequest$Outbound = {
@@ -35,6 +50,9 @@ export type AudioTranscriptionCreateRequest$Outbound = {
   filename?: string | undefined;
   language?: string | undefined;
   response_format?: string | undefined;
+  prompt?: string | undefined;
+  temperature?: number | undefined;
+  timestamp_granularities?: Array<string> | undefined;
   provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
@@ -53,6 +71,11 @@ export const AudioTranscriptionCreateRequest$outboundSchema: z.ZodMiniType<
       filename: z.optional(z.string()),
       language: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
+      prompt: z.optional(z.string()),
+      temperature: z.optional(z.number()),
+      timestampGranularities: z.optional(
+        z.array(TimestampGranularity$outboundSchema),
+      ),
       provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),
@@ -61,6 +84,7 @@ export const AudioTranscriptionCreateRequest$outboundSchema: z.ZodMiniType<
     return {
       ...remap$(v, {
         responseFormat: "response_format",
+        timestampGranularities: "timestamp_granularities",
       }),
     };
   }),

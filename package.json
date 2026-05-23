@@ -1,7 +1,7 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.6.7",
-  "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, 45k+ model catalog, OpenAI-shaped streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
+  "version": "0.6.96",
+  "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, multi-provider model catalog, native streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
   "keywords": [
     "compose",
     "compose-market",
@@ -9,7 +9,6 @@
     "x402-v2",
     "facilitator",
     "inference",
-    "openai-compatible",
     "agentic-economy",
     "decentralized-inference",
     "a2a"
@@ -131,10 +130,10 @@
       "import": "./generated/manowar/esm/sdk/workflows.js",
       "default": "./generated/manowar/esm/sdk/workflows.js"
     },
-    "./manowar/tools": {
-      "types": "./generated/manowar/esm/sdk/tools.d.ts",
-      "import": "./generated/manowar/esm/sdk/tools.js",
-      "default": "./generated/manowar/esm/sdk/tools.js"
+    "./manowar/connectors": {
+      "types": "./generated/manowar/esm/sdk/connectors.d.ts",
+      "import": "./generated/manowar/esm/sdk/connectors.js",
+      "default": "./generated/manowar/esm/sdk/connectors.js"
     },
     "./manowar/workspace": {
       "types": "./generated/manowar/esm/sdk/workspace.d.ts",
@@ -196,27 +195,31 @@
   "scripts": {
     "clean": "rm -rf dist",
     "sync-version": "node scripts/sync-version.mjs",
-    "build:generated:x402": "npm --prefix generated/x402 install --ignore-scripts && npm --prefix generated/x402 run build",
-    "build:generated:inference": "npm --prefix generated/inference install --ignore-scripts && npm --prefix generated/inference run build",
-    "build:generated:memory": "npm --prefix generated/memory install --ignore-scripts && npm --prefix generated/memory run build",
-    "build:generated:manowar": "npm --prefix generated/manowar install --ignore-scripts && npm --prefix generated/manowar run build",
+    "speakeasy:watch": "npm run sync-version && speakeasy run --watch --target all --output console --skip-versioning",
+    "build:generated:x402": "rm -rf generated/x402/esm && npm --prefix generated/x402 install --ignore-scripts && npm --prefix generated/x402 run build",
+    "build:generated:inference": "rm -rf generated/inference/esm && npm --prefix generated/inference install --ignore-scripts && npm --prefix generated/inference run build",
+    "build:generated:memory": "rm -rf generated/memory/esm && npm --prefix generated/memory install --ignore-scripts && npm --prefix generated/memory run build",
+    "build:generated:manowar": "rm -rf generated/manowar/esm && npm --prefix generated/manowar install --ignore-scripts && npm --prefix generated/manowar run build",
     "build:generated": "npm run build:generated:x402 && npm run build:generated:inference && npm run build:generated:memory && npm run build:generated:manowar",
     "build": "npm run sync-version && npm run clean && tsc -p tsconfig.json && npm run build:generated",
     "test": "npm run sync-version && node --import tsx --test tests/sdk.unit.test.ts tests/sdk.streaming.test.ts tests/sdk.contract.test.ts tests/sdk.session-events.test.ts tests/sdk.events.test.ts tests/sdk.runtime-streams.test.ts",
     "test:build": "npm run build && npm test",
+    "obs:eval": "tsx tests/e2e/eval-recall.ts",
+    "obs:retention": "tsx tests/e2e/memory-d-validation.ts",
     "typecheck": "npm run sync-version && tsc --noEmit -p tsconfig.json",
     "prepublishOnly": "npm run test:build"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "tsx": "^4.21.0",
+    "@types/node": "^25.9.1",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@x402/core": "^2.11.0",
-    "@x402/evm": "^2.11.0",
-    "viem": "^2.48.4",
-    "zod": "^4.4.0"
+    "@x402/core": "^2.12.0",
+    "@x402/evm": "^2.12.0",
+    "viem": "^2.50.4",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "access": "public"

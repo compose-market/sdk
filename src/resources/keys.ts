@@ -137,7 +137,7 @@ export class KeysResource {
     async getActive(input: { chainId?: number } = {}): Promise<ActiveSessionMetadata> {
         const wallet = this.ctx.getWallet();
         const chainId = input.chainId ?? wallet.chainId;
-        return this.client.request<ActiveSessionMetadata>({
+        const response = await this.client.request<ActiveSessionMetadata>({
             method: "GET",
             path: "/api/session",
             headers: {
@@ -145,6 +145,10 @@ export class KeysResource {
                 chainId,
             },
         });
+        if (typeof response.token === "string" && response.token.length > 0) {
+            this.ctx.setToken(response.token);
+        }
+        return response;
     }
 
     async list(): Promise<ComposeKeyRecord[]> {

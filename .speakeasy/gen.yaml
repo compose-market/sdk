@@ -19,7 +19,6 @@ generation:
     oAuth2ClientCredentialsEnabled: false
     oAuth2PasswordEnabled: false
     hoistGlobalSecurity: true
-  inferSSEOverload: true
   sdkHooksConfigAccess: true
   schemas:
     allOfMergeStrategy: shallowMerge
@@ -33,7 +32,7 @@ generation:
     skipResponseBodyAssertions: false
   telemetryEnabled: false
 typescript:
-  version: 0.6.7
+  version: 0.6.96
   acceptHeaderEnum: false
   additionalDependencies:
     dependencies: {}
@@ -89,5 +88,5 @@ typescript:
   usageSDKInitImports: []
   useIndexModules: true
   useOxlint: true
-  useTsgo: true
+  useTsgo: false
   zodVersion: v4-mini

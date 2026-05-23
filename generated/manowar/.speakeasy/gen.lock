@@ -1,12 +1,12 @@
 lockVersion: ""
 id: ""
 management:
-  docChecksum: 5504c51fce33ccbd3b6e9f6c59fec36e
-  docVersion: 0.6.7
-  speakeasyVersion: 1.761.9
-  generationVersion: 2.881.4
-  releaseVersion: 0.6.7
-  configChecksum: 07b8b9a87329114b13fb1300732eb307
+  docChecksum: f565753a9468c84bc826e1be3b2d6b2c
+  docVersion: 0.6.96
+  speakeasyVersion: 1.763.1
+  generationVersion: 2.884.4
+  releaseVersion: 0.6.96
+  configChecksum: 9e2aed257187413f574e3677a6e8d426
 persistentEdits:
   generation_id: e00adb21-194b-4458-ac74-c9d74b694568
   pristine_commit_hash: 3c29fe4fbec7f84aa473e40a83400ac2049f515f
@@ -15,7 +15,7 @@ features:
   typescript:
     additionalDependencies: 0.1.0
     additionalProperties: 0.1.3
-    core: 3.26.49
+    core: 3.26.50
     defaultEnabledRetries: 0.1.0
     enumUnions: 0.1.0
     envVarSecurityUsage: 0.1.2
@@ -46,7 +46,7 @@ trackedFiles:
     pristine_git_object: 6ee2921010070a544e252596defc55d501e1c1ae
   FUNCTIONS.md:
     id: 21b9df02aaeb
-    last_write_checksum: sha1:377a833b9930f3e75fdfeeef77f1d7ac0dd6afc5
+    last_write_checksum: sha1:4ad67042ac1767a010a3a61233fc619679d3031e
     pristine_git_object: a94d209b0849f598337d83a2712ebee8965b6c0d
   RUNTIMES.md:
     id: 620c490847b6
@@ -60,6 +60,8 @@ trackedFiles:
     id: 0ce9707cb848
     last_write_checksum: sha1:bc4454e196fcd219f5a78da690375a884f5ed07b
     pristine_git_object: 08f95f4552349360b2c0b01802aa71ec3a55d2c2
+  docs/models/action-execute-request.md:
+    last_write_checksum: sha1:33f9aa3f88f09f7f58bbadf73895c61f84b61486
   docs/models/agent-chat-request.md:
     id: 3873592a6452
     last_write_checksum: sha1:bb30a03a412549b65123b25ccad03169b24bcb0c
@@ -82,10 +84,8 @@ trackedFiles:
     id: 42d2f6b1c814
     last_write_checksum: sha1:ecbba38f0bf6c50489fe393814047be304f65c99
     pristine_git_object: 58287c954c557c5f1330a4dfc964132655571842
-  docs/models/mesh-tool-execute-request.md:
-    id: cd3caaf31dd0
-    last_write_checksum: sha1:3c87d721556d0314886fc54e691f59225f13dbaa
-    pristine_git_object: 649eb4404e43e6dd310997d0dd0c8e243c57b499
+  docs/models/mesh-action-execute-request.md:
+    last_write_checksum: sha1:f25d35494323a03970ce390cc4e54b026f7f979e
   docs/models/operations/agents-chat-create-request.md:
     id: "876561253e58"
     last_write_checksum: sha1:c93ea986ad40426d43e44779bd65de7511c9d083
@@ -118,6 +118,48 @@ trackedFiles:
     id: 1882c4c2b82c
     last_write_checksum: sha1:f14354d3bde029746010a53ddd83b2669c9821ee
     pristine_git_object: 23fe95e135e86059d2212363346fd5ddff8fa59d
+  docs/models/operations/connectors-mcp-action-execute-request.md:
+    last_write_checksum: sha1:6fd9801bdf704c10982f5561c21a16a536cc900a
+  docs/models/operations/connectors-mcp-action-execute-response.md:
+    last_write_checksum: sha1:3bedb15fe7ab8e5507d7c426ec1947044b63ca4b
+  docs/models/operations/connectors-mcp-actions-list-request.md:
+    last_write_checksum: sha1:75e174dd0efdaf773b170e274362ec3bd94ce240
+  docs/models/operations/connectors-mcp-actions-list-response.md:
+    last_write_checksum: sha1:d4991ef66bd9eaa3af3a68eec24b14e5516f0e68
+  docs/models/operations/connectors-mcp-inspect-request.md:
+    last_write_checksum: sha1:80db8062b68c91b3e3c84c5eb688df3301c6b5d4
+  docs/models/operations/connectors-mcp-inspect-response.md:
+    last_write_checksum: sha1:5bc20061f926a5510eff3deda64af05b12adac22
+  docs/models/operations/connectors-mcp-spawn-request.md:
+    last_write_checksum: sha1:0283b15387f8eb6bea32bc7af6e0f1c6bf768787
+  docs/models/operations/connectors-mcp-spawn-response.md:
+    last_write_checksum: sha1:2df58d091de64adb1740f3faa245e13b9ee1ee85
+  docs/models/operations/connectors-onchain-action-execute-request.md:
+    last_write_checksum: sha1:d00b857d9cffa49a33f1e4737da5d47b252b3bdd
+  docs/models/operations/connectors-onchain-action-execute-response.md:
+    last_write_checksum: sha1:e14866894cf5a023b2ebb672eac9fa3948fd9dca
+  docs/models/operations/connectors-onchain-action-get-request.md:
+    last_write_checksum: sha1:8bb04ac22bba1c33b6bf8b0fb3d4a8eb4ab36e6d
+  docs/models/operations/connectors-onchain-action-get-response.md:
+    last_write_checksum: sha1:f93746972416f1a9739e3ad7fdd0dd1affda1196
+  docs/models/operations/connectors-onchain-actions-list-response.md:
+    last_write_checksum: sha1:a05e0889e692cb509be18d6614c6f474636806e7
+  docs/models/operations/connectors-onchain-plugin-get-request.md:
+    last_write_checksum: sha1:34b8bab8a2000df39d179d55bb9b18be41fdab0c
+  docs/models/operations/connectors-onchain-plugin-get-response.md:
+    last_write_checksum: sha1:3c65a0907bec5572c7805ba7f0dcafd6f17014fc
+  docs/models/operations/connectors-onchain-plugins-list-response.md:
+    last_write_checksum: sha1:d022aea6d892af8a65ffbfeac86976590036af46
+  docs/models/operations/connectors-onchain-status-response.md:
+    last_write_checksum: sha1:a1afeefdb9404b0b6c2aa870b2b70669753ab927
+  docs/models/operations/connectors-runtime-execute-request.md:
+    last_write_checksum: sha1:79349faf7771ad46f983bdccfa4b66ff9e450069
+  docs/models/operations/connectors-runtime-execute-response.md:
+    last_write_checksum: sha1:10464ff5d144dfcb8f27aa887463ceb59a0e3c51
+  docs/models/operations/mesh-actions-execute-request.md:
+    last_write_checksum: sha1:d0e43d64dc75e44f2fbe6335c5e1483aa00d4a50
+  docs/models/operations/mesh-actions-execute-response.md:
+    last_write_checksum: sha1:c48e913c6b31720f61a6ce4e99b3dafeba6d6dc6
   docs/models/operations/mesh-conclave-run-request.md:
     id: 2e3ba8d9fc52
     last_write_checksum: sha1:621ab207968837dd457d0a6bf6bc7f462cfc8741
@@ -170,14 +212,6 @@ trackedFiles:
     id: 04a5bd80e50d
     last_write_checksum: sha1:2aeef34ff98fcd98703d529416983326a0e43d87
     pristine_git_object: 070d0d77af8e324a913efa5b94d8d932c3006cbf
-  docs/models/operations/mesh-tools-execute-request.md:
-    id: cdd9d9b5777d
-    last_write_checksum: sha1:9503a3d09e076c42a4fb1327820d778bec35dae4
-    pristine_git_object: 255c5fe253164d43fa9085201d1034e927a0d0fc
-  docs/models/operations/mesh-tools-execute-response.md:
-    id: d0e483509ed4
-    last_write_checksum: sha1:f4219a53736b5258dff59bad5e34b13c42b3a6e5
-    pristine_git_object: a92dc4f59fc6fc4984e611edf6e60ce3bc2fc21e
   docs/models/operations/runtime-health-check-response.md:
     id: fb0c487151ad
     last_write_checksum: sha1:f99106b9b5cf8831a3ca1f0552ea7e9aaf1ea69a
@@ -188,88 +222,12 @@ trackedFiles:
     pristine_git_object: 6abb983c337687a3a33269a2c5299586d3f0dffd
   docs/models/operations/source.md:
     id: 31a3e4b3b2e6
-    last_write_checksum: sha1:9d401564363a07867f1e28f9e4484de2b5f672c5
+    last_write_checksum: sha1:7cfa14bf91a9388cc342dd3552da02c4eebffff9
     pristine_git_object: 2f7dc4f6aeb0ddfc84d3b946ed70fdc64587f605
   docs/models/operations/status.md:
     id: a42267b6f2cb
     last_write_checksum: sha1:f741a5449de7daf4cda65e7add395692ff64f42d
     pristine_git_object: cf12653ae9805e592ccfa80f42a1765269285365
-  docs/models/operations/tools-goat-list-response.md:
-    id: 09402637f81a
-    last_write_checksum: sha1:fc38ad4ab6b27b35df21307fca6092c0db85591e
-    pristine_git_object: 57d634c510fc1e96d6f85a7c020fe49126daf56c
-  docs/models/operations/tools-goat-plugin-get-request.md:
-    id: c664ed5facb3
-    last_write_checksum: sha1:a3b736e08e8e4e747e67f359c245fa60203e6f4d
-    pristine_git_object: 65c327dd6dd337afb229e31af0a282cd4ea906f7
-  docs/models/operations/tools-goat-plugin-get-response.md:
-    id: c5dccead0327
-    last_write_checksum: sha1:5f857281209dbb70f9af7f991b10b58746eb56ab
-    pristine_git_object: 48f4caff914d2bb4aefa01a228910070fd4a4e96
-  docs/models/operations/tools-goat-plugins-list-response.md:
-    id: 34bd33b53b73
-    last_write_checksum: sha1:5e56ba5777daec3159154f69269f493d8ba35ebe
-    pristine_git_object: 7c6f874913130ddd95e29b53d20f46fd330e7017
-  docs/models/operations/tools-goat-status-response.md:
-    id: 8d12a5df3d8b
-    last_write_checksum: sha1:62d88015da37f1c751a06c0eccd70db994a84d84
-    pristine_git_object: d9043171b915eabf992503f0ec9433ee1950838f
-  docs/models/operations/tools-goat-tool-execute-request.md:
-    id: 04c5f6f4cdec
-    last_write_checksum: sha1:285627199743850e4aee60cc0b71283a564b893a
-    pristine_git_object: f84586c1fa301da924a11d8b41c0b547f77cc0cf
-  docs/models/operations/tools-goat-tool-execute-response.md:
-    id: 83f20d3f0cbe
-    last_write_checksum: sha1:7cf090ae9fb610bec6307bce3807dde9e9f9d8c4
-    pristine_git_object: 7ee94db84e7e971cd4431a3b1741d7a169ce360a
-  docs/models/operations/tools-goat-tool-get-request.md:
-    id: 19b5cfdb8af6
-    last_write_checksum: sha1:38fd2ea95048fdac5b3c63710eaaf75ba8f02950
-    pristine_git_object: 3e3c246189477b7697fac8b9f179fb1ebbc66132
-  docs/models/operations/tools-goat-tool-get-response.md:
-    id: f4911a6ea516
-    last_write_checksum: sha1:4315247d0d5bac004b6291a9c87ca7f756616c89
-    pristine_git_object: 26ea85dbe126677ab3946bf38d7e66e722f9812f
-  docs/models/operations/tools-mcp-inspect-request.md:
-    id: 2326065b10cb
-    last_write_checksum: sha1:f01d0fd55671dc2718bb1043231f8ea4075c7dfa
-    pristine_git_object: 73710fe914b94fb9999e5771ee30b18c0ae13586
-  docs/models/operations/tools-mcp-inspect-response.md:
-    id: 68b96d6a2e00
-    last_write_checksum: sha1:84f420c8bdf39d7164b83b118aab3f6fff2e17af
-    pristine_git_object: 304d3847e9bb485657214ad9969df95a8f825f45
-  docs/models/operations/tools-mcp-spawn-request.md:
-    id: f5bb1d2311c3
-    last_write_checksum: sha1:64a100de2b746202d18d00b37eccc4a9a7874a02
-    pristine_git_object: 3fddcd314573517eb98953423e7aff2ced67dd14
-  docs/models/operations/tools-mcp-spawn-response.md:
-    id: c5d0142afcba
-    last_write_checksum: sha1:9a3d4c509d70d2d6736df43ac215b6eccb118c44
-    pristine_git_object: 3f0e4957b68a85908906c757eddcc56ebb316f17
-  docs/models/operations/tools-mcp-tool-execute-request.md:
-    id: 677537cf42ea
-    last_write_checksum: sha1:5b55531a3e6b65c842bd59a82083449625402988
-    pristine_git_object: e009f5f5b09f3aa217495b6c8c183c6a8b765c11
-  docs/models/operations/tools-mcp-tool-execute-response.md:
-    id: 20f593e529cb
-    last_write_checksum: sha1:10be4c9f0b8a6dcc68bf943ffcfd3e1a4f3ae6aa
-    pristine_git_object: 7b10de3d2dccfe24dd1e3655673bb80c0ba64da9
-  docs/models/operations/tools-mcp-tools-list-request.md:
-    id: 75be73ab65d1
-    last_write_checksum: sha1:888c588fb013b95b376388acbc3f748db9434814
-    pristine_git_object: a6e0b238115558a1ff21711f309256b2a3d413f3
-  docs/models/operations/tools-mcp-tools-list-response.md:
-    id: 4ff28ce617ca
-    last_write_checksum: sha1:30fafc421543baa266ba3281b7c89f6bc7dc3f10
-    pristine_git_object: 4ea7f5543e75a5e0d5f409509b7fc20019d41bfd
-  docs/models/operations/tools-runtime-execute-request.md:
-    id: bd32c0af99cd
-    last_write_checksum: sha1:9d297c3c8902c628d9faddb8fcaf7d2e6a332a59
-    pristine_git_object: 1b261de583d8d718cf26dd593c343809728626f6
-  docs/models/operations/tools-runtime-execute-response.md:
-    id: e154d7578fc3
-    last_write_checksum: sha1:4a93174d49dee827075838d6a786ebc161f2a976
-    pristine_git_object: 36b426b1ed2438e8b6f7c94fe6f1d91b44043bb9
   docs/models/operations/workflows-chat-stream-request.md:
     id: 84c59808a741
     last_write_checksum: sha1:37fa784cb3caf5d357e7fe01f1b792ad9d9e710f
@@ -378,10 +336,6 @@ trackedFiles:
     id: 25acd60f171d
     last_write_checksum: sha1:76b8cedd8434f6a92be3854b501cdf29ad875863
     pristine_git_object: 1f3ad97470800b4cf27517ea9261e8ef4aac33da
-  docs/models/tool-execute-request.md:
-    id: 0af282a9e483
-    last_write_checksum: sha1:c9a243ffb8b587bf957a853a29f068a82246c129
-    pristine_git_object: 273771e762442cf234d4d21287d830c0413f8913
   docs/models/tool-name.md:
     id: d2bb928a27b5
     last_write_checksum: sha1:78cf84a7ea050c1a4f8cdf8c03d204f921d12e78
@@ -400,18 +354,16 @@ trackedFiles:
     id: 5965d8232fd8
     last_write_checksum: sha1:51e298f416feac07721c0dc0f840edabefab9fa5
     pristine_git_object: 5e2d244ed7e8a8d8c16b6c0e6fd0a170354dba9a
+  docs/sdks/connectors/README.md:
+    last_write_checksum: sha1:3cc874d22e5b02c5b1f0d5c05812995ec433372a
   docs/sdks/health/README.md:
     id: 5082c50d5e82
     last_write_checksum: sha1:be7ce83b35a4b86c8027fbeda7e2786e7cd16d06
     pristine_git_object: a686a04f0da6c2c9b2485613d6e5259532cbbeca
   docs/sdks/mesh/README.md:
     id: dbfdb2c24544
-    last_write_checksum: sha1:4b282f9986bed6bf9dbdfe71d05ac3aa35de93fb
+    last_write_checksum: sha1:14af83f38c98c905f107cceb1ac3f809828e001d
     pristine_git_object: a4802a942508b61e39e8c1067d8f26629290919d
-  docs/sdks/tools/README.md:
-    id: 044286549bac
-    last_write_checksum: sha1:0e02aff257a3495789aa84e0ca9cb3f4252bd259
-    pristine_git_object: 3ca9df643801a9659b4ac87e1323ab7d41ec1ea1
   docs/sdks/workflows/README.md:
     id: 80c76ce944c0
     last_write_checksum: sha1:8e29c5d447d16aefcdd1f7fee5f79015d6061286
@@ -438,11 +390,11 @@ trackedFiles:
     pristine_git_object: b9d263a756bd0e26560b1562bfeec72f6b8bada3
   jsr.json:
     id: 7f6ab7767282
-    last_write_checksum: sha1:68d6b065de02a8f116a38099f47502a75997d0c7
+    last_write_checksum: sha1:f36bbad850c973fc2a9eebea339a9f06b57f4a0a
     pristine_git_object: 0507858144d1d403c99eaa4f2e57a04d40089e31
   package.json:
     id: 7030d0b2f71b
-    last_write_checksum: sha1:1db32f4c230ebe426be99de120990099e2920dff
+    last_write_checksum: sha1:e9e75eaa13ba24cfdf20fde4b6e8c47c7779602f
     pristine_git_object: 3fc12bac88f86945958f196f40a1b8390b327f60
   src/core.ts:
     id: f431fdbcd144
@@ -464,6 +416,28 @@ trackedFiles:
     id: 460a1cebf394
     last_write_checksum: sha1:ad9cd66a31670f79d9984b563c00204ffe01bcb8
     pristine_git_object: a8c39304d5c792818151223ca810a320fd0fdc78
+  src/funcs/connectors-connectors-mcp-action-execute.ts:
+    last_write_checksum: sha1:d893079c71436f5d9cf775d2807ec866c7ea5bfb
+  src/funcs/connectors-connectors-mcp-actions-list.ts:
+    last_write_checksum: sha1:90cda7bec7b7e333c7318ae78f13487073e2882f
+  src/funcs/connectors-connectors-mcp-inspect.ts:
+    last_write_checksum: sha1:b486bc4cf0e6293534907f4da7721ddb0805be43
+  src/funcs/connectors-connectors-mcp-spawn.ts:
+    last_write_checksum: sha1:91531b74bd889e28caa98cc1fac4f15083cc80b5
+  src/funcs/connectors-connectors-onchain-action-execute.ts:
+    last_write_checksum: sha1:38a3aacc6fbee684179b16835440a19b7055279b
+  src/funcs/connectors-connectors-onchain-action-get.ts:
+    last_write_checksum: sha1:7412914468736dea1cfb7357ec8769167cf607fc
+  src/funcs/connectors-connectors-onchain-actions-list.ts:
+    last_write_checksum: sha1:dab5fe7f64c0cb76595acda0e78190a3744ff275
+  src/funcs/connectors-connectors-onchain-plugin-get.ts:
+    last_write_checksum: sha1:7c4f1ecfae3f4dd58cc1f8d021dfed88989f86d6
+  src/funcs/connectors-connectors-onchain-plugins-list.ts:
+    last_write_checksum: sha1:f1acd5d226c6a3ba9f0215c7175f0ddbf2a8d465
+  src/funcs/connectors-connectors-onchain-status.ts:
+    last_write_checksum: sha1:5d6f4405f57525da8ac0a127228496df615c1227
+  src/funcs/connectors-connectors-runtime-execute.ts:
+    last_write_checksum: sha1:8a7b2d3fef3157587542566810445ccd383d93b1
   src/funcs/health-runtime-health-check.ts:
     id: 1fab14330102
     last_write_checksum: sha1:b1e7929ff63b46a0dff9660e02d8b238576f276c
@@ -472,6 +446,8 @@ trackedFiles:
     id: 070c6ad92abf
     last_write_checksum: sha1:341c31c73996a176e8c54972be9db740f0a9e58b
     pristine_git_object: 4070c4f0cd5eece76cace8806062aca384427a18
+  src/funcs/mesh-mesh-actions-execute.ts:
+    last_write_checksum: sha1:d890b6959f972f8e31755c483d5535df193f0705
   src/funcs/mesh-mesh-conclave-run.ts:
     id: 316cba309a64
     last_write_checksum: sha1:60e23b0d3203ebe9b6fdfec80ed4af16878a730b
@@ -496,54 +472,6 @@ trackedFiles:
     id: 24df8a63ddd5
     last_write_checksum: sha1:a1bf7094a8b0b22cf2c9dfd9a85927bd7d3d8dc2
     pristine_git_object: 450765d6204f77a0a2e973f5e4d691cc5609a072
-  src/funcs/mesh-mesh-tools-execute.ts:
-    id: 6fa105f863fe
-    last_write_checksum: sha1:1764badf42fa76cd2dbd2d92c57690a23ae448c8
-    pristine_git_object: 9928ed2ed943e0b2bc0aec52635167b7752cc17e
-  src/funcs/tools-tools-goat-list.ts:
-    id: 83b0c1e12ebf
-    last_write_checksum: sha1:b2c31806777861015f3328504cb77a66b78750c0
-    pristine_git_object: 8789eb072d838c61d73e65c8fa96ec56abec9c94
-  src/funcs/tools-tools-goat-plugin-get.ts:
-    id: 4e7251237024
-    last_write_checksum: sha1:5cc40ea9c278149841cb357fc4418bdadc5014a5
-    pristine_git_object: 762a85265384e9ed14f9278aa538a0019554f93e
-  src/funcs/tools-tools-goat-plugins-list.ts:
-    id: 56788b587e7f
-    last_write_checksum: sha1:313dce91a5e6cd40a66734290c5c7e3e9f598d70
-    pristine_git_object: 0a508018aba01591fa83e3abcf8a4458f2bd2217
-  src/funcs/tools-tools-goat-status.ts:
-    id: dbbaf42d861a
-    last_write_checksum: sha1:27cb892246f42b4605ae390f37674d9d78aba65a
-    pristine_git_object: e945c76c19ed02da072536ab0805ae789017976f
-  src/funcs/tools-tools-goat-tool-execute.ts:
-    id: 8c7f6f8db49d
-    last_write_checksum: sha1:e20cab703e09ff776cd9c1c637fe6787c96dfed8
-    pristine_git_object: 6b046c583c89741aa66b02a324d56dccf4825006
-  src/funcs/tools-tools-goat-tool-get.ts:
-    id: 366d0a7eb7b7
-    last_write_checksum: sha1:673519c76bce2739758dd73a40fa154506e3101a
-    pristine_git_object: 1a23c8aa8aa074468dcd82a79e51a07cd71e8dc1
-  src/funcs/tools-tools-mcp-inspect.ts:
-    id: 0dd6c4bc61bd
-    last_write_checksum: sha1:f401240aac8e2c5001d6b39c463820275bd379fe
-    pristine_git_object: c1bda86cdd7627de97200058cdc473182331b58f
-  src/funcs/tools-tools-mcp-spawn.ts:
-    id: c26d2402694b
-    last_write_checksum: sha1:7c687e70134cfd10574cb9c1db80110646ea02b4
-    pristine_git_object: 4cb64f810a0d770756cfacd5df0e305ca2a8a222
-  src/funcs/tools-tools-mcp-tool-execute.ts:
-    id: 75eaf8bf1512
-    last_write_checksum: sha1:0a0a36cb63bc677bb790d10c1fe077f2d5864fe7
-    pristine_git_object: 04a4eceb77907a6944b233dced7487dc82d4a1c1
-  src/funcs/tools-tools-mcp-tools-list.ts:
-    id: 9a7608a74c68
-    last_write_checksum: sha1:e2fe396cd9891687e44eda746cb1151995f3d37d
-    pristine_git_object: a6ed2921bf4da5c79d77d9811bc8085184d2febb
-  src/funcs/tools-tools-runtime-execute.ts:
-    id: d0d680412e2d
-    last_write_checksum: sha1:d94fc998458c3e52dafbf0343d5054f508178b54
-    pristine_git_object: a0cbbd58faf2e3fee6e9813b60051a56d0462633
   src/funcs/workflows-workflows-chat-stream.ts:
     id: d54b71f1ea99
     last_write_checksum: sha1:97592ba21f04df5dce1a9fcc41b1116dcdff902a
@@ -602,7 +530,7 @@ trackedFiles:
     pristine_git_object: e6b16c96e175394967f99cd625415e3cda478ac3
   src/lib/config.ts:
     id: 320761608fb3
-    last_write_checksum: sha1:570d36aa3bc00f9fa57855046598f685c458b978
+    last_write_checksum: sha1:09d50f3d13da9a75ea4c9957ca14de409ff02829
     pristine_git_object: 7e5057504bcad8691e4e4e5eec6951c123133ce3
   src/lib/dlv.ts:
     id: b1988214835a
@@ -656,6 +584,8 @@ trackedFiles:
     id: b0057e24ed76
     last_write_checksum: sha1:3bceadd74bf0b31adf13eb06b7531077c3e07d65
     pristine_git_object: bad5d53ca4552dc5ae7a0d3094f74df8dae67ffa
+  src/models/action-execute-request.ts:
+    last_write_checksum: sha1:4b0dd4a3586fa2b0fb4dc8069a9cd83c3464c3d0
   src/models/agent-chat-request.ts:
     id: 9a59039783ac
     last_write_checksum: sha1:3318311e5ca1527186e3679bd7c2d0fd7369899a
@@ -702,12 +632,10 @@ trackedFiles:
     pristine_git_object: 3ace75fb5e9b1fe7abe5a139f02eea7575c42b3e
   src/models/index.ts:
     id: f93644b0f37e
-    last_write_checksum: sha1:f7f7f9a22aa8fa14d05bf4c5c4ad0ab761e2c50c
+    last_write_checksum: sha1:bab6c612d62468a7dfa7a9a1227fe9ab8d95e5df
     pristine_git_object: da7255f9d5b6a7f3c07df8f51846e40b498cb4a2
-  src/models/mesh-tool-execute-request.ts:
-    id: e8e30cc5828c
-    last_write_checksum: sha1:d0039c26bb200013f22e0013a86391ded6ef7c5c
-    pristine_git_object: 2a78bb50863f05e3e1e48f4dbdaaf0e34fe4fb45
+  src/models/mesh-action-execute-request.ts:
+    last_write_checksum: sha1:42601287179d7c0bd6f1296b343f4c8dd51c6a48
   src/models/operations/agents-chat-create.ts:
     id: b0386ebb3e28
     last_write_checksum: sha1:df2873a512805ebc32a0ee5c5bf6f36352d15e0e
@@ -724,10 +652,34 @@ trackedFiles:
     id: 7d09d98f6930
     last_write_checksum: sha1:23e9e879159fc2812b4ea06c64109d95ca5a37ab
     pristine_git_object: b0ae1dc8e09b15f229341c463c58c7f5f4256638
+  src/models/operations/connectors-mcp-action-execute.ts:
+    last_write_checksum: sha1:57fa33e46aca83e602bddadd7d4185bc77525f2a
+  src/models/operations/connectors-mcp-actions-list.ts:
+    last_write_checksum: sha1:88303f29a92a1d7ae697b0d15e27ab18b87a312a
+  src/models/operations/connectors-mcp-inspect.ts:
+    last_write_checksum: sha1:91924ff261dd2a73a946412c8177808e9ef34aad
+  src/models/operations/connectors-mcp-spawn.ts:
+    last_write_checksum: sha1:bd4ccdc33d6e22ab5e5ddf2e0dd74db9d44193fb
+  src/models/operations/connectors-onchain-action-execute.ts:
+    last_write_checksum: sha1:62b307e1b091733f376799cb818200f8de2a63c5
+  src/models/operations/connectors-onchain-action-get.ts:
+    last_write_checksum: sha1:8f014cafe6c518b7400b895f45c2462c0754a108
+  src/models/operations/connectors-onchain-actions-list.ts:
+    last_write_checksum: sha1:0db93b987c8a90bdd8382100db2bfb27fde079c7
+  src/models/operations/connectors-onchain-plugin-get.ts:
+    last_write_checksum: sha1:a32a08c030f5fd967b3b456a289133537ad66688
+  src/models/operations/connectors-onchain-plugins-list.ts:
+    last_write_checksum: sha1:02334ae67373b9f1df7d51dcffa4bec31e61c1e1
+  src/models/operations/connectors-onchain-status.ts:
+    last_write_checksum: sha1:b70e78c510f61f954c390ed1761b9b043bdb3ec8
+  src/models/operations/connectors-runtime-execute.ts:
+    last_write_checksum: sha1:8f343452b04dfd9d64e721f0daaeec08d78d51f4
   src/models/operations/index.ts:
     id: 0d9ffaf774d2
-    last_write_checksum: sha1:86395780ad119f94f50c6ba97bbfb70c6da3eacc
+    last_write_checksum: sha1:0ab12ff68c272592bc18cc603ebef13ad4f8e62d
     pristine_git_object: e2033afd55454399b57b76c078d1929bdbd79575
+  src/models/operations/mesh-actions-execute.ts:
+    last_write_checksum: sha1:02f346178f4a82681a8269d03f43dcba566d7764
   src/models/operations/mesh-conclave-run.ts:
     id: c3782904518d
     last_write_checksum: sha1:c7a724e1c1230b774dfa38473139bf452a9c4d0e
@@ -752,10 +704,6 @@ trackedFiles:
     id: a40935d344c0
     last_write_checksum: sha1:7ca9ca1181d4d163c828c0f50b975291e2bc9964
     pristine_git_object: 55086e9c4400da0b9766a246121e1deb0d5b01e6
-  src/models/operations/mesh-tools-execute.ts:
-    id: 0f7f9614cf6c
-    last_write_checksum: sha1:32f7b66076a1abc163be5aca062928949fa5a8fa
-    pristine_git_object: 4c3879ec95e30832c21231047f1eb9f0a050ec72
   src/models/operations/runtime-health-check.ts:
     id: 7292c570cd04
     last_write_checksum: sha1:14e05b62d8b94c3ad2ae2d80e12e2e18f033e900
@@ -764,50 +712,6 @@ trackedFiles:
     id: ab5a4b0eca56
     last_write_checksum: sha1:23b2fd147ba273ea880c6eff5a1d9633c47e8cd9
     pristine_git_object: 8ee420dad8a1d9ba26c01d1f3d0a11f28f1cb3bb
-  src/models/operations/tools-goat-list.ts:
-    id: 571ecd3460b7
-    last_write_checksum: sha1:688f70586eb6782cf211a5e5296ec9ff0e99c45b
-    pristine_git_object: c2a6b478a7228f29787e17c3172bb5b211153df8
-  src/models/operations/tools-goat-plugin-get.ts:
-    id: 7579dd24cfe5
-    last_write_checksum: sha1:15fd665d336158198382939fa7dc28dfefb9f9ec
-    pristine_git_object: 68da2f5522d3b09f0f88ffb253815291959298ce
-  src/models/operations/tools-goat-plugins-list.ts:
-    id: f596628eb9cb
-    last_write_checksum: sha1:4ff8124832d0874f612f372da20ee2404a2b3f3f
-    pristine_git_object: 81682bfb481d2f1c0dee35c27bafb4abb481ef6e
-  src/models/operations/tools-goat-status.ts:
-    id: b1fa57ca8622
-    last_write_checksum: sha1:988d61305a4875e3d5de7d9c21b9726657e1a65f
-    pristine_git_object: af5fef28b8fb43da6d32c5c14224bdc132be9b9e
-  src/models/operations/tools-goat-tool-execute.ts:
-    id: d979bb7ec105
-    last_write_checksum: sha1:5f9736a9848468cf919c5d53e446ee482819dcd7
-    pristine_git_object: e3e6037ef77311af8250ae99bc3938b68eac9f01
-  src/models/operations/tools-goat-tool-get.ts:
-    id: 9e9cc9e04c44
-    last_write_checksum: sha1:3a6923e4b5c4093e2547fcd97d209c19b1e408b9
-    pristine_git_object: e40bdb269ee9c1b750df89584baeac12f0212d7d
-  src/models/operations/tools-mcp-inspect.ts:
-    id: 5b009523b0a9
-    last_write_checksum: sha1:e3754eead0879d12f0d822f71176e76c82bdaec2
-    pristine_git_object: c1a3ae0e8b7f4a3543f89c59f1df96076bc1e600
-  src/models/operations/tools-mcp-spawn.ts:
-    id: 4b6834d9ab0d
-    last_write_checksum: sha1:d7e8be7ef735eb7fe704513e4c89f49f63a8100f
-    pristine_git_object: 4ad4abaee8b1dc555e9b26dc8fa56c35a4f8bcfb
-  src/models/operations/tools-mcp-tool-execute.ts:
-    id: 57f2fd8a83d6
-    last_write_checksum: sha1:bc038604456fcf51a2561f3cd2ecf20a34b603ae
-    pristine_git_object: 079716ee319ec3aa217816d50e5d0225ecea06a2
-  src/models/operations/tools-mcp-tools-list.ts:
-    id: da5a0b412b8a
-    last_write_checksum: sha1:f8b15462a7648b14146d5e64bc0cee7cfcc346ef
-    pristine_git_object: 8775c77744e1d3f740d7e29bf058500f23e436fb
-  src/models/operations/tools-runtime-execute.ts:
-    id: 4d7e0c446c26
-    last_write_checksum: sha1:03ad5ac227894be698387d3ba5f226cbe70063a1
-    pristine_git_object: c6d36689a43cf38e1edf6707e749fe25fbf9ad41
   src/models/operations/workflows-chat-stream.ts:
     id: ce0d929bbe24
     last_write_checksum: sha1:4ceb82bf842d3d0204fc5d751f1ffef954c63cb3
@@ -852,10 +756,6 @@ trackedFiles:
     id: a7c883ee78f5
     last_write_checksum: sha1:3cbe71609853c62c59bde351a2ac2324c5b1f454
     pristine_git_object: 3d8a477d25cf5d2baec6010921e0253b654dc73a
-  src/models/tool-execute-request.ts:
-    id: 3429b4c0fb06
-    last_write_checksum: sha1:6600ac4833af1602fa888a7ba9d01098194cca81
-    pristine_git_object: 8ce9b7a972677a80fa4a92507cb99aea538e6ba2
   src/models/workflow-chat-request.ts:
     id: 1d1c9b51f62e
     last_write_checksum: sha1:ba3235d2b3addc4428fcfa2c2ef4ba50b6ebd4ca
@@ -868,6 +768,8 @@ trackedFiles:
     id: a103cd018c9b
     last_write_checksum: sha1:bd99bca47dae52cefba82b74cc3aaabad85e0e35
     pristine_git_object: ba444eec642f59e516a7dcb4bd48a61bd5ae6e09
+  src/sdk/connectors.ts:
+    last_write_checksum: sha1:214babecc50b6d7c591906cabb0179019d810e7d
   src/sdk/health.ts:
     id: d2e0a0845caf
     last_write_checksum: sha1:b164dd20dcf66fb983cd341685bd5fb7ebde3fb4
@@ -878,16 +780,12 @@ trackedFiles:
     pristine_git_object: 86caf155c6564a16cf4ed35e47b0098ddb78f86a
   src/sdk/mesh.ts:
     id: a42da0f67ca8
-    last_write_checksum: sha1:f58646e6ad72982ffbc1ba5cadf4990a897019b7
+    last_write_checksum: sha1:e303276ee43d7441682657b907484552cbb47686
     pristine_git_object: 38557524b4c115391751987cf0f79cb4520821b2
   src/sdk/sdk.ts:
     id: 784571af2f69
-    last_write_checksum: sha1:5df5b9d6562e73025b0d8f408d6e86da75c4efa6
+    last_write_checksum: sha1:0e9822ab9a1a909dd89a6350ea959faa0628c69d
     pristine_git_object: 6bd206852455173921305050ff3c22935a0e1792
-  src/sdk/tools.ts:
-    id: f997ccdd9dd9
-    last_write_checksum: sha1:2b3d1aff1f8e9d5927159b7a35f7e170a8c8b430
-    pristine_git_object: 017cc5c84ae17a7805a5f87759f38d906b2ae85a
   src/sdk/workflows.ts:
     id: e5d888426b1c
     last_write_checksum: sha1:9fb28aaa852686d30e6046c0783ea9b021fe86b2
@@ -930,7 +828,7 @@ trackedFiles:
     pristine_git_object: acf26fa1424b594fef3b19de16cce7db7e636764
   src/types/primitives.ts:
     id: 0cd7f4ac625d
-    last_write_checksum: sha1:7bdf6c790bdbcb8e369088557c42878f5270a701
+    last_write_checksum: sha1:c3ce85778bf82bc0f0d464067b04856d99ff4365
     pristine_git_object: c02a883ff49273b870ba1c1c8f4a954be4b3a31d
   src/types/rfcdate.ts:
     id: 9eb64906dcd6
@@ -958,11 +856,15 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   runtime_status_get:
     speakeasy-default-runtime-status-get:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+        default:
+          application/json: {}
   agents_chat_create:
     speakeasy-default-agents-chat-create:
       parameters:
@@ -999,6 +901,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   agents_runs_state_get:
     speakeasy-default-agents-runs-state-get:
       parameters:
@@ -1026,6 +930,8 @@ examples:
       responses:
         "200":
           application/json: {"key": 8285.82, "key1": 3813}
+        default:
+          application/json: {}
   workflows_chat_stream:
     speakeasy-default-workflows-chat-stream:
       parameters:
@@ -1036,6 +942,8 @@ examples:
       responses:
         "200":
           text/event-stream: "<value>"
+        default:
+          application/json: {}
   workflows_stop:
     speakeasy-default-workflows-stop:
       parameters:
@@ -1070,6 +978,8 @@ examples:
       responses:
         "200":
           application/json: {"success": true}
+        default:
+          application/json: {}
   workflows_run_alias:
     speakeasy-default-workflows-run-alias:
       parameters:
@@ -1080,6 +990,8 @@ examples:
       responses:
         "200":
           text/event-stream: "<value>"
+        default:
+          application/json: {}
   workspace_index:
     speakeasy-default-workspace-index:
       requestBody:
@@ -1087,6 +999,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   workspace_search:
     speakeasy-default-workspace-search:
       requestBody:
@@ -1094,6 +1008,8 @@ examples:
       responses:
         "200":
           application/json: {"results": [{"key": "<value>", "key1": "<value>"}, {"key": "<value>", "key1": "<value>"}]}
+        default:
+          application/json: {}
   memory_add:
     speakeasy-default-memory-add:
       requestBody:
@@ -1174,16 +1090,22 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   tools_goat_plugins_list:
     speakeasy-default-tools-goat-plugins-list:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+        default:
+          application/json: {}
   tools_goat_list:
     speakeasy-default-tools-goat-list:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   tools_goat_plugin_get:
     speakeasy-default-tools-goat-plugin-get:
       parameters:
@@ -1192,6 +1114,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   tools_goat_tool_get:
     speakeasy-default-tools-goat-tool-get:
       parameters:
@@ -1201,6 +1125,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   tools_goat_tool_execute:
     speakeasy-default-tools-goat-tool-execute:
       parameters:
@@ -1212,6 +1138,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   tools_mcp_inspect:
     speakeasy-default-tools-mcp-inspect:
       requestBody:
@@ -1219,6 +1147,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+        default:
+          application/json: {}
   tools_mcp_spawn:
     speakeasy-default-tools-mcp-spawn:
       requestBody:
@@ -1226,6 +1156,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   tools_mcp_tools_list:
     speakeasy-default-tools-mcp-tools-list:
       parameters:
@@ -1234,6 +1166,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   tools_mcp_tool_execute:
     speakeasy-default-tools-mcp-tool-execute:
       parameters:
@@ -1245,6 +1179,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   tools_runtime_execute:
     speakeasy-default-tools-runtime-execute:
       requestBody:
@@ -1252,6 +1188,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   mesh_tools_execute:
     speakeasy-default-mesh-tools-execute:
       requestBody:
@@ -1259,6 +1197,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   mesh_memory_execute:
     speakeasy-default-mesh-memory-execute:
       requestBody:
@@ -1266,6 +1206,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   mesh_hai_register:
     speakeasy-default-mesh-hai-register:
       requestBody:
@@ -1273,6 +1215,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   mesh_reputation_summary_get:
     speakeasy-default-mesh-reputation-summary-get:
       parameters:
@@ -1281,6 +1225,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+        default:
+          application/json: {}
   mesh_synapse_anchor:
     speakeasy-default-mesh-synapse-anchor:
       requestBody:
@@ -1288,6 +1234,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>"}
+        default:
+          application/json: {}
   mesh_filecoin_pin:
     speakeasy-default-mesh-filecoin-pin:
       requestBody:
@@ -1295,6 +1243,8 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>"}
+        default:
+          application/json: {}
   mesh_conclave_run:
     speakeasy-default-mesh-conclave-run:
       requestBody:
@@ -1302,4 +1252,96 @@ examples:
       responses:
         "200":
           application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+        default:
+          application/json: {}
+  connectors_onchain_status:
+    speakeasy-default-connectors-onchain-status:
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_onchain_plugins_list:
+    speakeasy-default-connectors-onchain-plugins-list:
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_onchain_actions_list:
+    speakeasy-default-connectors-onchain-actions-list:
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_onchain_plugin_get:
+    speakeasy-default-connectors-onchain-plugin-get:
+      parameters:
+        path:
+          pluginId: "<id>"
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>"}
+  connectors_onchain_action_get:
+    speakeasy-default-connectors-onchain-action-get:
+      parameters:
+        path:
+          pluginId: "<id>"
+          actionName: "<value>"
+      responses:
+        "200":
+          application/json: {"key": "<value>"}
+  connectors_onchain_action_execute:
+    speakeasy-default-connectors-onchain-action-execute:
+      parameters:
+        path:
+          pluginId: "<id>"
+          actionName: "<value>"
+      requestBody:
+        application/json: {}
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_mcp_inspect:
+    speakeasy-default-connectors-mcp-inspect:
+      requestBody:
+        application/json: {"serverId": "<id>", "candidates": [{}, {"key": "<value>", "key1": "<value>"}, {}]}
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_mcp_spawn:
+    speakeasy-default-connectors-mcp-spawn:
+      requestBody:
+        application/json: {"serverId": "<id>"}
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>", "key2": "<value>"}
+  connectors_mcp_actions_list:
+    speakeasy-default-connectors-mcp-actions-list:
+      parameters:
+        path:
+          serverId: "<id>"
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>"}
+  connectors_mcp_action_execute:
+    speakeasy-default-connectors-mcp-action-execute:
+      parameters:
+        path:
+          serverId: "<id>"
+          actionName: "<value>"
+      requestBody:
+        application/json: {}
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>"}
+  connectors_runtime_execute:
+    speakeasy-default-connectors-runtime-execute:
+      requestBody:
+        application/json: {"source": "mcp", "toolName": "<value>"}
+      responses:
+        "200":
+          application/json: {"key": "<value>", "key1": "<value>"}
+  mesh_actions_execute:
+    speakeasy-default-mesh-actions-execute:
+      requestBody:
+        application/json: {"agentWallet": "<value>", "toolName": "search_all_memory", "haiId": "<id>", "threadId": "<id>"}
+      responses:
+        "200":
+          application/json: {"key": "<value>"}
 examplesVersion: 1.0.2

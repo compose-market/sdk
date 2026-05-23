@@ -9,9 +9,17 @@ import type {
     ComposeReceipt,
     FacilitatorChainsResponse,
     FacilitatorSupportedResponse,
+    ModelMeterInput,
+    ModelMeterQuote,
+    PaymentAbortInput,
+    PaymentAbortResponse,
     PaymentPayload,
+    PaymentPrepareInput,
+    PaymentPrepareResponse,
     PaymentRequired,
     PaymentRequirements,
+    PaymentSettleInput,
+    PaymentSettleResponse,
     SettleResponse,
     VerifyResponse,
     X402PaymentSigner,
@@ -143,14 +151,94 @@ export class FacilitatorResource {
     }
 }
 
+export class PaymentsResource {
+    constructor(
+        private readonly client: HttpClient,
+        private readonly ctx: {
+            getWalletMaybe(): { address: string | null; chainId: number | null };
+            getTokenMaybe(): string | null;
+        },
+    ) { }
+
+    /**
+     * Authorize a reusable Compose Key payment intent. The server owns budget
+     * reservation, idempotency, x402 challenge headers, and live budget headers.
+     */
+    prepare(input: PaymentPrepareInput, options: { signal?: AbortSignal; timeoutMs?: number } = {}): APIPromise<PaymentPrepareResponse> {
+        const wallet = this.ctx.getWalletMaybe();
+        const token = this.ctx.getTokenMaybe();
+        return this.client.request<PaymentPrepareResponse>({
+            method: "POST",
+            path: "/api/payments/prepare",
+            body: input,
+            headers: {
+                composeKey: token ?? undefined,
+                userAddress: wallet.address ?? undefined,
+                chainId: wallet.chainId ?? undefined,
+                x402MaxAmountWei: input.maxAmountWei,
+                idempotencyKey: input.idempotencyKey,
+            },
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+        });
+    }
+
+    /**
+     * Settle a prepared payment intent with either an explicit final amount or
+     * an authoritative meter. The API rejects settlement above the authorized
+     * cap; the SDK only forwards the typed contract.
+     */
+    settle(input: PaymentSettleInput, options: { signal?: AbortSignal; timeoutMs?: number } = {}): APIPromise<PaymentSettleResponse> {
+        return this.client.request<PaymentSettleResponse>({
+            method: "POST",
+            path: "/api/payments/settle",
+            body: input,
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+            doNotRetry: true,
+        });
+    }
+
+    abort(input: PaymentAbortInput, options: { signal?: AbortSignal; timeoutMs?: number } = {}): APIPromise<PaymentAbortResponse> {
+        return this.client.request<PaymentAbortResponse>({
+            method: "POST",
+            path: "/api/payments/abort",
+            body: input,
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+            doNotRetry: true,
+        });
+    }
+
+    /**
+     * Ask the server to resolve the authoritative model-meter quote from the
+     * catalog and metering telemetry. No model/provider allowlists live here.
+     */
+    meterModel(input: ModelMeterInput, options: { signal?: AbortSignal; timeoutMs?: number } = {}): APIPromise<ModelMeterQuote> {
+        return this.client.request<ModelMeterQuote>({
+            method: "POST",
+            path: "/api/payments/meter/model",
+            body: input,
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+        });
+    }
+}
+
 export class X402Resource {
     readonly facilitator: FacilitatorResource;
+    readonly payments: PaymentsResource;
 
     constructor(
         client: HttpClient,
+        ctx: {
+            getWalletMaybe(): { address: string | null; chainId: number | null };
+            getTokenMaybe(): string | null;
+        },
         private readonly fetchWithPayment?: (input: RequestInfo | URL, init?: RequestInit & { paymentMode?: ComposePaymentMode }) => Promise<Response>,
     ) {
         this.facilitator = new FacilitatorResource(client);
+        this.payments = new PaymentsResource(client, ctx);
     }
 
     fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

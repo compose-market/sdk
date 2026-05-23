@@ -11,6 +11,7 @@ import type {
     ModelParamsResponse,
     ModelSearchInput,
     ModelSearchResponse,
+    PricingResponse,
 } from "../types/index.js";
 
 export class ModelModalitiesResource {
@@ -63,8 +64,8 @@ export class ModelsResource {
     }
 
     /**
-     * List the curated ~612-model set. Use `listAll()` for the 45k+ catalog.
-     * Returns the canonical OpenAI-compatible `Model` shape.
+     * List the curated, fast-loading model set. Use `listAll()` for the full catalog.
+     * Returns the canonical Compose model card shape.
      */
     list(): APIPromise<ModelListResponse> {
         return this.client.request<ModelListResponse>({
@@ -74,7 +75,7 @@ export class ModelsResource {
     }
 
     /**
-     * Full catalog — ~45k+ models across 12 providers. Recommended to pair
+     * Full catalog across every compiled provider source. Recommended to pair
      * with `search()` for discoverability; raw `listAll()` is intended for
      * exports and power users.
      */
@@ -109,6 +110,18 @@ export class ModelsResource {
         return this.client.request<ModelParamsResponse>({
             method: "GET",
             path: `/v1/models/${encodeURIComponent(modelId)}/params`,
+        });
+    }
+
+    /**
+     * Pricing table exposed by the API gateway. This is intentionally separate
+     * from model discovery because it returns only priced models plus pricing
+     * metadata for cost calculators and quote previews.
+     */
+    pricing(): APIPromise<PricingResponse> {
+        return this.client.request<PricingResponse>({
+            method: "GET",
+            path: "/api/pricing",
         });
     }
 }

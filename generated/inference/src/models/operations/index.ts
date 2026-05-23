@@ -4,7 +4,6 @@
 
 export * from "./health-check.js";
 export * from "./inference-audio-speech-create.js";
-export * from "./inference-audio-transcriptions-create-multipart.js";
 export * from "./inference-audio-transcriptions-create.js";
 export * from "./inference-chat-completions-create.js";
 export * from "./inference-embeddings-create.js";

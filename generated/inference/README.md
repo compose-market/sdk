@@ -28,7 +28,6 @@ Canonical contract for Compose model discovery, serverless inference, and realti
   * [Authentication](#authentication)
   * [Available Resources and Operations](#available-resources-and-operations)
   * [Standalone functions](#standalone-functions)
-  * [File uploads](#file-uploads)
   * [Retries](#retries)
   * [Error Handling](#error-handling)
   * [Server Selection](#server-selection)
@@ -192,7 +191,6 @@ run();
 * [inferenceImagesEdit](docs/sdks/inference/README.md#inferenceimagesedit)
 * [inferenceAudioSpeechCreate](docs/sdks/inference/README.md#inferenceaudiospeechcreate)
 * [inferenceAudioTranscriptionsCreate](docs/sdks/inference/README.md#inferenceaudiotranscriptionscreate)
-* [inferenceAudioTranscriptionsCreateMultipart](docs/sdks/inference/README.md#inferenceaudiotranscriptionscreatemultipart)
 * [inferenceVideosGenerate](docs/sdks/inference/README.md#inferencevideosgenerate)
 * [inferenceVideosGet](docs/sdks/inference/README.md#inferencevideosget)
 * [inferenceVideosStream](docs/sdks/inference/README.md#inferencevideosstream)
@@ -234,7 +232,6 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 - [`healthHealthCheck`](docs/sdks/health/README.md#healthcheck)
 - [`inferenceInferenceAudioSpeechCreate`](docs/sdks/inference/README.md#inferenceaudiospeechcreate)
 - [`inferenceInferenceAudioTranscriptionsCreate`](docs/sdks/inference/README.md#inferenceaudiotranscriptionscreate)
-- [`inferenceInferenceAudioTranscriptionsCreateMultipart`](docs/sdks/inference/README.md#inferenceaudiotranscriptionscreatemultipart)
 - [`inferenceInferenceChatCompletionsCreate`](docs/sdks/inference/README.md#inferencechatcompletionscreate)
 - [`inferenceInferenceEmbeddingsCreate`](docs/sdks/inference/README.md#inferenceembeddingscreate)
 - [`inferenceInferenceImagesEdit`](docs/sdks/inference/README.md#inferenceimagesedit)
@@ -259,47 +256,6 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 
 </details>
 <!-- End Standalone functions [standalone-funcs] -->
-
-<!-- Start File uploads [file-upload] -->
-## File uploads
-
-Certain SDK methods accept files as part of a multi-part request. It is possible and typically recommended to upload files as a stream rather than reading the entire contents into memory. This avoids excessive memory consumption and potentially crashing with out-of-memory errors when working with very large files. The following example demonstrates how to attach a file stream to a request.
-
-> [!TIP]
->
-> Depending on your JavaScript runtime, there are convenient utilities that return a handle to a file without reading the entire contents into memory:
->
-> - **Node.js v20+:** Since v20, Node.js comes with a native `openAsBlob` function in [`node:fs`](https://nodejs.org/docs/latest-v20.x/api/fs.html#fsopenasblobpath-options).
-> - **Bun:** The native [`Bun.file`](https://bun.sh/docs/api/file-io#reading-files-bun-file) function produces a file handle that can be used for streaming file uploads.
-> - **Browsers:** All supported browsers return an instance to a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) when reading the value from an `<input type="file">` element.
-> - **Node.js v18:** A file stream can be created using the `fileFrom` helper from [`fetch-blob/from.js`](https://www.npmjs.com/package/fetch-blob).
-
-```typescript
-import { ComposeMarket } from "@compose-market/sdk";
-import { openAsBlob } from "node:fs";
-
-const composeMarket = new ComposeMarket();
-
-async function run() {
-  const result = await composeMarket.inference
-    .inferenceAudioTranscriptionsCreateMultipart({
-      composeKeyAuth: "<YOUR_BEARER_TOKEN_HERE>",
-    }, {
-      xSessionUserAddress: "0x1111111111111111111111111111111111111111",
-      xX402MaxAmountWei: "1000000",
-      body: {
-        model: "V90",
-        file: await openAsBlob("example.file"),
-      },
-    });
-
-  console.log(result);
-}
-
-run();
-
-```
-<!-- End File uploads [file-upload] -->
 
 <!-- Start Retries [retries] -->
 ## Retries
@@ -432,9 +388,9 @@ run();
 
 
 **Inherit from [`ComposeMarketError`](./src/models/errors/compose-market-error.ts)**:
-* [`ErrorEnvelope`](./src/models/errors/error-envelope.ts): Applicable to 13 of 25 methods.*
-* [`PaymentRequiredError`](./src/models/errors/payment-required-error.ts): x402 payment challenge. Status code `402`. Applicable to 8 of 25 methods.*
-* [`LegacyError`](./src/models/errors/legacy-error.ts): Compose error response. Applicable to 5 of 25 methods.*
+* [`ErrorEnvelope`](./src/models/errors/error-envelope.ts): Applicable to 12 of 24 methods.*
+* [`PaymentRequiredError`](./src/models/errors/payment-required-error.ts): x402 payment challenge. Status code `402`. Applicable to 7 of 24 methods.*
+* [`LegacyError`](./src/models/errors/legacy-error.ts): Compose error response. Applicable to 5 of 24 methods.*
 * [`ResponseValidationError`](./src/models/errors/response-validation-error.ts): Type mismatch between the data returned from the server and the structure expected by the SDK. See `error.rawValue` for the raw value and `error.pretty()` for a nicely formatted multi-line string.
 
 </details>

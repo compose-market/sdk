@@ -22,5 +22,6 @@ let value: AudioSpeechCreateRequest = {
 | `voice`                                             | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `responseFormat`                                    | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `speed`                                             | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
+| `user`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
 | `provider`                                          | [models.ModelProvider](../models/model-provider.md) | :heavy_minus_sign:                                  | N/A                                                 |
 | `additionalProperties`                              | Record<string, *any*>                               | :heavy_minus_sign:                                  | N/A                                                 |
