@@ -190,10 +190,107 @@ test("handwritten SDK exposes explicit inference endpoints without planner or in
     assert.equal(typeof sdk.inference.audio.speech, "function");
     assert.equal(typeof sdk.inference.audio.transcriptions, "function");
     assert.equal(typeof sdk.inference.videos.generate, "function");
+    assert.equal(typeof sdk.receipts.list, "function");
     assert.equal("plan" in sdk.inference, false);
     assert.equal("run" in sdk.inference, false);
     assert.equal("avatar" in sdk.system, false);
     assert.equal("banner" in sdk.system, false);
+});
+
+test("receipts.list returns authenticated cumulative receipt history", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "GET");
+        assert.equal(req.path, "/api/receipts");
+        assert.equal(req.query.get("chainId"), "43113");
+        assert.equal(req.query.get("limit"), "5");
+        assert.equal(req.headers.authorization, "Bearer compose-jwt-abc");
+        assert.equal(req.headers["x-session-user-address"], WALLET);
+        assert.equal(req.headers["x-chain-id"], "43113");
+
+        sendJson(res, 200, {
+            userAddress: WALLET,
+            chainId: 43113,
+            cumulative: {
+                totalAmountWei: "235458",
+                providerAmountWei: "230000",
+                platformFeeWei: "5458",
+                receiptCount: 3,
+            },
+            receipts: [{
+                id: "rct_test",
+                service: "agent",
+                action: "agent-stream",
+                userAddress: WALLET,
+                subject: "model:asi1-mini",
+                finalAmountWei: "12345",
+                providerAmountWei: "12000",
+                platformFeeWei: "345",
+                network: "eip155:43113",
+                settledAt: 1_778_888_001,
+                bills: [{
+                    kind: "model",
+                    source: "models_call",
+                    action: "models_call",
+                    subject: "cloudflare:@cf/leonardo/lucid-origin",
+                    amountWei: "987",
+                    lineItems: [{
+                        key: "model.models_call.cloudflare:@cf/leonardo/lucid-origin:tile",
+                        unit: "tile",
+                        quantity: 1,
+                        unitPriceUsd: 0.001,
+                        amountWei: "987",
+                    }],
+                }],
+                cumulative: {
+                    totalAmountWei: "235458",
+                    providerAmountWei: "230000",
+                    platformFeeWei: "5458",
+                    receiptCount: 3,
+                },
+            }],
+        });
+    });
+
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-jwt-abc",
+        });
+
+        const history = await sdk.receipts.list({ limit: 5 });
+
+        assert.equal(history.cumulative.totalAmountWei, "235458");
+        assert.equal(history.receipts[0].id, "rct_test");
+        assert.equal(history.receipts[0].bills?.[0].kind, "model");
+        assert.equal(history.receipts[0].bills?.[0].source, "models_call");
+        assert.equal(history.receipts[0].cumulative?.receiptCount, 3);
+    } finally {
+        await server.close();
+    }
+});
+
+test("native inference request contracts do not expose provider overrides", async () => {
+    const spec = await readFile(new URL("specs/inference.openapi.yaml", SDK_PACKAGE_ROOT), "utf-8");
+    const requestSchemas = [
+        "ChatCompletionsCreateRequest",
+        "ResponsesCreateRequest",
+        "EmbeddingsCreateRequest",
+        "ImagesGenerateRequest",
+        "AudioSpeechCreateRequest",
+        "AudioTranscriptionCreateRequest",
+        "VideoGenerateRequest",
+    ];
+
+    for (const schema of requestSchemas) {
+        const lines = spec.split("\n");
+        const start = lines.findIndex((line) => line === `    ${schema}:`);
+        assert.notEqual(start, -1, `${schema} missing from inference spec`);
+        const end = lines.findIndex((line, index) => index > start && /^    \S.*:$/.test(line));
+        const section = lines.slice(start, end === -1 ? undefined : end).join("\n");
+        assert.equal(/\n        provider:/.test(section), false, `${schema} exposes provider override`);
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -1977,7 +2074,6 @@ test("x402.payments wraps prepare, settle, abort, and model metering routes", as
         const body = JSON.parse(req.body);
         assert.deepEqual(body, {
             modelId: "gpt-4.1-mini",
-            provider: "openai",
             modality: "text",
             usage: { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
         });
@@ -2021,7 +2117,6 @@ test("x402.payments wraps prepare, settle, abort, and model metering routes", as
 
         const quote = await sdk.x402.payments.meterModel({
             modelId: "gpt-4.1-mini",
-            provider: "openai",
             modality: "text",
             usage: { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
         });
@@ -2466,7 +2561,7 @@ test("inference.chat.completions.create forwards rich native inference fields un
     }
 });
 
-test("inference.responses.create forwards multimodal and provider parameter fields", async () => {
+test("inference.responses.create forwards multimodal fields and strips provider overrides", async () => {
     const server = await startMockServer((req, res) => {
         assert.equal(req.method, "POST");
         assert.equal(req.path, "/v1/responses");
@@ -2485,6 +2580,7 @@ test("inference.responses.create forwards multimodal and provider parameter fiel
         assert.equal(body.size, "1024x1024");
         assert.equal(body.quality, "hd");
         assert.equal(body.image_url, "https://cdn.example.com/ref.png");
+        assert.equal("provider" in body, false);
 
         sendJson(res, 200, {
             id: "resp-rich",
@@ -2514,7 +2610,8 @@ test("inference.responses.create forwards multimodal and provider parameter fiel
             size: "1024x1024",
             quality: "hd",
             image_url: "https://cdn.example.com/ref.png",
-        });
+            provider: "openai",
+        } as any);
         assert.equal(result.data.id, "resp-rich");
     } finally {
         await server.close();

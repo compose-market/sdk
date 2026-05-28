@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.6.96",
+  "version": "0.6.98",
   "description": "Official Compose.Market SDK: Compose Keys, x402 facilitator, multi-provider model catalog, native streaming inference with typed receipts, unified tool-call events, agent + workflow runtime streams, live session events, and wallet-scoped persistence.",
   "keywords": [
     "compose",
@@ -9,6 +9,7 @@
     "x402-v2",
     "facilitator",
     "inference",
+    "manowar",
     "agentic-economy",
     "decentralized-inference",
     "a2a"
@@ -181,6 +182,7 @@
     "generated/manowar/package.json",
     "generated/manowar/README.md",
     "specs",
+    ".speakeasy/inference.arazzo.yaml",
     ".speakeasy/tests.arazzo.yaml",
     ".speakeasy/memory.arazzo.yaml",
     ".speakeasy/a2a.arazzo.yaml",
@@ -216,9 +218,9 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@x402/core": "^2.12.0",
-    "@x402/evm": "^2.12.0",
-    "viem": "^2.50.4",
+    "@x402/core": "^2.13.0",
+    "@x402/evm": "^2.13.0",
+    "viem": "^2.51.0",
     "zod": "^4.4.3"
   },
   "publishConfig": {

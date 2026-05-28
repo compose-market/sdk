@@ -17,6 +17,7 @@ import test from "node:test";
 import {
     ComposeSDK,
     type AgentRuntimeEvent,
+    type ChildAgentLifecycleEvent,
     type WorkflowRuntimeEvent,
     type ToolCallLifecycleEvent,
 } from "../src/index.ts";
@@ -112,6 +113,298 @@ test("sdk.agent.stream yields text/thinking/tool events and aggregates toolCalls
     );
 });
 
+test("sdk.agent.stream preserves raw model tool name and exposes selected model displayName", async () => {
+    await withRuntimeSSEServer(
+        (_req, res) => {
+            const output = {
+                role: "tool",
+                content: JSON.stringify({
+                    success: true,
+                    model: { id: "music_v1", name: "Music V1" },
+                    output: "Generated audio.",
+                }),
+            };
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_model_1",
+            });
+            const display = {
+                kind: "model",
+                id: "models_call",
+                name: "Music V1",
+                target: "music_v1",
+                summary: "Selected model Music V1",
+            };
+            res.write(`data: ${JSON.stringify({ type: "tool_start", toolName: "models_call", content: "prompt: make a short music loop", display })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "tool_end", toolName: "models_call", message: output.content, output, display })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                composeKey: "compose-jwt-abc",
+            });
+            const toolEvents: ToolCallLifecycleEvent[] = [];
+            sdk.events.on("toolCallStart", (e) => toolEvents.push(e));
+            sdk.events.on("toolCallEnd", (e) => toolEvents.push(e));
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "make a short music loop",
+                threadId: "t-model",
+                userAddress: WALLET,
+            });
+            const events: AgentRuntimeEvent[] = [];
+            for await (const event of stream) events.push(event);
+
+            const final = await stream.final();
+            assert.equal(final.toolCalls[0].toolName, "models_call");
+            assert.equal((final.toolCalls[0] as { displayName?: string }).displayName, "Music V1");
+            assert.equal(final.toolCalls[0].targetKind, "model");
+            assert.equal(final.toolCalls[0].target, "music_v1");
+
+            const startEvent = events.find((event) => event.type === "tool-start");
+            const endEvent = events.find((event) => event.type === "tool-end");
+            assert.equal(startEvent?.type === "tool-start" ? startEvent.display?.target : undefined, "music_v1");
+            assert.equal(endEvent?.type === "tool-end" ? endEvent.targetKind : undefined, "model");
+
+            const start = toolEvents.find((event) => event.source === "agent" && event.failed === undefined);
+            assert.equal(start?.toolName, "models_call");
+            assert.equal(start?.targetKind, "model");
+            assert.equal(start?.target, "music_v1");
+
+            const end = toolEvents.find((event) => event.source === "agent" && event.failed === false);
+            assert.equal(end?.toolName, "models_call");
+            assert.equal((end as { displayName?: string } | undefined)?.displayName, "Music V1");
+            assert.equal(end?.display?.target, "music_v1");
+        },
+    );
+});
+
+test("sdk.agent.stream parses child-agent runtime frames", async () => {
+    await withRuntimeSSEServer(
+        (_req, res) => {
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_child_1",
+            });
+            res.write(`data: ${JSON.stringify({
+                type: "swarm_child_start",
+                rootComposeRunId: "root-run",
+                parentRunId: "parent-run",
+                subId: "research",
+                depth: 1,
+                agentWallet: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                runKey: "sub:parent-run:research:d1",
+                runKeyChain: ["sub:parent-run:research:d1"],
+                ts: 1,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({
+                type: "swarm_child_delta",
+                rootComposeRunId: "root-run",
+                parentRunId: "parent-run",
+                subId: "research",
+                depth: 1,
+                agentWallet: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                runKey: "sub:parent-run:research:d1",
+                runKeyChain: ["sub:parent-run:research:d1"],
+                delta: "child text ",
+                display: { kind: "agent", id: "sub:parent-run:research:d1", target: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+                ts: 2,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({
+                type: "swarm_child_tool_start",
+                rootComposeRunId: "root-run",
+                parentRunId: "parent-run",
+                subId: "research",
+                depth: 1,
+                agentWallet: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                runKey: "sub:parent-run:research:d1",
+                toolName: "search_call",
+                input: { query: "Northstar" },
+                ts: 3,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({
+                type: "swarm_child_tool_end",
+                rootComposeRunId: "root-run",
+                parentRunId: "parent-run",
+                subId: "research",
+                depth: 1,
+                agentWallet: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                runKey: "sub:parent-run:research:d1",
+                toolName: "search_call",
+                output: { ok: true },
+                failed: false,
+                ts: 4,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({
+                type: "swarm_child_done",
+                rootComposeRunId: "root-run",
+                parentRunId: "parent-run",
+                subId: "research",
+                depth: 1,
+                agentWallet: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                runKey: "sub:parent-run:research:d1",
+                usage: { totalTokens: 12 },
+                toolBatches: 1,
+                stopReason: "completed",
+                wallMs: 55,
+                ts: 5,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                composeKey: "compose-jwt-abc",
+            });
+            const lifecycle: ChildAgentLifecycleEvent[] = [];
+            sdk.events.on("childAgentStart", (event) => lifecycle.push(event));
+            sdk.events.on("childAgentToolStart", (event) => lifecycle.push(event));
+            sdk.events.on("childAgentToolEnd", (event) => lifecycle.push(event));
+            sdk.events.on("childAgentDone", (event) => lifecycle.push(event));
+            sdk.events.on("childAgentError", (event) => lifecycle.push(event));
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "ask a child",
+                threadId: "t-child",
+                userAddress: WALLET,
+            });
+            const events: AgentRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+
+            const child = events.filter((event) => event.type === "child");
+            assert.deepEqual(child.map((event) => event.event), ["start", "delta", "tool-start", "tool-end", "done"]);
+            assert.equal(child[1].delta, "child text ");
+            assert.equal(child[2].toolName, "search_call");
+            assert.deepEqual(child[2].input, { query: "Northstar" });
+            assert.deepEqual(child[3].output, { ok: true });
+            assert.equal(child[4].stopReason, "completed");
+            assert.equal(child[4].toolBatches, 1);
+            assert.equal(events.some((event) => event.type === "text-delta"), false);
+            assert.deepEqual(lifecycle.map((event) => event.event), ["start", "tool-start", "tool-end", "done"]);
+            assert.equal(lifecycle[0].runKey, "sub:parent-run:research:d1");
+            assert.equal(lifecycle[1].toolName, "search_call");
+            assert.deepEqual(lifecycle[1].input, { query: "Northstar" });
+            assert.equal(lifecycle[3].stopReason, "completed");
+
+            const final = await stream.final();
+            assert.equal(final.text, "");
+        },
+    );
+});
+
+test("sdk.agent.stream passes safe trace runtime frames through", async () => {
+    await withRuntimeSSEServer(
+        (_req, res) => {
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_trace_1",
+            });
+            res.write(`data: ${JSON.stringify({
+                type: "trace",
+                source: "capability",
+                stage: "execute",
+                action: "execute",
+                display: {
+                    kind: "model",
+                    id: "models:cover",
+                    name: "models",
+                    target: "models:cover",
+                    summary: "models execute",
+                },
+                details: { capabilityKind: "models" },
+                ts: 7,
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                composeKey: "compose-jwt-abc",
+            });
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "trace",
+                threadId: "t-trace",
+                userAddress: WALLET,
+            });
+            const events: AgentRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+
+            const trace = events.find((event) => event.type === "trace");
+            assert.equal(trace?.type, "trace");
+            assert.equal(trace?.source, "capability");
+            assert.equal(trace?.stage, "execute");
+            assert.equal(trace?.display?.kind, "model");
+            assert.equal(trace?.display?.target, "models:cover");
+            assert.equal(events.at(-1)?.type, "done");
+        },
+    );
+});
+
+test("sdk.agent.stream parses conclave runtime frames", async () => {
+    await withRuntimeSSEServer(
+        (_req, res) => {
+            res.writeHead(200, {
+                "content-type": "text/event-stream",
+                "x-request-id": "req_agent_conclave_1",
+            });
+            res.write(`data: ${JSON.stringify({
+                type: "conclave",
+                action: "write",
+                key: "plan.md",
+                success: true,
+                display: {
+                    kind: "conclave",
+                    id: "plan.md",
+                    target: "plan.md",
+                    summary: "Shared plan updated",
+                },
+                details: { version: 2 },
+            })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+        },
+        async (baseUrl) => {
+            const sdk = new ComposeSDK({
+                baseUrl,
+                userAddress: WALLET,
+                chainId: 43114,
+                composeKey: "compose-jwt-abc",
+            });
+
+            const stream = sdk.agent.stream({
+                agentWallet: "0xagent",
+                message: "conclave",
+                threadId: "t-conclave",
+                userAddress: WALLET,
+            });
+            const events: AgentRuntimeEvent[] = [];
+            for await (const ev of stream) events.push(ev);
+
+            const event = events.find((candidate) => candidate.type === "conclave");
+            assert.equal(event?.type, "conclave");
+            assert.equal(event?.action, "write");
+            assert.equal(event?.key, "plan.md");
+            assert.equal(event?.success, true);
+            assert.equal(event?.display?.kind, "conclave");
+            assert.deepEqual(event?.details, { version: 2 });
+        },
+    );
+});
+
 test("sdk.agent.stream negotiates x402 upto payments with x402MaxAmountWei", async () => {
     const paymentRequired = {
         x402Version: 2 as const,
@@ -152,13 +445,16 @@ test("sdk.agent.stream negotiates x402 upto payments with x402MaxAmountWei", asy
             });
             res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "paid agent" } }] })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-            res.write(`event: compose.receipt\ndata: ${JSON.stringify({
-                finalAmountWei: "8836",
-                txHash: "0xagentsettlement",
-                network: "eip155:43114",
-                settledAt: 1_777_339_956_538,
-            })}\n\n`);
-            res.end();
+            setTimeout(() => {
+                res.write(`event: compose.receipt\ndata: ${JSON.stringify({
+                    finalAmountWei: "8836",
+                    txHash: "0xagentsettlement",
+                    network: "eip155:43114",
+                    settledAt: 1_777_339_956_538,
+                })}\n\n`);
+                res.write("data: [DONE]\n\n");
+                res.end();
+            }, 350);
         },
         async (baseUrl) => {
             const sdk = new ComposeSDK({

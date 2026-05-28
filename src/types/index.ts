@@ -235,7 +235,6 @@ export interface PaymentAbortResponse {
 
 export interface ModelMeterInput {
     modelId: string;
-    provider?: ModelProvider | string;
     modality: CanonicalModality | string;
     usage?: Record<string, unknown>;
     media?: Record<string, unknown>;
@@ -450,7 +449,34 @@ export interface SessionExpiredEvent {
     timestamp?: number;
 }
 
-export type SessionEvent = SessionActiveEvent | SessionExpiredEvent;
+export interface SessionLeaseEvent {
+    type: "session-lease";
+    userAddress: string;
+    chainId: number;
+    reason?: "lease-expired" | (string & { readonly __brand?: "SessionLeaseReason" });
+    message?: string;
+    leaseMs?: number;
+    retryAfterMs?: number;
+    timestamp?: number;
+}
+
+export type SessionEvent = SessionActiveEvent | SessionExpiredEvent | SessionLeaseEvent;
+
+export interface ComposeAlert {
+    type: "compose.alert";
+    code: string;
+    severity: "info" | "warning" | "error";
+    source: string;
+    scope: "session" | "agent" | "model" | "workflow" | "api" | (string & { readonly __brand?: "ComposeAlertScope" });
+    title?: string;
+    message: string;
+    userAddress?: string | null;
+    chainId?: number | null;
+    timestamp?: number;
+    metadata?: Record<string, unknown>;
+    leaseMs?: number;
+    retryAfterMs?: number;
+}
 
 // =============================================================================
 // Receipts
@@ -561,6 +587,7 @@ export interface Model {
     modelType?: unknown;
     sourceMetadata?: unknown;
     params?: unknown;
+    operations?: ModelOperationCapability[];
     ownedBy?: string;
     createdAt?: string | number;
     available?: boolean;
@@ -817,7 +844,6 @@ export interface ChatCompletionsCreateParams extends OpenAIPassthroughParams {
     max_completion_tokens?: number;
     tools?: ChatToolDefinition[];
     tool_choice?: ChatToolChoice;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -902,7 +928,6 @@ export interface ResponsesCreateParams extends OpenAIPassthroughParams {
     duration?: number;
     aspect_ratio?: string;
     resolution?: string;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -924,13 +949,31 @@ export interface ResponseObject {
     compose_receipt?: Record<string, unknown>;
 }
 
+export interface ResponseOutputItem {
+    type: string;
+    role?: "assistant";
+    text?: string;
+    image_url?: string;
+    audio_url?: string;
+    video_url?: string;
+    embedding?: number[];
+    job_id?: string;
+    status?: string;
+    progress?: number;
+    mime_type?: string;
+    [key: string]: unknown;
+}
+
 export type ResponseStreamEvent =
+    | { type: "response.created"; response: ResponseObject }
     | { type: "response.output_text.delta"; response_id: string; model: string; delta: string }
     | { type: "response.reasoning.delta"; response_id: string; model: string; delta: string }
     | { type: "response.tool_call"; response_id: string; model: string; tool_call: { id: string; name: string; arguments: string } }
     | { type: "response.tool_call.delta"; response_id: string; model: string; index: number; delta: { id?: string; name?: string; arguments?: string } }
     | { type: "response.image_generation_call.partial_image"; response_id: string; model: string; partial_image_index: number; partial_image_b64: string }
     | { type: "response.image_generation_call.completed"; response_id: string; model: string; image_b64: string; mime_type?: string; revised_prompt?: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } }
+    | { type: "response.output_item.completed"; response_id: string; model: string; output_index: number; item: ResponseOutputItem }
+    | { type: "response.output_video.status"; response_id: string; model: string; job_id: string; status: "queued" | "processing" | "completed" | "failed"; progress?: number; url?: string; error?: string }
     | { type: "response.completed"; response_id: string; model: string; finish_reason: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } };
 
 // =============================================================================
@@ -945,7 +988,6 @@ export interface EmbeddingsCreateParams {
     dimensions?: number;
     encoding_format?: "float" | "base64" | string;
     user?: string;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -972,7 +1014,6 @@ export interface ImagesGenerateParams {
     response_format?: "url" | "b64_json" | string;
     style?: "vivid" | "natural" | string;
     user?: string;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -996,7 +1037,6 @@ export interface AudioSpeechCreateParams {
     response_format?: string;
     speed?: number;
     user?: string;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -1011,7 +1051,6 @@ export interface AudioTranscriptionCreateParams {
     prompt?: string;
     temperature?: number;
     timestamp_granularities?: Array<"word" | "segment" | string>;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -1038,7 +1077,6 @@ export interface VideoGenerateParams {
     image?: string;
     image_url?: string;
     user?: string;
-    provider?: ModelProvider;
     [key: string]: unknown;
 }
 
@@ -1076,14 +1114,93 @@ export type VideoStatusStreamEvent =
  * Events emitted by the Compose agent runtime on /agent/:wallet/stream.
  * Mirrors the runtime's native SSE vocabulary — no translation, no renaming.
  */
+export type AgentDisplayKind =
+    | "tool"
+    | "model"
+    | "connector"
+    | "agent"
+    | "search"
+    | "harness"
+    | "conclave"
+    | "route";
+
+export interface AgentEventDisplay {
+    kind: AgentDisplayKind;
+    id?: string;
+    name?: string;
+    target?: string;
+    summary?: string;
+    details?: Record<string, unknown>;
+}
+
+export interface AgentTraceRuntimeEvent {
+    type: "trace";
+    source: "capability" | "model" | "tool" | "agent" | "harness" | "route";
+    stage?: string;
+    action?: string;
+    message?: string;
+    display?: AgentEventDisplay;
+    ts?: number;
+    details?: Record<string, unknown>;
+}
+
+export interface AgentChildRuntimeEvent {
+    type: "child";
+    event: "start" | "delta" | "tool-start" | "tool-end" | "done" | "error";
+    rootComposeRunId?: string;
+    parentRunId?: string;
+    subId?: string;
+    depth?: number;
+    agentWallet?: string;
+    userAddress?: string;
+    runKey?: string;
+    runKeyChain?: string[];
+    delta?: string;
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+    failed?: boolean;
+    error?: string;
+    usage?: Record<string, unknown>;
+    toolBatches?: number;
+    stopReason?: string;
+    wallMs?: number;
+    display?: AgentEventDisplay;
+    ts?: number;
+}
+
+export interface AgentConclaveRuntimeEvent {
+    type: "conclave";
+    action: "write" | "read" | "list" | "delete";
+    key?: string;
+    success: boolean;
+    display?: AgentEventDisplay;
+    details?: Record<string, unknown>;
+}
+
+export interface AgentRouteRuntimeEvent {
+    type: "route";
+    mode: string;
+    confidence?: number;
+    ambiguous?: boolean;
+    candidates?: unknown[];
+    hints?: Record<string, unknown>;
+    reason?: string;
+    display?: AgentEventDisplay;
+}
+
 export type AgentRuntimeEvent =
     | { type: "text-delta"; delta: string }
     | { type: "reasoning-delta"; delta: string }
     | { type: "tool-args-delta"; id?: string; toolName?: string; argsDelta: string }
     | { type: "thinking-start"; message: string }
     | { type: "thinking-end" }
-    | { type: "tool-start"; toolName: string; summary?: string; content?: string }
-    | { type: "tool-end"; toolName: string; summary?: string; failed: boolean; error?: string }
+    | { type: "tool-start"; toolName: string; displayName?: string; summary?: string; content?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }
+    | { type: "tool-end"; toolName: string; displayName?: string; summary?: string; failed: boolean; error?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }
+    | AgentTraceRuntimeEvent
+    | AgentChildRuntimeEvent
+    | AgentConclaveRuntimeEvent
+    | AgentRouteRuntimeEvent
     | { type: "stopped"; reason: string }
     | { type: "error"; code?: string; message: string; details?: Record<string, unknown> }
     | { type: "done" };
@@ -1101,7 +1218,7 @@ export interface AgentStreamCreateParams {
 
 export interface AgentStreamFinalResult {
     text: string;
-    toolCalls: Array<{ toolName: string; summary?: string; failed: boolean; error?: string }>;
+    toolCalls: Array<{ toolName: string; displayName?: string; summary?: string; failed: boolean; error?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }>;
     requestId: string | null;
     receipt: ComposeReceipt | null;
     budget: SessionBudgetSnapshot | null;

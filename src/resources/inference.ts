@@ -13,6 +13,7 @@ import type {
     ImagesEditParams,
     ImagesResponse,
     ComposePaymentMode,
+    ResponseOutputItem,
     ResponseObject,
     ResponseStreamEvent,
     ResponsesCreateParams,
@@ -426,6 +427,11 @@ export class ComposeStreamIterator<Chunk, Final> implements AsyncIterable<Chunk>
 // Chat completions
 // ---------------------------------------------------------------------------
 
+function cleanse<T extends Record<string, unknown>>(params: T): T {
+    const { provider: _provider, ...body } = params;
+    return body as T;
+}
+
 class ChatCompletionsNamespace {
     constructor(
         private readonly client: HttpClient,
@@ -444,7 +450,7 @@ class ChatCompletionsNamespace {
         const { data, response } = await requestJsonWithPayment<ChatCompletion>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/chat/completions",
-            body: { ...params, stream: false },
+            body: { ...cleanse(params), stream: false },
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -471,7 +477,7 @@ async function* streamChatCompletions(
     const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/chat/completions",
-        body: { ...params, stream: true },
+        body: { ...cleanse(params), stream: true },
         headers: buildCallHeaders(options, ctx.getWalletMaybe(), ctx.getTokenMaybe()),
         signal: options?.signal,
         timeoutMs: options?.timeoutMs,
@@ -682,7 +688,7 @@ class ResponsesNamespace {
         const { data, response } = await requestJsonWithPayment<ResponseObject>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/responses",
-            body: { ...params, stream: false },
+            body: { ...cleanse(params), stream: false },
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -738,7 +744,7 @@ async function* streamResponses(
     const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/responses",
-        body: { ...params, stream: true },
+        body: { ...cleanse(params), stream: true },
         headers: buildCallHeaders(options, ctx.getWalletMaybe(), ctx.getTokenMaybe()),
         signal: options?.signal,
         timeoutMs: options?.timeoutMs,
@@ -753,6 +759,9 @@ async function* streamResponses(
     let lastCompleted: ResponseStreamEvent | null = null;
     let streamError: ComposeError | null = null;
     let sawDone = false;
+    let created: ResponseObject | null = null;
+    let textOutput = "";
+    const outputItems: ResponseOutputItem[] = [];
     const toolCallAggregator = new Map<string, { id: string; name: string; arguments: string; index: number }>();
 
     try {
@@ -783,6 +792,43 @@ async function* streamResponses(
                 parsed = JSON.parse(frame.data) as ResponseStreamEvent;
             } catch {
                 continue;
+            }
+
+            if (parsed.type === "response.created") {
+                created = parsed.response;
+            }
+
+            if (parsed.type === "response.output_text.delta") {
+                textOutput += parsed.delta;
+            }
+
+            if (parsed.type === "response.image_generation_call.completed") {
+                const url = `data:${parsed.mime_type || "image/png"};base64,${parsed.image_b64}`;
+                outputItems.push({
+                    type: "output_image",
+                    role: "assistant",
+                    image_url: url,
+                    mime_type: parsed.mime_type || "image/png",
+                    ...(parsed.revised_prompt ? { text: parsed.revised_prompt } : {}),
+                });
+            }
+
+            if (parsed.type === "response.output_item.completed") {
+                outputItems[parsed.output_index] = parsed.item;
+            }
+
+            if (parsed.type === "response.output_video.status" && parsed.status === "completed" && parsed.url) {
+                const existingIndex = outputItems.findIndex((item) => item.type === "output_video" && item.job_id === parsed.job_id);
+                const item: ResponseOutputItem = {
+                    type: "output_video",
+                    role: "assistant",
+                    job_id: parsed.job_id,
+                    status: parsed.status,
+                    video_url: parsed.url,
+                    ...(typeof parsed.progress === "number" ? { progress: parsed.progress } : {}),
+                };
+                if (existingIndex >= 0) outputItems[existingIndex] = { ...outputItems[existingIndex], ...item };
+                else outputItems.push(item);
             }
 
             // Assemble tool_call + tool_call.delta frames so the final result
@@ -857,14 +903,19 @@ async function* streamResponses(
 
         if (streamError) throw streamError;
 
+        const compactOutput = outputItems.filter((item): item is ResponseOutputItem => Boolean(item));
+        if (textOutput && !compactOutput.some((item) => item.type === "output_text")) {
+            compactOutput.unshift({ type: "output_text", role: "assistant", text: textOutput });
+        }
+
         const finalResponse: ResponseObject | null = lastCompleted
             ? {
                 id: lastCompleted.response_id,
                 object: "response",
-                created_at: Math.floor(Date.now() / 1000),
+                created_at: created?.created_at ?? Math.floor(Date.now() / 1000),
                 status: "completed",
                 model: lastCompleted.model,
-                output: [],
+                output: compactOutput,
                 ...(lastCompleted.usage
                     ? {
                         usage: {
@@ -875,7 +926,9 @@ async function* streamResponses(
                     }
                     : {}),
             }
-            : null;
+            : created
+                ? { ...created, output: compactOutput }
+                : null;
 
         const requestId = response.headers.get("x-request-id") ?? response.headers.get("X-Request-Id");
         const { budget, sessionInvalidReason } = emitStreamingEvents(ctx, response, receipt, requestId);
@@ -911,7 +964,7 @@ class EmbeddingsNamespace {
         const { data, response } = await requestJsonWithPayment<EmbeddingsResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/embeddings",
-            body: params,
+            body: cleanse(params),
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -934,7 +987,7 @@ class ImagesNamespace {
         const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/images/generations",
-            body: params,
+            body: cleanse(params),
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -946,7 +999,7 @@ class ImagesNamespace {
         const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/images/edits",
-            body: params,
+            body: cleanse(params),
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -980,7 +1033,7 @@ class AudioNamespace {
         const response = await requestResponseWithPayment<unknown>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/audio/speech",
-            body: params,
+            body: cleanse(params),
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,
@@ -1003,7 +1056,7 @@ class AudioNamespace {
      * Blob, File, and Uint8Array inputs are converted locally before sending.
      */
     async transcriptions(params: AudioTranscriptionCreateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<AudioTranscriptionResponse>> {
-        const { file, ...rest } = params;
+        const { file, provider: _provider, ...rest } = params;
         const body = {
             ...rest,
             file: await encodeAudioFile(file),
@@ -1035,7 +1088,7 @@ class VideosNamespace {
         const { data, response } = await requestJsonWithPayment<VideoGenerateResponse>(this.client, this.ctx, {
             method: "POST",
             path: "/v1/videos/generations",
-            body: params,
+            body: cleanse(params),
             headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
             signal: options?.signal,
             timeoutMs: options?.timeoutMs,

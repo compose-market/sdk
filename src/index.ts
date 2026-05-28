@@ -65,6 +65,7 @@ import { LocalResource } from "./resources/local.js";
 import { DispenserResource } from "./resources/dispenser.js";
 import { SettlementResource } from "./resources/settlement.js";
 import { BackpackResource } from "./resources/backpack.js";
+import { ReceiptsResource } from "./resources/receipts.js";
 import { instrumentBillableResponse } from "./resources/instrumentation.js";
 import { encodePaymentSignature } from "./resources/x402.js";
 import { BadRequestError } from "./errors.js";
@@ -110,6 +111,7 @@ export type {
     ReceiptEvent,
     SessionInvalidEvent,
     ToolCallLifecycleEvent,
+    ChildAgentLifecycleEvent,
     AgentStreamLifecycleEvent,
     WorkflowStreamLifecycleEvent,
 } from "./events.js";
@@ -125,6 +127,7 @@ export type { LocalResource } from "./resources/local.js";
 export type { DispenserResource } from "./resources/dispenser.js";
 export type { SettlementResource } from "./resources/settlement.js";
 export type { BackpackResource } from "./resources/backpack.js";
+export type { ReceiptsResource, ReceiptListOptions } from "./resources/receipts.js";
 
 export { decodeReceiptHeader, extractReceiptFromResponse, parseReceiptEvent } from "./streaming/receipt.js";
 export { parseSSEStream } from "./streaming/sse.js";
@@ -253,6 +256,7 @@ export class ComposeSDK {
     readonly dispenser: DispenserResource;
     readonly settlement: SettlementResource;
     readonly backpack: BackpackResource;
+    readonly receipts: ReceiptsResource;
 
     readonly wallets: {
         attach: (input: { address: string; chainId: number }) => void;
@@ -403,6 +407,10 @@ export class ComposeSDK {
             getTokenMaybe: () => this.composeKey,
         });
         this.backpack = new BackpackResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
+        this.receipts = new ReceiptsResource(this.http, {
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
         });

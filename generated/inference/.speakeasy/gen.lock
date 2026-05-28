@@ -2,10 +2,10 @@ lockVersion: ""
 id: ""
 management:
   docChecksum: 6086ac2753df2e1bcff4d54e25ebd95c
-  docVersion: 0.6.96
+  docVersion: 0.6.98
   speakeasyVersion: 1.763.2
   generationVersion: 2.884.4
-  releaseVersion: 0.6.96
+  releaseVersion: 0.6.98
   configChecksum: 0b21b1a4ad3de1fa788486427ea44fc2
 persistentEdits:
   generation_id: b6ef7728-4b9b-4965-9ede-fd678e65f433

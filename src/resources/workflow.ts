@@ -112,6 +112,7 @@ async function* driveWorkflowStream(
         runId: params.composeRunId,
     });
 
+    const requestSignal = mergeSignals(options.signal, timeoutController.signal);
     let response: Response;
     try {
         response = await requestResponseWithPayment<unknown>(ctx.http, ctx, {
@@ -122,11 +123,12 @@ async function* driveWorkflowStream(
                 ...buildCallHeaders(options, wallet, token),
                 composeRunId: params.composeRunId ?? options.composeRunId,
             },
-            signal: mergeSignals(options.signal, timeoutController.signal),
+            signal: requestSignal.signal,
             timeoutMs,
             expectStream: true,
         }, options);
     } catch (fetchError) {
+        requestSignal.cleanup();
         clearTimeout(timer);
         if (fetchError instanceof ComposeError) throw fetchError;
         throw new ComposeError({
@@ -135,6 +137,7 @@ async function* driveWorkflowStream(
         });
     }
 
+    requestSignal.cleanup();
     clearTimeout(timer);
 
     if (!response.ok) {
@@ -348,14 +351,20 @@ function asString(value: unknown, fallback: string): string {
     return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
-function mergeSignals(a: AbortSignal | undefined, b: AbortSignal): AbortSignal {
-    if (!a) return b;
+function mergeSignals(a: AbortSignal | undefined, b: AbortSignal): { signal: AbortSignal; cleanup: () => void } {
+    if (!a) return { signal: b, cleanup: () => { } };
     const c = new AbortController();
     const forward = () => c.abort();
     if (a.aborted || b.aborted) c.abort();
     a.addEventListener("abort", forward, { once: true });
     b.addEventListener("abort", forward, { once: true });
-    return c.signal;
+    return {
+        signal: c.signal,
+        cleanup: () => {
+            a.removeEventListener("abort", forward);
+            b.removeEventListener("abort", forward);
+        },
+    };
 }
 
 export type { WorkflowStreamCreateParams, WorkflowStreamFinalResult, WorkflowRuntimeEvent };

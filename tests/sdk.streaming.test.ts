@@ -87,12 +87,32 @@ test("chat.completions.stream aggregates content deltas + tool_calls + reasoning
         }) },
         { data: "[DONE]" },
         { event: "compose.receipt", data: JSON.stringify({
+            id: "rct_stream_test",
+            service: "agent",
             finalAmountWei: "12345",
             providerAmountWei: "12222",
             platformFeeWei: "123",
             meterSubject: "gpt-4.1-mini",
+            bills: [{
+                kind: "model",
+                source: "models_call",
+                amountWei: "333",
+                lineItems: [{
+                    key: "model.models_call.cloudflare:@cf/leonardo/lucid-origin:tile",
+                    unit: "tile",
+                    quantity: 1,
+                    unitPriceUsd: 0.001,
+                    amountWei: "333",
+                }],
+            }],
             network: "eip155:43114",
             settledAt: 1_700_000_000_000,
+            cumulative: {
+                totalAmountWei: "12345",
+                providerAmountWei: "12222",
+                platformFeeWei: "123",
+                receiptCount: 1,
+            },
         }) },
     ];
 
@@ -121,6 +141,9 @@ test("chat.completions.stream aggregates content deltas + tool_calls + reasoning
         assert.equal(final.receipt!.finalAmountWei, "12345");
         assert.equal(final.receipt!.subject, "gpt-4.1-mini");
         assert.equal(final.receipt!.network, "eip155:43114");
+        assert.equal(final.receipt!.id, "rct_stream_test");
+        assert.equal(final.receipt!.bills?.[0].source, "models_call");
+        assert.equal(final.receipt!.cumulative?.receiptCount, 1);
 
         assert.equal(final.requestId, "req_stream_test");
     });

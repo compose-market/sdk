@@ -148,15 +148,21 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
     });
 }
 
-function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal {
-    if (!a) return b ?? new AbortController().signal;
-    if (!b) return a;
+function combineSignals(a?: AbortSignal, b?: AbortSignal): { signal: AbortSignal; cleanup: () => void } {
+    if (!a) return { signal: b ?? new AbortController().signal, cleanup: () => { } };
+    if (!b) return { signal: a, cleanup: () => { } };
     const controller = new AbortController();
     const forward = () => controller.abort();
     if (a.aborted || b.aborted) controller.abort();
     a.addEventListener("abort", forward, { once: true });
     b.addEventListener("abort", forward, { once: true });
-    return controller.signal;
+    return {
+        signal: controller.signal,
+        cleanup: () => {
+            a.removeEventListener("abort", forward);
+            b.removeEventListener("abort", forward);
+        },
+    };
 }
 
 function buildQueryString(query: RequestOptions["query"]): string {
@@ -379,7 +385,8 @@ export class HttpClient {
             attempt += 1;
             const attemptController = new AbortController();
             const timeoutHandle = setTimeout(() => attemptController.abort(), timeoutMs);
-            const signal = combineSignals(config.signal, attemptController.signal);
+            const combined = combineSignals(config.signal, attemptController.signal);
+            const signal = combined.signal;
 
             let response: Response;
             try {
@@ -391,6 +398,7 @@ export class HttpClient {
                 });
             } catch (fetchError) {
                 clearTimeout(timeoutHandle);
+                combined.cleanup();
                 const isAbort = signal.aborted || (fetchError instanceof Error && (fetchError.name === "AbortError" || fetchError.message.includes("aborted")));
                 if (isAbort && config.signal?.aborted) {
                     throw new ComposeTimeoutError({ message: "request aborted" });
@@ -412,6 +420,7 @@ export class HttpClient {
             }
 
             clearTimeout(timeoutHandle);
+            combined.cleanup();
 
             if (response.ok) {
                 return response;

@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose x402
-  version: 0.6.96
+  version: 0.6.98
   summary: x402 settlement, Compose Keys, sessions, payments, and facilitator contracts.
   description: |
     Canonical contract for Compose x402 settlement, reusable Compose Keys,
@@ -1237,8 +1237,6 @@ components:
       properties:
         modelId:
           type: string
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
         modality:
           type: string
         usage:

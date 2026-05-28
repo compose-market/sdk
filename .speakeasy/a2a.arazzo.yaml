@@ -6,7 +6,7 @@ info:
     Step 1 dials blind, step 2 retries with a Permit2 signature against the
     server's `upto` quote, step 3 submits structured feedback. Authoritative
     metering decides the actual settled amount inside the envelope.
-  version: 0.6.96
+  version: 0.6.98
 sourceDescriptions:
   - name: manowar
     url: ../specs/manowar.openapi.yaml

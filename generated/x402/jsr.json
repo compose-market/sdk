@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.6.96",
+  "version": "0.6.98",
   "exports": {
     ".": "./src/index.ts",
     "./models/errors": "./src/models/errors/index.ts",

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.97 — Catalog-driven universal inference stream
+
+### Highlights
+
+- Made `sdk.inference.responses.stream()` the primary universal integration path for native Compose inference across text, image, audio, video, and embeddings.
+- Extended response stream typing and aggregation for `response.created`, typed output items, video status events, and final output objects.
+- Added `inference.arazzo.yaml` to document the catalog-discovery plus universal response-stream workflow third-party integrators should follow.
+- Updated inference OpenAPI metadata so catalog model cards expose API-owned operation capabilities directly.
+- Kept explicit endpoint wrappers available without adding SDK-side model/provider routing, `plan/run`, metrics, `/external`, avatar/banner, or runtime/manowar-native additions.
+
+### Tests
+
+- `npx tsc --noEmit -p tsconfig.json --pretty false`
+
 ## 0.6.96 — Native SDK parity guards and third-party web integration cleanup
 
 ### Highlights

@@ -1,0 +1,214 @@
+arazzo: 1.0.1
+info:
+  title: Compose Universal Inference Workflow
+  summary: Catalog-driven third-party workflow for every native Compose inference modality.
+  version: 0.6.97
+sourceDescriptions:
+  - name: inference
+    url: ../specs/inference.openapi.yaml
+    type: openapi
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_API_TEST_URL; https://api.compose.market"
+workflows:
+  - workflowId: universal_inference_stream
+    summary: Discover catalog metadata, fetch model params, then stream one universal response request.
+    inputs:
+      type: object
+      properties:
+        composeKey:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_COMPOSE_KEY"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+        model:
+          type: string
+          examples: ["gpt-4.1-mini"]
+        prompt:
+          type: string
+          examples: ["Return exactly: ok"]
+    steps:
+      - stepId: list_models
+        operationId: $sourceDescriptions.inference.models_list
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: get_model
+        operationId: $sourceDescriptions.inference.models_get
+        parameters:
+          - name: model
+            in: path
+            value: "$inputs.model"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: get_model_params
+        operationId: $sourceDescriptions.inference.models_params_get
+        parameters:
+          - name: model
+            in: path
+            value: "$inputs.model"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: stream_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: "$inputs.model"
+            stream: true
+            input:
+              - type: input_text
+                text: "$inputs.prompt"
+        successCriteria:
+          - condition: $statusCode == 200
+  - workflowId: universal_inference_examples
+    summary: Example request shapes for native text, image, audio, video, and embedding through one endpoint.
+    inputs:
+      type: object
+      properties:
+        composeKey:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_COMPOSE_KEY"]
+        userAddress:
+          type: string
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        chainId:
+          type: integer
+          examples: [43113]
+    steps:
+      - stepId: text_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: gpt-4.1-mini
+            stream: true
+            input: "Return exactly: text ok"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: image_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: gpt-image-1
+            stream: true
+            input: "A small cyan cube on a black table"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: audio_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: tts-1
+            stream: true
+            input: "Speak this sentence clearly."
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: transcription_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: fun-asr
+            stream: true
+            input:
+              - type: input_audio
+                input_audio:
+                  url: "x-env: COMPOSE_TEST_AUDIO_URL; https://static.compose.market/samples/speech.wav"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: video_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: sora-2
+            stream: true
+            input: "A two second shot of a glowing cube rotating slowly."
+            duration: 2
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: embedding_response
+        operationId: $sourceDescriptions.inference.inference_responses_create
+        parameters:
+          - name: Authorization
+            in: header
+            value: "Bearer $inputs.composeKey"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            model: text-embedding-3-small
+            stream: true
+            input: "Embed this sentence."
+        successCriteria:
+          - condition: $statusCode == 200

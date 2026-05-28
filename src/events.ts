@@ -14,6 +14,8 @@
  *   - `sessionActive`  — SSE `session-active` heartbeat frame arrived.
  *   - `receipt`        — settlement receipt parsed from `X-Compose-Receipt`
  *                        (or the SSE `event: compose.receipt` frame).
+ *   - `alert`          — typed operational/client alert emitted by Compose
+ *                        services, for example session-stream lease rotation.
  *
  * Listeners are registered with `.on(event, listener)`. The bus is in-memory,
  * single-process, unordered across listeners, and never blocks the caller —
@@ -21,7 +23,9 @@
  */
 
 import type {
+    ComposeAlert,
     ComposeReceipt,
+    AgentEventDisplay,
     SessionActiveEvent,
     SessionBudgetSnapshot,
     SessionExpiredEvent,
@@ -69,6 +73,12 @@ export interface ToolCallLifecycleEvent {
     /** Opaque id grouping start → end. Derived from the source event if present. */
     toolCallId: string;
     toolName: string;
+    /** Optional presentation label. `toolName` remains the stable raw tool id. */
+    displayName?: string;
+    /** Structured target metadata from the runtime, when available. */
+    display?: AgentEventDisplay;
+    targetKind?: AgentEventDisplay["kind"];
+    target?: string;
     /** Human summary of what the tool is about to do / did. */
     summary?: string;
     /** `arguments` payload when the source stream includes it. */
@@ -88,6 +98,32 @@ export interface AgentStreamLifecycleEvent {
     runId?: string;
 }
 
+export interface ChildAgentLifecycleEvent {
+    userAddress: string | null;
+    chainId: number | null;
+    requestId: string | null;
+    source: "agent";
+    event: "start" | "tool-start" | "tool-end" | "done" | "error";
+    rootComposeRunId?: string;
+    parentRunId?: string;
+    subId?: string;
+    depth?: number;
+    agentWallet?: string;
+    runKey?: string;
+    runKeyChain?: string[];
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+    failed?: boolean;
+    error?: string;
+    usage?: Record<string, unknown>;
+    toolBatches?: number;
+    stopReason?: string;
+    wallMs?: number;
+    display?: AgentEventDisplay;
+    ts?: number;
+}
+
 export interface WorkflowStreamLifecycleEvent {
     userAddress: string | null;
     chainId: number | null;
@@ -103,8 +139,14 @@ export interface ComposeEventMap {
     sessionActive: SessionActiveEvent;
     sessionExpired: SessionExpiredEvent;
     receipt: ReceiptEvent;
+    alert: ComposeAlert;
     toolCallStart: ToolCallLifecycleEvent;
     toolCallEnd: ToolCallLifecycleEvent;
+    childAgentStart: ChildAgentLifecycleEvent;
+    childAgentToolStart: ChildAgentLifecycleEvent;
+    childAgentToolEnd: ChildAgentLifecycleEvent;
+    childAgentDone: ChildAgentLifecycleEvent;
+    childAgentError: ChildAgentLifecycleEvent;
     agentStreamStart: AgentStreamLifecycleEvent;
     agentStreamEnd: AgentStreamLifecycleEvent;
     workflowStreamStart: WorkflowStreamLifecycleEvent;

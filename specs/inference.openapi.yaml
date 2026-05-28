@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Inference
-  version: 0.6.96
+  version: 0.6.98
   summary: Model discovery, inference, and realtime inference stream contracts.
   description: |
     Canonical contract for Compose model discovery, serverless inference,
@@ -1015,6 +1015,10 @@ components:
         modelType: {}
         sourceMetadata: {}
         params: {}
+        operations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ModelOperationCapability"
         ownedBy:
           type: string
         createdAt:
@@ -1238,8 +1242,6 @@ components:
       properties:
         model:
           type: string
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
         stream:
           type: boolean
         messages:
@@ -1391,8 +1393,6 @@ components:
           "$ref": "#/components/schemas/ComposeAttachments"
         attachment:
           "$ref": "#/components/schemas/ComposeAttachmentInput"
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
         stream:
           type: boolean
         modalities:
@@ -1511,8 +1511,9 @@ components:
         compose_receipt:
           "$ref": "#/components/schemas/ComposeReceiptBody"
     ResponseEventStream:
-      description: SSE frames for text deltas, reasoning deltas, tool calls, partial
-        images, completion, `compose.receipt`, and `compose.error`.
+      description: SSE frames for response creation, text deltas, reasoning deltas,
+        tool calls, image partials, typed output items for text/image/audio/video/embedding,
+        video status, completion, `compose.receipt`, and `compose.error`.
       type: string
     EmbeddingsCreateRequest:
       type: object
@@ -1533,8 +1534,6 @@ components:
           "$ref": "#/components/schemas/ComposeAttachments"
         attachment:
           "$ref": "#/components/schemas/ComposeAttachmentInput"
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
         dimensions:
           type: integer
         encoding_format:
@@ -1591,8 +1590,6 @@ components:
           type: string
         user:
           type: string
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
     ImagesResponse:
       type: object
       required:
@@ -1632,8 +1629,6 @@ components:
           type: number
         user:
           type: string
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
     AudioTranscriptionCreateRequest:
       type: object
       required:
@@ -1666,8 +1661,6 @@ components:
             enum:
             - word
             - segment
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
     AudioTranscriptionResponse:
       type: object
       required:
@@ -1708,8 +1701,6 @@ components:
           type: string
         user:
           type: string
-        provider:
-          "$ref": "#/components/schemas/ModelProvider"
     VideoGenerateResponse:
       type: object
       additionalProperties: true

@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Manowar
-  version: 0.6.96
+  version: 0.6.98
   summary: Agent, workflow, workspace, connector, MCP, and mesh execution contracts.
   description: |
     Canonical contract for Compose manowar loops: agents, workflows, workspace
