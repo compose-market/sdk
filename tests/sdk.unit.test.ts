@@ -89,7 +89,7 @@ test("parseSSEStream extracts default `message` events plus named events", async
     const body = bodyFromString([
         ": keep-alive\n",
         "data: {\"delta\":\"hi\"}\n\n",
-        "event: compose.receipt\n",
+        "event: receipt\n",
         "data: {\"finalAmountWei\":\"100\"}\n\n",
         "data: [DONE]\n\n",
     ].join(""));
@@ -101,7 +101,7 @@ test("parseSSEStream extracts default `message` events plus named events", async
 
     assert.deepEqual(frames, [
         { event: "message", data: "{\"delta\":\"hi\"}" },
-        { event: "compose.receipt", data: "{\"finalAmountWei\":\"100\"}" },
+        { event: "receipt", data: "{\"finalAmountWei\":\"100\"}" },
         { event: "message", data: "[DONE]" },
     ]);
 });
@@ -132,16 +132,23 @@ test("parseSSEStream tolerates CRLF line endings and flushes a trailing frame wi
 test("decodeReceiptHeader round-trips through encodeReceiptHeader shape", async () => {
     // Manually encode to mirror what the server emits (url-safe base64 of JSON).
     const receipt = {
-        subject: "gpt-4.1-mini",
-        finalAmountWei: "12345",
-        network: "eip155:43114" as const,
-        settledAt: 1_700_000_000_000,
-        lineItems: [
-            { key: "input_tokens", unit: "usd_per_1m_tokens", quantity: 10, unitPriceUsd: 0.3, amountWei: "3" },
-        ],
-        providerAmountWei: "12000",
-        platformFeeWei: "345",
-        txHash: "0xdeadbeef",
+        user: "0xuser",
+        runId: "run_test",
+        duration: "1s",
+        bills: [{
+            agent: "Direct model call",
+            depth: 0,
+            model: "gpt-4.1-mini",
+            tokens: { input: 10 },
+            tools: [],
+            total: "0.012345 USDC",
+            duration: "1s",
+            txId: "0xdeadbeef",
+            fees: {
+                total: { percent: "1%", amount: "0.000123 USDC" },
+                distribution: { Compose: "0.000123 USDC" },
+            },
+        }],
     };
     const json = JSON.stringify(receipt);
     const base64 = Buffer.from(json, "utf-8").toString("base64")
@@ -204,6 +211,7 @@ test("ComposeSDK constructor accepts a valid EVM address and normalizes casing",
     assert.equal(current.address, "0xabcdef0123456789abcdef0123456789abcdef01");
     assert.equal(current.chainId, 43114);
 });
+
 
 test("ComposeSDK throws BadRequestError when a billable call is attempted with no wallet context", async () => {
     const sdk = new ComposeSDK({ baseUrl: "http://127.0.0.1:1" });

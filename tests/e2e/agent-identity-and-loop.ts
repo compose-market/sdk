@@ -21,7 +21,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../../../runtime/.env") });
 import { createPublicClient, http } from "viem";
 import { avalancheFuji } from "viem/chains";
-import { ComposeSDK, createPrivateKeyX402EvmWallet, type AgentRuntimeEvent } from "@compose-market/sdk";
+import { ComposeSDK, createPrivateKeyX402EvmWallet, type RunEvent } from "@compose-market/sdk";
 
 const COMPOSE_API_URL = (process.env.COMPOSE_API_URL || "https://api.compose.market").replace(/\/+$/, "");
 const FACTORY = (process.env.AGENT_FACTORY_CONTRACT || "").trim() as `0x${string}`;
@@ -224,27 +224,28 @@ async function streamChat(sdk: ComposeSDK, agent: AgentSummary, userAddress: str
     let final: unknown;
     try {
         for await (const event of iter) {
-            const e = event as AgentRuntimeEvent;
-            if (e.type === "text-delta") {
+            const e = event as RunEvent;
+            if (e.domain === "model" && e.type === "model.text.delta" && e.delta) {
                 trace.firstTextDeltaAt = trace.firstTextDeltaAt ?? (Date.now() - requestStart);
                 trace.text += e.delta;
-            } else if (e.type === "reasoning-delta") {
+            } else if (e.domain === "model" && e.type === "model.reasoning.delta" && e.delta) {
                 trace.reasoning += e.delta;
-            } else if (e.type === "tool-start") {
-                trace.firstToolStartAt = trace.firstToolStartAt ?? (Date.now() - requestStart);
-                trace.toolStarts.push(e.toolName);
-            } else if (e.type === "tool-end") {
-                trace.toolEnds.push(e.toolName);
-                if (e.failed) trace.failedTools.push(e.toolName);
-            } else if (e.type === "tool-args-delta") {
+            } else if (e.domain === "model" && e.type === "model.tool.delta") {
                 trace.firstToolArgsDeltaAt = trace.firstToolArgsDeltaAt ?? (Date.now() - requestStart);
-            } else if (e.type === "stopped") {
+            } else if (e.domain === "activity" && e.kind === "tool" && e.status === "running") {
+                trace.firstToolStartAt = trace.firstToolStartAt ?? (Date.now() - requestStart);
+                trace.toolStarts.push(e.target?.name || e.name || "tool");
+            } else if (e.domain === "activity" && e.kind === "tool" && (e.status === "completed" || e.status === "failed")) {
+                const name = e.target?.name || e.name || "tool";
+                trace.toolEnds.push(name);
+                if (e.status === "failed") trace.failedTools.push(name);
+            } else if (e.domain === "activity" && e.kind === "run" && e.status === "cancelled") {
                 trace.stopped = true;
                 trace.finishedAt = trace.finishedAt ?? (Date.now() - requestStart);
-            } else if (e.type === "done") {
+            } else if (e.domain === "activity" && e.kind === "run" && e.status === "completed") {
                 trace.finishedAt = trace.finishedAt ?? (Date.now() - requestStart);
-            } else if (e.type === "error") {
-                throw new Error(`runtime error: ${e.message}`);
+            } else if (e.domain === "activity" && e.kind === "error") {
+                throw new Error(`runtime error: ${e.target?.summary || "stream error"}`);
             }
         }
         final = await iter.final();

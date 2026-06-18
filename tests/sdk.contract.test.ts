@@ -155,6 +155,21 @@ test("package exports expose generated SDK schemas and operations", async () => 
     }
 });
 
+test("generated x402 compose-keys client does not repeat the resource namespace", async () => {
+    const source = await readFile(new URL("generated/x402/src/sdk/compose-keys.ts", SDK_PACKAGE_ROOT), "utf-8");
+    assert.match(source, /async create\(/);
+    assert.match(source, /async list\(/);
+    assert.match(source, /async get\(/);
+    assert.match(source, /async revoke\(/);
+    assert.doesNotMatch(source, /composeKeysComposeKeys|async composeKeys(?:Create|List|Get|Revoke)\(/);
+    for (const name of ["create", "list", "get", "revoke"]) {
+        assert.ok(
+            existsSync(fileURLToPath(new URL(`generated/x402/src/funcs/compose-keys-${name}.ts`, SDK_PACKAGE_ROOT))),
+            `missing compose-keys ${name} func`,
+        );
+    }
+});
+
 test("package source excludes compatibility routes and unstable analytics resources", async () => {
     const roots = ["src/", "specs/", "generated/", "tests/"].map((path) => new URL(path, SDK_PACKAGE_ROOT));
     const deny = [
@@ -167,6 +182,13 @@ test("package source excludes compatibility routes and unstable analytics resour
         new RegExp("/api/generate-" + "banner"),
         new RegExp("inference\\." + "plan"),
         new RegExp("inference\\." + "run"),
+        new RegExp("/api/memory/work" + "flows"),
+        new RegExp("AgentMemoryWork" + "flow"),
+        new RegExp("MemoryWork" + "flow(?:Manifest|Response|ListResponse|StepManifest)"),
+        new RegExp("memory-work" + "flow"),
+        new RegExp("memory-work" + "flows"),
+        new RegExp("\\blistWork" + "flows\\b"),
+        new RegExp("\\bgetWork" + "flow\\("),
     ];
 
     for (const root of roots) {
@@ -217,36 +239,24 @@ test("receipts.list returns authenticated cumulative receipt history", async () 
                 receiptCount: 3,
             },
             receipts: [{
-                id: "rct_test",
-                service: "agent",
-                action: "agent-stream",
-                userAddress: WALLET,
-                subject: "model:asi1-mini",
-                finalAmountWei: "12345",
-                providerAmountWei: "12000",
-                platformFeeWei: "345",
-                network: "eip155:43113",
-                settledAt: 1_778_888_001,
+                user: WALLET,
+                runId: "run_test",
+                duration: "4s",
                 bills: [{
-                    kind: "model",
-                    source: "models_call",
-                    action: "models_call",
-                    subject: "cloudflare:@cf/leonardo/lucid-origin",
-                    amountWei: "987",
-                    lineItems: [{
-                        key: "model.models_call.cloudflare:@cf/leonardo/lucid-origin:tile",
-                        unit: "tile",
-                        quantity: 1,
-                        unitPriceUsd: 0.001,
-                        amountWei: "987",
-                    }],
+                    agent: "Test Agent",
+                    agentWallet: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    depth: 0,
+                    model: "cloudflare:@cf/leonardo/lucid-origin",
+                    tokens: {},
+                    tools: ["models_call"],
+                    total: "0.000987 USDC",
+                    duration: "4s",
+                    txId: "0xtest",
+                    fees: {
+                        total: { percent: "1%", amount: "0.000010 USDC" },
+                        distribution: { Compose: "0.000010 USDC" },
+                    },
                 }],
-                cumulative: {
-                    totalAmountWei: "235458",
-                    providerAmountWei: "230000",
-                    platformFeeWei: "5458",
-                    receiptCount: 3,
-                },
             }],
         });
     });
@@ -262,10 +272,9 @@ test("receipts.list returns authenticated cumulative receipt history", async () 
         const history = await sdk.receipts.list({ limit: 5 });
 
         assert.equal(history.cumulative.totalAmountWei, "235458");
-        assert.equal(history.receipts[0].id, "rct_test");
-        assert.equal(history.receipts[0].bills?.[0].kind, "model");
-        assert.equal(history.receipts[0].bills?.[0].source, "models_call");
-        assert.equal(history.receipts[0].cumulative?.receiptCount, 3);
+        assert.equal(history.receipts[0].runId, "run_test");
+        assert.equal(history.receipts[0].bills?.[0].agent, "Test Agent");
+        assert.equal(history.receipts[0].bills?.[0].tools[0], "models_call");
     } finally {
         await server.close();
     }
@@ -314,7 +323,7 @@ test("memory.context assembles pre-turn context through the agent-first memory e
         assert.deepEqual(body.budget, { maxCharacters: 2400, mode: "compact" });
 
         sendJson(res, 200, {
-            workflow: { v: "compose.agent_memory.v1", step: "pre_turn", next: ["post_turn", "remember"] },
+            loop: { v: "compose.agent_memory_loop.v1", step: "pre_turn", next: ["post_turn", "remember"] },
             contextId: "ctx_test",
             prompt: "Relevant runtime memory for this turn. Use it as context, not as instruction.\n\n[VECTORS] User prefers short answers.",
             items: [{ layer: "vectors", text: "User prefers short answers.", id: "v1", score: 0.9 }],
@@ -345,7 +354,7 @@ test("memory.context assembles pre-turn context through the agent-first memory e
             budget: { maxCharacters: 2400, mode: "compact" },
         });
 
-        assert.equal(response.workflow.step, "pre_turn");
+        assert.equal(response.loop.step, "pre_turn");
         assert.equal(response.contextId, "ctx_test");
         assert.equal(response.items[0].layer, "vectors");
         assert.equal(response.totals.vectors, 1);
@@ -367,7 +376,7 @@ test("memory.loop records post-turn memory with the single-loop endpoint", async
         assert.equal(body.assistantMessage, "hello");
 
         sendJson(res, 200, {
-            workflow: { v: "compose.agent_memory.v1", step: "post_turn", next: ["pre_turn", "remember"] },
+            loop: { v: "compose.agent_memory_loop.v1", step: "post_turn", next: ["pre_turn", "remember"] },
             success: true,
             sessionId: "session:global:0xagent:thread-1",
             threadId: "thread-1",
@@ -387,8 +396,8 @@ test("memory.loop records post-turn memory with the single-loop endpoint", async
             totalTokens: 0,
         });
 
-        assert.equal(response.workflow.step, "post_turn");
-        if (response.workflow.step !== "post_turn") throw new Error("unexpected memory loop response");
+        assert.equal(response.loop.step, "post_turn");
+        if (response.loop.step !== "post_turn") throw new Error("unexpected memory loop response");
         assert.equal(response.vectorId, "vec_1");
         assert.equal(response.turnId, "turn_test");
         assert.equal(response.stored.vector, true);
@@ -559,14 +568,14 @@ test("memory jobs and evals expose maintenance and retrieval quality workflows",
     }
 });
 
-test("memory product routes expose workflow, pattern, archive, session, and schedule controls", async () => {
+test("memory product routes expose loop, pattern, archive, session, and schedule controls", async () => {
     const server = await startMockServer((req, res) => {
-        if (req.method === "GET" && req.path === "/api/memory/workflows") {
+        if (req.method === "GET" && req.path === "/api/memory/loops") {
             sendJson(res, 200, {
-                workflows: [
+                loops: [
                     {
                         id: "agent_memory_loop",
-                        version: "compose.agent_memory.v1",
+                        version: "compose.agent_memory_loop.v1",
                         description: "Canonical low-token memory loop.",
                         steps: [
                             { operationId: "assembleAgentMemoryContext", method: "POST", path: "/api/memory/context/assemble" },
@@ -579,11 +588,11 @@ test("memory product routes expose workflow, pattern, archive, session, and sche
             return;
         }
 
-        if (req.method === "GET" && req.path === "/api/memory/workflows/agent_memory_loop") {
+        if (req.method === "GET" && req.path === "/api/memory/loops/agent_memory_loop") {
             sendJson(res, 200, {
-                workflow: {
+                loop: {
                     id: "agent_memory_loop",
-                    version: "compose.agent_memory.v1",
+                    version: "compose.agent_memory_loop.v1",
                     description: "Canonical low-token memory loop.",
                     steps: [
                         { operationId: "assembleAgentMemoryContext", method: "POST", path: "/api/memory/context/assemble" },
@@ -615,7 +624,7 @@ test("memory product routes expose workflow, pattern, archive, session, and sche
 
         if (req.method === "POST" && req.path === "/api/memory/patterns/pat_1/promote") {
             const body = JSON.parse(req.body);
-            assert.equal(body.skillName, "invoice-workflow");
+            assert.equal(body.skillName, "invoice-routine");
             sendJson(res, 200, { skillId: "skill_1", promoted: true });
             return;
         }
@@ -650,11 +659,11 @@ test("memory product routes expose workflow, pattern, archive, session, and sche
     try {
         const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
 
-        const workflows = await sdk.memory.listWorkflows();
-        assert.equal(workflows.workflows[0].id, "agent_memory_loop");
+        const loops = await sdk.memory.listLoops();
+        assert.equal(loops.loops[0].id, "agent_memory_loop");
 
-        const workflow = await sdk.memory.getWorkflow("agent_memory_loop");
-        assert.equal(workflow.workflow.steps[0].operationId, "assembleAgentMemoryContext");
+        const loop = await sdk.memory.getLoop("agent_memory_loop");
+        assert.equal(loop.loop.steps[0].operationId, "assembleAgentMemoryContext");
 
         const patterns = await sdk.memory.listPatterns({ agentWallet: "0xagent", limit: 3 });
         assert.equal(patterns.patterns[0].patternId, "pat_1");
@@ -663,7 +672,7 @@ test("memory product routes expose workflow, pattern, archive, session, and sche
         assert.equal(validation.valid, true);
 
         const promotion = await sdk.memory.promotePattern("pat_1", {
-            skillName: "invoice-workflow",
+            skillName: "invoice-routine",
             validationData: validation,
         });
         assert.equal(promotion.promoted, true);
@@ -828,6 +837,37 @@ test("feedback.summary reads reputation for a target", async () => {
         assert.equal(summary.count, 3);
         assert.equal(summary.ratingAverage, 4.5);
         assert.equal(summary.verification.compose_key, 2);
+    } finally {
+        await server.close();
+    }
+});
+
+test("feedback.workflow submits workflow feedback with wallet context", async () => {
+    const server = await startMockServer((req, res) => {
+        assert.equal(req.method, "POST");
+        assert.equal(req.path, "/v1/feedback");
+
+        const body = JSON.parse(req.body);
+        assert.equal(body.target.type, "workflow");
+        assert.equal(body.target.id, WALLET);
+        assert.equal(body.context.workflowWallet, WALLET);
+
+        sendJson(res, 201, {
+            feedbackId: "fb_workflow",
+            target: body.target,
+            verification: "wallet_header",
+            createdAt: 1_700_000_000_002,
+        });
+    });
+    try {
+        const sdk = new ComposeSDK({ baseUrl: server.baseUrl });
+        const response = await sdk.feedback.workflow(WALLET, {
+            category: "quality",
+            rating: 5,
+            message: "Workflow card was accurate.",
+        });
+
+        assert.equal(response.feedbackId, "fb_workflow");
     } finally {
         await server.close();
     }
@@ -1748,15 +1788,21 @@ test("dispenser and settlement wrap public claim and status routes", async () =>
     }
 });
 
-test("backpack wraps permissions, connections, toolkits, execution, and telegram helpers", async () => {
+test("permissions and accounts use direct API routes", async () => {
     const server = await startMockServer((req, res) => {
-        if (req.path === "/api/backpack/permissions") {
+        const agentWallet = "0x0000000000000000000000000000000000000002";
+        if (req.path === "/permissions" && req.method === "GET") {
+            assert.equal(req.headers.authorization, "Bearer compose-direct");
+            assert.equal(req.headers["x-session-user-address"], WALLET);
+            assert.equal(req.headers["x-chain-id"], "43113");
             assert.equal(req.method, "GET");
             assert.equal(req.query.get("userAddress"), WALLET);
+            assert.equal(req.query.get("agentWallet"), agentWallet);
             sendJson(res, 200, {
                 permissions: [
                     {
                         userAddress: WALLET,
+                        agentWallet,
                         consentType: "filesystem",
                         granted: true,
                         grantedAt: 1,
@@ -1766,61 +1812,72 @@ test("backpack wraps permissions, connections, toolkits, execution, and telegram
             return;
         }
 
-        if (req.path === "/api/backpack/permissions/grant") {
+        if (req.path === "/permissions" && req.method === "POST") {
             assert.equal(req.method, "POST");
             const body = JSON.parse(req.body);
             assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, agentWallet);
             assert.equal(body.consentType, "clipboard");
             sendJson(res, 200, { success: true });
             return;
         }
 
-        if (req.path === "/api/backpack/permissions/revoke") {
-            assert.equal(req.method, "POST");
+        if (req.path === "/permissions" && req.method === "DELETE") {
             const body = JSON.parse(req.body);
             assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, agentWallet);
             assert.equal(body.consentType, "clipboard");
             sendJson(res, 200, { success: true });
             return;
         }
 
-        if (req.path === "/api/backpack/connect") {
+        if (req.path === "/accounts/connect") {
             assert.equal(req.method, "POST");
             const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, agentWallet);
             assert.equal(body.toolkit, "gmail");
-            sendJson(res, 200, { redirectUrl: "https://connect.example/gmail" });
+            sendJson(res, 200, {
+                redirectUrl: "https://connect.example/gmail",
+                userAddress: WALLET,
+                agentWallet,
+                toolkit: "gmail",
+                connectedAccountId: "acct_1",
+            });
             return;
         }
 
-        if (req.path === "/api/backpack/connections") {
+        if (req.path === "/accounts" && req.method === "GET") {
             assert.equal(req.method, "GET");
             assert.equal(req.query.get("userAddress"), WALLET);
+            assert.equal(req.query.get("agentWallet"), agentWallet);
             sendJson(res, 200, { connections: [{ slug: "gmail", name: "gmail", connected: true, accountId: "acct_1" }] });
             return;
         }
 
-        if (req.path === "/api/backpack/status/gmail") {
+        if (req.path === "/accounts/status") {
             assert.equal(req.method, "GET");
+            assert.equal(req.query.get("userAddress"), WALLET);
+            assert.equal(req.query.get("agentWallet"), agentWallet);
+            assert.equal(req.query.get("toolkit"), "gmail");
+            assert.equal(req.query.get("connectedAccountId"), "acct_1");
             sendJson(res, 200, { toolkit: "gmail", connected: true, accountId: "acct_1" });
             return;
         }
 
-        if (req.path === "/api/backpack/disconnect") {
-            assert.equal(req.method, "POST");
-            sendJson(res, 200, { success: true });
-            return;
-        }
-
-        if (req.path === "/api/backpack/execute") {
+        if (req.path === "/accounts/execute") {
             assert.equal(req.method, "POST");
             const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, agentWallet);
+            assert.equal(body.connectedAccountId, "acct_1");
             assert.equal(body.action, "GMAIL_SEND_EMAIL");
             assert.deepEqual(body.params, { to: "builder@example.com" });
             sendJson(res, 200, { success: true, result: { sent: true } });
             return;
         }
 
-        if (req.path === "/api/backpack/toolkits") {
+        if (req.path === "/accounts/toolkits") {
             assert.equal(req.method, "GET");
             assert.equal(req.query.get("search"), "mail");
             assert.equal(req.query.get("limit"), "2");
@@ -1840,7 +1897,7 @@ test("backpack wraps permissions, connections, toolkits, execution, and telegram
             return;
         }
 
-        if (req.path === "/api/backpack/toolkits/gmail/actions") {
+        if (req.path === "/accounts/toolkits/gmail/actions") {
             assert.equal(req.method, "GET");
             assert.equal(req.query.get("limit"), "3");
             sendJson(res, 200, {
@@ -1861,63 +1918,164 @@ test("backpack wraps permissions, connections, toolkits, execution, and telegram
             return;
         }
 
-        if (req.path === "/api/backpack/telegram/link") {
-            assert.equal(req.method, "POST");
-            sendJson(res, 200, { deepLinkUrl: "https://t.me/bot?start=code", linkCode: "code" });
-            return;
-        }
-
-        assert.equal(req.path, "/api/backpack/telegram/status");
-        assert.equal(req.method, "GET");
-        sendJson(res, 200, { toolkit: "telegram", bound: true, chatId: "123" });
+        assert.equal(req.path, "/accounts");
+        assert.equal(req.method, "DELETE");
+        const body = JSON.parse(req.body);
+        assert.equal(body.userAddress, WALLET);
+        assert.equal(body.agentWallet, agentWallet);
+        assert.equal(body.toolkit, "gmail");
+        assert.equal(body.connectedAccountId, "acct_1");
+        sendJson(res, 200, { success: true });
     });
     try {
         const sdk = new ComposeSDK({
             baseUrl: server.baseUrl,
             userAddress: WALLET,
             chainId: 43113,
-            composeKey: "compose-backpack",
+            composeKey: "compose-direct",
         });
+        const agentWallet = "0x0000000000000000000000000000000000000002";
 
-        const permissions = await sdk.backpack.permissions.list();
+        const permissions = await sdk.permissions.list({ agentWallet });
         assert.equal(permissions.permissions[0].consentType, "filesystem");
 
-        const granted = await sdk.backpack.permissions.grant({ consentType: "clipboard" });
+        const granted = await sdk.permissions.grant({ agentWallet, consentType: "clipboard" });
         assert.equal(granted.success, true);
 
-        const revoked = await sdk.backpack.permissions.revoke({ consentType: "clipboard" });
+        const revoked = await sdk.permissions.revoke({ agentWallet, consentType: "clipboard" });
         assert.equal(revoked.success, true);
 
-        const connect = await sdk.backpack.connect({ toolkit: "gmail" });
+        const connect = await sdk.accounts.connect({ agentWallet, toolkit: "gmail" });
         assert.equal(connect.redirectUrl, "https://connect.example/gmail");
+        assert.equal(connect.connectedAccountId, "acct_1");
 
-        const connections = await sdk.backpack.connections();
+        const connections = await sdk.accounts.list({ agentWallet });
         assert.equal(connections.connections[0].accountId, "acct_1");
 
-        const status = await sdk.backpack.status("gmail");
+        const status = await sdk.accounts.status({ agentWallet, toolkit: "gmail", connectedAccountId: "acct_1" });
         assert.equal(status.connected, true);
 
-        const executed = await sdk.backpack.execute({
+        const executed = await sdk.accounts.execute({
+            agentWallet,
             toolkit: "gmail",
+            connectedAccountId: "acct_1",
             action: "GMAIL_SEND_EMAIL",
             params: { to: "builder@example.com" },
         });
         assert.deepEqual(executed.result, { sent: true });
 
-        const toolkits = await sdk.backpack.toolkits.list({ search: "mail", limit: 2 });
+        const toolkits = await sdk.accounts.toolkits.list({ search: "mail", limit: 2 });
         assert.equal(toolkits.toolkits[0].slug, "gmail");
 
-        const actions = await sdk.backpack.toolkits.actions("gmail", { limit: 3 });
+        const actions = await sdk.accounts.toolkits.actions("gmail", { limit: 3 });
         assert.equal(actions.actions[0].slug, "GMAIL_SEND_EMAIL");
 
-        const disconnected = await sdk.backpack.disconnect({ toolkit: "gmail" });
+        const disconnected = await sdk.accounts.disconnect({ agentWallet, toolkit: "gmail", connectedAccountId: "acct_1" });
         assert.equal(disconnected.success, true);
+    } finally {
+        await server.close();
+    }
+});
 
-        const link = await sdk.backpack.telegram.link();
-        assert.equal(link.linkCode, "code");
+test("channels helpers use direct routes without Compose payment/session headers", async () => {
+    const seen: MockRequest[] = [];
+    const server = await startMockServer((req, res) => {
+        seen.push(req);
+        assert.equal(req.headers.authorization, undefined);
+        assert.equal(req.headers["x-session-user-address"], undefined);
+        assert.equal(req.headers["x-chain-id"], undefined);
+        assert.equal(req.headers["x-run-id"], undefined);
+        assert.equal(req.headers["payment-signature"], undefined);
+        assert.equal(req.headers["x-payment-test"], undefined);
+        assert.equal(req.headers["x-custom"], "ok");
 
-        const telegram = await sdk.backpack.telegram.status();
-        assert.equal(telegram.chatId, "123");
+        if (req.path === "/channels/telegram/link") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, "0x0000000000000000000000000000000000000002");
+            assert.equal(body.agentName, "EvoX");
+            sendJson(res, 200, {
+                code: "code",
+                channel: "telegram",
+                userAddress: body.userAddress,
+                agentWallet: body.agentWallet,
+                agentName: body.agentName,
+                createdAt: 1,
+                expiresAt: 2,
+                url: "https://t.me/composebot?start=code",
+            });
+            return;
+        }
+
+        if (req.path === "/channels/discord/link") {
+            assert.equal(req.method, "POST");
+            const body = JSON.parse(req.body);
+            assert.equal(body.userAddress, WALLET);
+            assert.equal(body.agentWallet, "0x0000000000000000000000000000000000000002");
+            assert.equal(body.agentName, "EvoX");
+            assert.equal(body.mode, "guild");
+            assert.equal(body.privacy, "private");
+            sendJson(res, 200, {
+                code: "discord-code",
+                channel: "discord",
+                userAddress: body.userAddress,
+                agentWallet: body.agentWallet,
+                agentName: body.agentName,
+                mode: body.mode,
+                privacy: body.privacy,
+                createdAt: 1,
+                expiresAt: 2,
+                url: "https://discord.com/oauth2/authorize?state=discord-code",
+                action: { type: "oauth", label: "Connect Discord Server", url: "https://discord.com/oauth2/authorize?state=discord-code", command: "/bind" },
+            });
+            return;
+        }
+
+        if (req.path === "/channels/telegram/status") {
+            assert.equal(req.method, "GET");
+            assert.equal(req.query.get("userAddress"), WALLET);
+            assert.equal(req.query.get("agentWallet"), "0x0000000000000000000000000000000000000002");
+            sendJson(res, 200, { channel: "telegram", connected: false, routes: [] });
+            return;
+        }
+
+        assert.equal(req.path, "/channels/telegram/disconnect");
+        assert.equal(req.method, "POST");
+        sendJson(res, 200, { channel: "telegram", disconnected: 0 });
+    });
+
+    try {
+        const sdk = new ComposeSDK({
+            baseUrl: "https://api.example.test",
+            channelsUrl: server.baseUrl,
+            userAddress: WALLET,
+            chainId: 43113,
+            composeKey: "compose-channels",
+            defaultHeaders: {
+                Authorization: "Bearer default",
+                "x-session-user-address": WALLET,
+                "x-chain-id": "43113",
+                "x-run-id": "run_default",
+                "PAYMENT-SIGNATURE": "signed",
+                "x-payment-test": "bad",
+                "x-custom": "ok",
+            },
+        });
+        const agentWallet = "0x0000000000000000000000000000000000000002";
+        const link = await sdk.channels.link("telegram", { agentWallet, agentName: "EvoX" });
+        assert.equal(link.code, "code");
+        assert.equal(link.agentName, "EvoX");
+        const discord = await sdk.channels.link("discord", { agentWallet, agentName: "EvoX", mode: "guild", privacy: "private" });
+        assert.equal(discord.code, "discord-code");
+        assert.equal(discord.mode, "guild");
+        assert.equal(discord.privacy, "private");
+        assert.equal(discord.action?.label, "Connect Discord Server");
+        const status = await sdk.channels.status("telegram", { agentWallet });
+        assert.equal(status.connected, false);
+        const disconnected = await sdk.channels.disconnect("telegram", { agentWallet });
+        assert.equal(disconnected.disconnected, 0);
+        assert.equal(seen.length, 4);
     } finally {
         await server.close();
     }
@@ -2374,12 +2532,23 @@ test("paymentMode x402 suppresses an instance Compose Key", async () => {
 
 test("inference.chat.completions.create returns typed data + receipt from header and JSON mirror", async () => {
     const receiptHeaderBase64 = Buffer.from(JSON.stringify({
-        subject: "gpt-4.1-mini",
-        finalAmountWei: "12345",
-        network: "eip155:43114",
-        settledAt: 1_700_000_000_000,
-        providerAmountWei: "12222",
-        platformFeeWei: "123",
+        user: WALLET,
+        runId: "run_mock_chat",
+        duration: "1s",
+        bills: [{
+            agent: "Direct model call",
+            depth: 0,
+            model: "gpt-4.1-mini",
+            tokens: { input: 3, output: 2 },
+            tools: [],
+            total: "0.012345 USDC",
+            duration: "1s",
+            txId: "0xmock",
+            fees: {
+                total: { percent: "1%", amount: "0.000123 USDC" },
+                distribution: { Compose: "0.000123 USDC" },
+            },
+        }],
     }), "utf-8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
     const server = await startMockServer((req, res) => {
@@ -2393,7 +2562,7 @@ test("inference.chat.completions.create returns typed data + receipt from header
         res.writeHead(200, {
             "content-type": "application/json",
             "x-request-id": "req_mock_chat",
-            "x-compose-receipt": receiptHeaderBase64,
+            "x-receipt": receiptHeaderBase64,
         });
         res.end(JSON.stringify({
             id: "chatcmpl-1",
@@ -2402,11 +2571,11 @@ test("inference.chat.completions.create returns typed data + receipt from header
             model: "gpt-4.1-mini",
             choices: [{ index: 0, message: { role: "assistant", content: "Hi!" }, finish_reason: "stop" }],
             usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
-            compose_receipt: {
-                subject: "gpt-4.1-mini",
-                final_amount_wei: "12345",
-                network: "eip155:43114",
-                settled_at: 1_700_000_000_000,
+            receipt: {
+                user: WALLET,
+                runId: "run_mock_chat",
+                duration: "1s",
+                bills: [],
             },
         }));
     });
@@ -2420,8 +2589,8 @@ test("inference.chat.completions.create returns typed data + receipt from header
         assert.equal(data.choices[0].message.content, "Hi!");
         assert.equal(requestId, "req_mock_chat");
         assert.ok(receipt);
-        assert.equal(receipt!.finalAmountWei, "12345");
-        assert.equal(receipt!.network, "eip155:43114");
+        assert.equal(receipt!.runId, "run_mock_chat");
+        assert.equal(receipt!.bills?.[0].total, "0.012345 USDC");
     } finally {
         await server.close();
     }
@@ -2792,7 +2961,7 @@ test("User-Agent defaults to @compose-market/sdk/<version> and can be extended",
     }
 });
 
-test("browser-like runtimes skip forbidden User-Agent and send x-compose-sdk", async () => {
+test("browser-like runtimes skip forbidden User-Agent and send x-sdk", async () => {
     const hadWindow = "window" in globalThis;
     const previousWindow = (globalThis as unknown as { window?: unknown }).window;
 
@@ -2805,8 +2974,8 @@ test("browser-like runtimes skip forbidden User-Agent and send x-compose-sdk", a
         const ua = req.headers["user-agent"] ?? "";
         assert.ok(!ua.startsWith("@compose-market/sdk/"), `browser request must not send SDK User-Agent, got: ${ua}`);
         assert.ok(
-            req.headers["x-compose-sdk"]?.startsWith("@compose-market/sdk/"),
-            `expected x-compose-sdk SDK identifier, got: ${req.headers["x-compose-sdk"]}`,
+            req.headers["x-sdk"]?.startsWith("@compose-market/sdk/"),
+            `expected x-sdk SDK identifier, got: ${req.headers["x-sdk"]}`,
         );
         sendJson(res, 200, { object: "list", data: [] });
     });

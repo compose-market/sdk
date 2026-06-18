@@ -315,7 +315,7 @@ test("session.subscribe backs off and reconnects after duplicate stream 204", as
         if (calls === 1) {
             res.writeHead(204, {
                 "retry-after": "0",
-                "x-compose-session-stream": "duplicate",
+                "x-session-stream": "duplicate",
             });
             res.end();
             return;

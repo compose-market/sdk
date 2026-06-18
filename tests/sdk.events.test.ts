@@ -93,10 +93,22 @@ test("ComposeCompletion carries budget + sessionInvalidReason from response head
 
 test("sdk.events emits budget + receipt on every billable response", async () => {
     const receiptHeader = encodeReceiptHeader({
-        subject: "gpt-4.1-mini",
-        finalAmountWei: "12345",
-        network: "eip155:43114",
-        settledAt: 1_700_000_000_000,
+        user: WALLET,
+        runId: "run_events_1",
+        duration: "1s",
+        bills: [{
+            agent: "Direct model call",
+            depth: 0,
+            model: "gpt-4.1-mini",
+            tokens: { input: 1, output: 1 },
+            tools: [],
+            total: "0.012345 USDC",
+            duration: "1s",
+            fees: {
+                total: { percent: "1%", amount: "0.000123 USDC" },
+                distribution: { Compose: "0.000123 USDC" },
+            },
+        }],
     });
     const server = await startMockServer((_req, res) => {
         res.writeHead(200, {
@@ -106,7 +118,7 @@ test("sdk.events emits budget + receipt on every billable response", async () =>
             "x-session-budget-used": "500000",
             "x-session-budget-locked": "0",
             "x-session-budget-remaining": "9500000",
-            "x-compose-receipt": receiptHeader,
+            "x-receipt": receiptHeader,
         });
         res.end(JSON.stringify({
             id: "chatcmpl-1", object: "chat.completion", created: 1, model: "gpt-4.1-mini",
@@ -123,7 +135,7 @@ test("sdk.events emits budget + receipt on every billable response", async () =>
         });
 
         const budgetEvents: Array<{ snapshot: { remainingWei: string | null }; requestId: string | null; userAddress: string | null; chainId: number | null }> = [];
-        const receiptEvents: Array<{ receipt: { finalAmountWei: string }; source: string }> = [];
+        const receiptEvents: Array<{ receipt: { runId?: string; bills?: Array<{ total: string }> }; source: string }> = [];
         sdk.events.on("budget", (event) => { budgetEvents.push(event); });
         sdk.events.on("receipt", (event) => { receiptEvents.push(event); });
 
@@ -139,14 +151,15 @@ test("sdk.events emits budget + receipt on every billable response", async () =>
         assert.equal(budgetEvents[0].chainId, 43114);
 
         assert.equal(receiptEvents.length, 1);
-        assert.equal(receiptEvents[0].receipt.finalAmountWei, "12345");
+        assert.equal(receiptEvents[0].receipt.runId, "run_events_1");
+        assert.equal(receiptEvents[0].receipt.bills?.[0].total, "0.012345 USDC");
         assert.equal(receiptEvents[0].source, "response-header");
     } finally {
         await server.close();
     }
 });
 
-test("sdk.events emits sessionInvalid when x-compose-session-invalid is set", async () => {
+test("sdk.events emits sessionInvalid when x-session-invalid is set", async () => {
     const server = await startMockServer((_req, res) => {
         res.writeHead(200, {
             "content-type": "application/json",
@@ -155,7 +168,7 @@ test("sdk.events emits sessionInvalid when x-compose-session-invalid is set", as
             "x-session-budget-used": "10000000",
             "x-session-budget-locked": "0",
             "x-session-budget-remaining": "0",
-            "x-compose-session-invalid": "budget-depleted",
+            "x-session-invalid": "budget-depleted",
         });
         res.end(JSON.stringify({
             id: "chatcmpl-1", object: "chat.completion", created: 1, model: "gpt-4.1-mini",
