@@ -25,7 +25,7 @@ let value: ChatCompletion = {
     "key": "<value>",
     "key1": "<value>",
   },
-  composeReceipt: {
+  receipt: {
     lineItems: [
       {
         key: "<key>",
@@ -44,13 +44,13 @@ let value: ChatCompletion = {
 
 ## Fields
 
-| Field                                                          | Type                                                           | Required                                                       | Description                                                    |
-| -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `id`                                                           | *string*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `object`                                                       | *"chat.completion"*                                            | :heavy_check_mark:                                             | N/A                                                            |
-| `created`                                                      | *number*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `model`                                                        | *string*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `choices`                                                      | Record<string, *any*>[]                                        | :heavy_check_mark:                                             | N/A                                                            |
-| `usage`                                                        | Record<string, *any*>                                          | :heavy_check_mark:                                             | N/A                                                            |
-| `composeReceipt`                                               | [models.ComposeReceiptBody](../models/compose-receipt-body.md) | :heavy_minus_sign:                                             | N/A                                                            |
-| `additionalProperties`                                         | Record<string, *any*>                                          | :heavy_minus_sign:                                             | N/A                                                            |
+| Field                                           | Type                                            | Required                                        | Description                                     |
+| ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `id`                                            | *string*                                        | :heavy_check_mark:                              | N/A                                             |
+| `object`                                        | *"chat.completion"*                             | :heavy_check_mark:                              | N/A                                             |
+| `created`                                       | *number*                                        | :heavy_check_mark:                              | N/A                                             |
+| `model`                                         | *string*                                        | :heavy_check_mark:                              | N/A                                             |
+| `choices`                                       | Record<string, *any*>[]                         | :heavy_check_mark:                              | N/A                                             |
+| `usage`                                         | Record<string, *any*>                           | :heavy_check_mark:                              | N/A                                             |
+| `receipt`                                       | [models.ReceiptBody](../models/receipt-body.md) | :heavy_minus_sign:                              | N/A                                             |
+| `additionalProperties`                          | Record<string, *any*>                           | :heavy_minus_sign:                              | N/A                                             |

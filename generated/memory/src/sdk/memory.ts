@@ -41,8 +41,8 @@ import { memoryTranscriptsIndex } from "../funcs/memory-transcripts-index.js";
 import { memoryTurnRecord } from "../funcs/memory-turn-record.js";
 import { memoryVectorIndex } from "../funcs/memory-vector-index.js";
 import { memoryVectorSearch } from "../funcs/memory-vector-search.js";
-import { memoryWorkflowsGet } from "../funcs/memory-workflows-get.js";
-import { memoryWorkflowsList } from "../funcs/memory-workflows-list.js";
+import { memoryLoopsGet } from "../funcs/memory-loops-get.js";
+import { memoryLoopsList } from "../funcs/memory-loops-list.js";
 import { ClientSDK, RequestOptions } from "../lib/sdks.js";
 import * as models from "../models/index.js";
 import * as operations from "../models/operations/index.js";
@@ -53,7 +53,7 @@ export class Memory extends ClientSDK {
    * Assemble compact pre-turn memory context.
    *
    * @remarks
-   * Agent-first workflow step. Call before reasoning or tool use. Returns a
+   * Agent-first memory loop step. Call before reasoning or tool use. Returns a
    * compact prompt and structured memory items across working, scene, graph,
    * patterns, archives, and vectors.
    */
@@ -72,7 +72,7 @@ export class Memory extends ClientSDK {
    * Persist the completed turn.
    *
    * @remarks
-   * Agent-first workflow step. Call after the assistant final answer to store
+   * Agent-first memory loop step. Call after the assistant final answer to store
    * transcript, working memory, and vector memory for later retrieval.
    */
   async turnRecord(
@@ -90,7 +90,7 @@ export class Memory extends ClientSDK {
    * Save an explicit durable fact or preference.
    *
    * @remarks
-   * Agent-first workflow step. Call when the agent identifies a durable fact,
+   * Agent-first memory loop step. Call when the agent identifies a durable fact,
    * preference, correction, decision, or operational lesson.
    */
   async remember(
@@ -123,25 +123,25 @@ export class Memory extends ClientSDK {
   }
 
   /**
-   * List compact agent-first memory workflow manifests.
+   * List compact agent-first memory loop manifests.
    */
-  async workflowsList(
+  async loopsList(
     options?: RequestOptions,
-  ): Promise<operations.WorkflowsListResponse> {
-    return unwrapAsync(memoryWorkflowsList(
+  ): Promise<operations.LoopsListResponse> {
+    return unwrapAsync(memoryLoopsList(
       this,
       options,
     ));
   }
 
   /**
-   * Fetch one compact memory workflow manifest.
+   * Fetch one compact memory loop manifest.
    */
-  async workflowsGet(
-    request: operations.WorkflowsGetRequest,
+  async loopsGet(
+    request: operations.LoopsGetRequest,
     options?: RequestOptions,
-  ): Promise<operations.WorkflowsGetResponse> {
-    return unwrapAsync(memoryWorkflowsGet(
+  ): Promise<operations.LoopsGetResponse> {
+    return unwrapAsync(memoryLoopsGet(
       this,
       request,
       options,

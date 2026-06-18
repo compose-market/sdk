@@ -1,7 +1,7 @@
 arazzo: 1.0.1
 info:
   title: Compose Memory — agent-first contracts
-  version: 0.6.98
+  version: 0.7.13
   summary: |
     You are an agent. You have memory. Three calls cover 99% of turns.
 

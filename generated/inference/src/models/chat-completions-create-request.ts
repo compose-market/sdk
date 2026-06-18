@@ -6,19 +6,15 @@ import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import { smartUnion } from "../types/smart-union.js";
 import {
-  ChatMessage,
-  ChatMessage$Outbound,
-  ChatMessage$outboundSchema,
-} from "./chat-message.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  Message,
+  Message$Outbound,
+  Message$outboundSchema,
+} from "./message.js";
 import {
   ReasoningOptions,
   ReasoningOptions$Outbound,
@@ -39,11 +35,10 @@ export type Stop = string | Array<string>;
 
 export type ChatCompletionsCreateRequest = {
   model: string;
-  provider?: ModelProvider | undefined;
   stream?: boolean | undefined;
-  messages: Array<ChatMessage>;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
+  messages: Array<Message>;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   temperature?: number | undefined;
   topP?: number | undefined;
   n?: number | undefined;
@@ -86,11 +81,10 @@ export function stopToJSON(stop: Stop): string {
 /** @internal */
 export type ChatCompletionsCreateRequest$Outbound = {
   model: string;
-  provider?: string | undefined;
   stream?: boolean | undefined;
-  messages: Array<ChatMessage$Outbound>;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
+  messages: Array<Message$Outbound>;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   temperature?: number | undefined;
   top_p?: number | undefined;
   n?: number | undefined;
@@ -127,11 +121,10 @@ export const ChatCompletionsCreateRequest$outboundSchema: z.ZodMiniType<
   z.catchall(
     z.object({
       model: z.string(),
-      provider: z.optional(ModelProvider$outboundSchema),
       stream: z.optional(z.boolean()),
-      messages: z.array(ChatMessage$outboundSchema),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      messages: z.array(Message$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       temperature: z.optional(z.number()),
       topP: z.optional(z.number()),
       n: z.optional(z.int()),

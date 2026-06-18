@@ -26,7 +26,7 @@ let value: ResponseObject = {
       "key1": "<value>",
     },
   ],
-  composeReceipt: {
+  receipt: {
     lineItems: [
       {
         key: "<key>",
@@ -57,5 +57,5 @@ let value: ResponseObject = {
 | `error`                                                            | Record<string, *any*>                                              | :heavy_minus_sign:                                                 | N/A                                                                |
 | `previousResponseId`                                               | *string*                                                           | :heavy_minus_sign:                                                 | N/A                                                                |
 | `jobId`                                                            | *string*                                                           | :heavy_minus_sign:                                                 | N/A                                                                |
-| `composeReceipt`                                                   | [models.ComposeReceiptBody](../models/compose-receipt-body.md)     | :heavy_minus_sign:                                                 | N/A                                                                |
+| `receipt`                                                          | [models.ReceiptBody](../models/receipt-body.md)                    | :heavy_minus_sign:                                                 | N/A                                                                |
 | `additionalProperties`                                             | Record<string, *any*>                                              | :heavy_minus_sign:                                                 | N/A                                                                |

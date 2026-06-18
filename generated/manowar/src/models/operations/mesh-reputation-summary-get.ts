@@ -36,7 +36,7 @@ export type MeshReputationSummaryGetResponse = {
 
 /** @internal */
 export type MeshReputationSummaryGetRequest$Outbound = {
-  "x-compose-local-runtime-token"?: string | undefined;
+  "x-local-runtime-token"?: string | undefined;
   agentWallet: string;
   baseDir?: string | undefined;
 };
@@ -53,7 +53,7 @@ export const MeshReputationSummaryGetRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      xComposeLocalRuntimeToken: "x-compose-local-runtime-token",
+      xComposeLocalRuntimeToken: "x-local-runtime-token",
     });
   }),
 );

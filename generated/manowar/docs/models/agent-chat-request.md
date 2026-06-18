@@ -19,8 +19,8 @@ let value: AgentChatRequest = {
 | `composeRunId`                    | *string*                          | :heavy_minus_sign:                | N/A                               |
 | `workflowWallet`                  | *string*                          | :heavy_minus_sign:                | N/A                               |
 | `userAddress`                     | *string*                          | :heavy_minus_sign:                | N/A                               |
-| `attachment`                      | *models.ComposeAttachmentInput*   | :heavy_minus_sign:                | N/A                               |
-| `attachments`                     | *models.ComposeAttachmentInput*[] | :heavy_minus_sign:                | N/A                               |
+| `attachment`                      | *models.AttachmentInput*   | :heavy_minus_sign:                | N/A                               |
+| `attachments`                     | *models.AttachmentInput*[] | :heavy_minus_sign:                | N/A                               |
 | `sessionGrants`                   | *string*[]                        | :heavy_minus_sign:                | N/A                               |
 | `cloudPermissions`                | *string*[]                        | :heavy_minus_sign:                | N/A                               |
 | `backpackAccounts`                | Record<string, *any*>[]           | :heavy_minus_sign:                | N/A                               |

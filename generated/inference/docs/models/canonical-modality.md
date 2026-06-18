@@ -13,5 +13,5 @@ let value: CanonicalModality = "text";
 ## Values
 
 ```typescript
-"text" | "image" | "audio" | "video" | "embedding" | Unrecognized<string>
+"text" | "image" | "audio" | "video" | "embedding" | "realtime" | Unrecognized<string>
 ```

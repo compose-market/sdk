@@ -9,8 +9,8 @@ Agent memory loop response.
 
 ```typescript
 const value: models.AgentMemoryContextResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",
@@ -42,8 +42,8 @@ const value: models.AgentMemoryContextResponse = {
 
 ```typescript
 const value: models.AgentMemoryRecordTurnResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",
@@ -65,8 +65,8 @@ const value: models.AgentMemoryRecordTurnResponse = {
 
 ```typescript
 const value: models.AgentMemoryRememberResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",

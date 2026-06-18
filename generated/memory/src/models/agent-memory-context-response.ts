@@ -15,13 +15,13 @@ import {
   AgentMemoryContextUsage$inboundSchema,
 } from "./agent-memory-context-usage.js";
 import {
-  AgentMemoryWorkflowEnvelope,
-  AgentMemoryWorkflowEnvelope$inboundSchema,
-} from "./agent-memory-workflow-envelope.js";
+  AgentMemoryLoopEnvelope,
+  AgentMemoryLoopEnvelope$inboundSchema,
+} from "./agent-memory-loop-envelope.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
 
 export type AgentMemoryContextResponse = {
-  workflow: AgentMemoryWorkflowEnvelope;
+  loop: AgentMemoryLoopEnvelope;
   contextId: string;
   prompt: string | null;
   items: Array<AgentMemoryCompactItem>;
@@ -36,7 +36,7 @@ export const AgentMemoryContextResponse$inboundSchema: z.ZodMiniType<
   AgentMemoryContextResponse,
   unknown
 > = z.object({
-  workflow: AgentMemoryWorkflowEnvelope$inboundSchema,
+  loop: AgentMemoryLoopEnvelope$inboundSchema,
   contextId: types.string(),
   prompt: types.nullable(types.string()),
   items: z.array(AgentMemoryCompactItem$inboundSchema),

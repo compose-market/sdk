@@ -3,22 +3,18 @@
  */
 
 import * as z from "zod/v4-mini";
-import { remap as remap$ } from "../lib/primitives.js";
 import { safeParse } from "../lib/schemas.js";
 import { Result as SafeParseResult } from "../types/fp.js";
 import * as types from "../types/primitives.js";
-import {
-  ComposeReceiptBody,
-  ComposeReceiptBody$inboundSchema,
-} from "./compose-receipt-body.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
+import { ReceiptBody, ReceiptBody$inboundSchema } from "./receipt-body.js";
 
 export type EmbeddingsResponse = {
   object: "list";
   data: Array<{ [k: string]: any }>;
   model: string;
   usage: { [k: string]: any };
-  composeReceipt?: ComposeReceiptBody | undefined;
+  receipt?: ReceiptBody | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -26,22 +22,15 @@ export type EmbeddingsResponse = {
 export const EmbeddingsResponse$inboundSchema: z.ZodMiniType<
   EmbeddingsResponse,
   unknown
-> = z.pipe(
-  z.catchall(
-    z.object({
-      object: types.literal("list"),
-      data: z.array(z.record(z.string(), z.any())),
-      model: types.string(),
-      usage: z.record(z.string(), z.any()),
-      compose_receipt: types.optional(ComposeReceiptBody$inboundSchema),
-    }),
-    z.any(),
-  ),
-  z.transform((v) => {
-    return remap$(v, {
-      "compose_receipt": "composeReceipt",
-    });
+> = z.catchall(
+  z.object({
+    object: types.literal("list"),
+    data: z.array(z.record(z.string(), z.any())),
+    model: types.string(),
+    usage: z.record(z.string(), z.any()),
+    receipt: types.optional(ReceiptBody$inboundSchema),
   }),
+  z.any(),
 );
 
 export function embeddingsResponseFromJSON(

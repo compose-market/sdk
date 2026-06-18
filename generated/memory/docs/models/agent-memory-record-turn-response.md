@@ -6,8 +6,8 @@
 import { AgentMemoryRecordTurnResponse } from "@compose-market/sdk/models";
 
 let value: AgentMemoryRecordTurnResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",
@@ -29,7 +29,7 @@ let value: AgentMemoryRecordTurnResponse = {
 
 | Field                                                                             | Type                                                                              | Required                                                                          | Description                                                                       |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `workflow`                                                                        | [models.AgentMemoryWorkflowEnvelope](../models/agent-memory-workflow-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
+| `loop`                                                                        | [models.AgentMemoryLoopEnvelope](../models/agent-memory-loop-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
 | `success`                                                                         | *true*                                                                            | :heavy_check_mark:                                                                | N/A                                                                               |
 | `sessionId`                                                                       | *string*                                                                          | :heavy_check_mark:                                                                | N/A                                                                               |
 | `threadId`                                                                        | *string*                                                                          | :heavy_check_mark:                                                                | N/A                                                                               |

@@ -1,12 +1,12 @@
-speakeasyVersion: 1.763.2
+speakeasyVersion: 1.778.0
 sources:
     inference:
         sourceNamespace: inference
-        sourceRevisionDigest: sha256:d09f5ec9b43de4fb55afa2ed437479a096db7fc4395712d80abcd0d90efc0a03
-        sourceBlobDigest: sha256:2d5b899ce5fe9a776c2af9521723443f775f2180262e9324dffedd4e3e877cc4
+        sourceRevisionDigest: sha256:6fdbe00e139401a54837ac81011328adefe9bf2d5741e9b8eb2e2459eb76bf17
+        sourceBlobDigest: sha256:ef346503165dceac0c5aa0fa036539c5e77dd0dd3718f781748fd7f70316bc73
         tags:
             - latest
-            - 0.6.93
+            - 0.7.11
     manowar:
         sourceNamespace: manowar
         sourceRevisionDigest: sha256:cee24c351a6d145ac3a791fe6199b2d5fe4e790a044b053ecd072d55e5871a47
@@ -32,10 +32,10 @@ targets:
     inference:
         source: inference
         sourceNamespace: inference
-        sourceRevisionDigest: sha256:d09f5ec9b43de4fb55afa2ed437479a096db7fc4395712d80abcd0d90efc0a03
-        sourceBlobDigest: sha256:2d5b899ce5fe9a776c2af9521723443f775f2180262e9324dffedd4e3e877cc4
+        sourceRevisionDigest: sha256:6fdbe00e139401a54837ac81011328adefe9bf2d5741e9b8eb2e2459eb76bf17
+        sourceBlobDigest: sha256:ef346503165dceac0c5aa0fa036539c5e77dd0dd3718f781748fd7f70316bc73
         codeSamplesNamespace: inference-typescript-code-samples
-        codeSamplesRevisionDigest: sha256:b621ef83b555406a561cfd19f8ae4a3f24c80e77caf2ff7ad20610a9c51c50bb
+        codeSamplesRevisionDigest: sha256:98de3b18a40e3d9c7161833f5c39154ad42680f0a4bd149aeec9096fb35424f9
     manowar:
         source: manowar
         sourceNamespace: manowar

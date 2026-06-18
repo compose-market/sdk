@@ -6,23 +6,18 @@ import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import { smartUnion } from "../types/smart-union.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 
 export type Input = string | Array<string>;
 
 export type EmbeddingsCreateRequest = {
   model: string;
   input: string | Array<string>;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
-  provider?: ModelProvider | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   dimensions?: number | undefined;
   encodingFormat?: string | undefined;
   user?: string | undefined;
@@ -44,9 +39,8 @@ export function inputToJSON(input: Input): string {
 export type EmbeddingsCreateRequest$Outbound = {
   model: string;
   input: string | Array<string>;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
-  provider?: string | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   dimensions?: number | undefined;
   encoding_format?: string | undefined;
   user?: string | undefined;
@@ -62,9 +56,8 @@ export const EmbeddingsCreateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       input: smartUnion([z.string(), z.array(z.string())]),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-      provider: z.optional(ModelProvider$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       dimensions: z.optional(z.int()),
       encodingFormat: z.optional(z.string()),
       user: z.optional(z.string()),

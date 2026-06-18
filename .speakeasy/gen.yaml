@@ -32,7 +32,7 @@ generation:
     skipResponseBodyAssertions: false
   telemetryEnabled: false
 typescript:
-  version: 0.6.98
+  version: 0.7.13
   acceptHeaderEnum: false
   additionalDependencies:
     dependencies: {}
@@ -41,6 +41,7 @@ typescript:
   additionalPackageJSON: {}
   additionalScripts: {}
   alwaysIncludeInboundAndOutbound: false
+  apiPromiseHelpers: false
   author: Compose.Market
   baseErrorName: ComposeMarketError
   clientServerStatusCodesAsErrors: true
@@ -50,6 +51,7 @@ typescript:
   enableMCPServer: false
   enableReactQuery: false
   enumFormat: union
+  eventStreamClassName: EventStream
   exportZodModelNamespace: false
   fixEnumNameSanitization: false
   flatAdditionalProperties: true
@@ -81,6 +83,8 @@ typescript:
   packageName: '@compose-market/sdk'
   preApplyUnionDiscriminators: true
   preserveModelFieldNames: false
+  privateIdentifierPrefix: '#'
+  requestExtras: false
   responseFormat: envelope
   sseFlatResponse: false
   templateVersion: v2

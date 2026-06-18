@@ -31,7 +31,7 @@ import { Result } from "../types/fp.js";
  * Persist the completed turn.
  *
  * @remarks
- * Agent-first workflow step. Call after the assistant final answer to store
+ * Agent-first memory loop step. Call after the assistant final answer to store
  * transcript, working memory, and vector memory for later retrieval.
  */
 export function memoryTurnRecord(

@@ -31,7 +31,7 @@ import { Result } from "../types/fp.js";
  * Save an explicit durable fact or preference.
  *
  * @remarks
- * Agent-first workflow step. Call when the agent identifies a durable fact,
+ * Agent-first memory loop step. Call when the agent identifies a durable fact,
  * preference, correction, decision, or operational lesson.
  */
 export function memoryRemember(

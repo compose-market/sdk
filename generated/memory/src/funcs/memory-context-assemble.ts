@@ -31,7 +31,7 @@ import { Result } from "../types/fp.js";
  * Assemble compact pre-turn memory context.
  *
  * @remarks
- * Agent-first workflow step. Call before reasoning or tool use. Returns a
+ * Agent-first memory loop step. Call before reasoning or tool use. Returns a
  * compact prompt and structured memory items across working, scene, graph,
  * patterns, archives, and vectors.
  */

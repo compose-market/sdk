@@ -2,10 +2,10 @@ lockVersion: ""
 id: ""
 management:
   docChecksum: 81bd01b2092bbb1ee0cc88763dffbc87
-  docVersion: 0.6.98
+  docVersion: 0.7.13
   speakeasyVersion: 1.763.2
   generationVersion: 2.884.4
-  releaseVersion: 0.6.98
+  releaseVersion: 0.7.13
   configChecksum: 0b21b1a4ad3de1fa788486427ea44fc2
 persistentEdits:
   generation_id: 2d0807ee-6077-4f32-ad63-90f2ed1a80bb
@@ -384,13 +384,13 @@ trackedFiles:
     id: f431fdbcd144
     last_write_checksum: sha1:cb3551149fbc59958c7f1fa9c9c229dcf638792b
     pristine_git_object: 35a8758984abcb7deeb1cd7200cb78680b80d4c3
-  src/funcs/compose-keys-compose-keys-create.ts:
+  src/funcs/compose-keys-keys-create.ts:
     last_write_checksum: sha1:013ab039293853965da2eeca6ac183fc6754c482
-  src/funcs/compose-keys-compose-keys-get.ts:
+  src/funcs/compose-keys-keys-get.ts:
     last_write_checksum: sha1:5ddce28f3735d8a3f8d3b4c68df785a20ccf979c
-  src/funcs/compose-keys-compose-keys-list.ts:
+  src/funcs/compose-keys-keys-list.ts:
     last_write_checksum: sha1:8a8ea742d3c3174fa5ef73ca843196a8ed17de9a
-  src/funcs/compose-keys-compose-keys-revoke.ts:
+  src/funcs/compose-keys-keys-revoke.ts:
     last_write_checksum: sha1:7b1f24a831891d9fe394da23ed53c39c18925e22
   src/funcs/compose-keys-session-events-subscribe.ts:
     last_write_checksum: sha1:8fc45e2e0f4cf1a05398fe0073c5a3b4359c9671
@@ -865,7 +865,7 @@ examples:
         default:
           application/json: {"error": {"code": "<value>", "message": "<value>"}}
   compose_keys_create:
-    speakeasy-default-compose-keys-create:
+    speakeasy-default-keys-create:
       parameters:
         header:
           x-session-user-address: "0x1111111111111111111111111111111111111111"
@@ -878,7 +878,7 @@ examples:
         "400":
           application/json: {}
   compose_keys_list:
-    speakeasy-default-compose-keys-list:
+    speakeasy-default-keys-list:
       parameters:
         header:
           x-session-user-address: "0x1111111111111111111111111111111111111111"
@@ -889,7 +889,7 @@ examples:
         "400":
           application/json: {"error": {"code": "<value>", "message": "<value>"}}
   compose_keys_get:
-    speakeasy-default-compose-keys-get:
+    speakeasy-default-keys-get:
       parameters:
         path:
           keyId: "<id>"
@@ -899,7 +899,7 @@ examples:
         "401":
           application/json: {"error": {"code": "<value>", "message": "<value>"}}
   compose_keys_revoke:
-    speakeasy-default-compose-keys-revoke:
+    speakeasy-default-keys-revoke:
       parameters:
         path:
           keyId: "<id>"

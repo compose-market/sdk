@@ -17,7 +17,7 @@ export const ProceduralPatternMode = {
 export type ProceduralPatternMode = OpenEnum<typeof ProceduralPatternMode>;
 
 export const PatternType = {
-  Workflow: "workflow",
+  Routine: "routine",
   Decision: "decision",
   Response: "response",
   ToolSequence: "tool_sequence",

@@ -12,7 +12,6 @@ import { connectorsConnectorsOnchainActionsList } from "../funcs/connectors-conn
 import { connectorsConnectorsOnchainPluginGet } from "../funcs/connectors-connectors-onchain-plugin-get.js";
 import { connectorsConnectorsOnchainPluginsList } from "../funcs/connectors-connectors-onchain-plugins-list.js";
 import { connectorsConnectorsOnchainStatus } from "../funcs/connectors-connectors-onchain-status.js";
-import { connectorsConnectorsRuntimeExecute } from "../funcs/connectors-connectors-runtime-execute.js";
 import { ClientSDK, RequestOptions } from "../lib/sdks.js";
 import * as operations from "../models/operations/index.js";
 import { unwrapAsync } from "../types/fp.js";
@@ -122,14 +121,4 @@ export class Connectors extends ClientSDK {
     ));
   }
 
-  async connectorsRuntimeExecute(
-    request: operations.ConnectorsRuntimeExecuteRequest,
-    options?: RequestOptions,
-  ): Promise<operations.ConnectorsRuntimeExecuteResponse> {
-    return unwrapAsync(connectorsConnectorsRuntimeExecute(
-      this,
-      request,
-      options,
-    ));
-  }
 }

@@ -5,28 +5,28 @@
 import * as z from "zod/v4-mini";
 import { smartUnion } from "../types/smart-union.js";
 import {
-  ComposeAttachment,
-  ComposeAttachment$Outbound,
-  ComposeAttachment$outboundSchema,
+  Attachment,
+  Attachment$Outbound,
+  Attachment$outboundSchema,
 } from "./compose-attachment.js";
 
-export type ComposeAttachmentInput = ComposeAttachment | string;
+export type AttachmentInput = Attachment | string;
 
 /** @internal */
-export type ComposeAttachmentInput$Outbound =
-  | ComposeAttachment$Outbound
+export type AttachmentInput$Outbound =
+  | Attachment$Outbound
   | string;
 
 /** @internal */
-export const ComposeAttachmentInput$outboundSchema: z.ZodMiniType<
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput
-> = smartUnion([ComposeAttachment$outboundSchema, z.string()]);
+export const AttachmentInput$outboundSchema: z.ZodMiniType<
+  AttachmentInput$Outbound,
+  AttachmentInput
+> = smartUnion([Attachment$outboundSchema, z.string()]);
 
 export function composeAttachmentInputToJSON(
-  composeAttachmentInput: ComposeAttachmentInput,
+  composeAttachmentInput: AttachmentInput,
 ): string {
   return JSON.stringify(
-    ComposeAttachmentInput$outboundSchema.parse(composeAttachmentInput),
+    AttachmentInput$outboundSchema.parse(composeAttachmentInput),
   );
 }

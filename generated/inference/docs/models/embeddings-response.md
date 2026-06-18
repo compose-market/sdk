@@ -27,7 +27,7 @@ let value: EmbeddingsResponse = {
     "key1": "<value>",
     "key2": "<value>",
   },
-  composeReceipt: {
+  receipt: {
     lineItems: [
       {
         key: "<key>",
@@ -46,11 +46,11 @@ let value: EmbeddingsResponse = {
 
 ## Fields
 
-| Field                                                          | Type                                                           | Required                                                       | Description                                                    |
-| -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `object`                                                       | *"list"*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `data`                                                         | Record<string, *any*>[]                                        | :heavy_check_mark:                                             | N/A                                                            |
-| `model`                                                        | *string*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `usage`                                                        | Record<string, *any*>                                          | :heavy_check_mark:                                             | N/A                                                            |
-| `composeReceipt`                                               | [models.ComposeReceiptBody](../models/compose-receipt-body.md) | :heavy_minus_sign:                                             | N/A                                                            |
-| `additionalProperties`                                         | Record<string, *any*>                                          | :heavy_minus_sign:                                             | N/A                                                            |
+| Field                                           | Type                                            | Required                                        | Description                                     |
+| ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `object`                                        | *"list"*                                        | :heavy_check_mark:                              | N/A                                             |
+| `data`                                          | Record<string, *any*>[]                         | :heavy_check_mark:                              | N/A                                             |
+| `model`                                         | *string*                                        | :heavy_check_mark:                              | N/A                                             |
+| `usage`                                         | Record<string, *any*>                           | :heavy_check_mark:                              | N/A                                             |
+| `receipt`                                       | [models.ReceiptBody](../models/receipt-body.md) | :heavy_minus_sign:                              | N/A                                             |
+| `additionalProperties`                          | Record<string, *any*>                           | :heavy_minus_sign:                              | N/A                                             |

@@ -7,7 +7,7 @@ import { AudioTranscriptionResponse } from "@compose-market/sdk/models";
 
 let value: AudioTranscriptionResponse = {
   text: "<value>",
-  composeReceipt: {
+  receipt: {
     lineItems: [
       {
         key: "<key>",
@@ -26,8 +26,8 @@ let value: AudioTranscriptionResponse = {
 
 ## Fields
 
-| Field                                                          | Type                                                           | Required                                                       | Description                                                    |
-| -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `text`                                                         | *string*                                                       | :heavy_check_mark:                                             | N/A                                                            |
-| `composeReceipt`                                               | [models.ComposeReceiptBody](../models/compose-receipt-body.md) | :heavy_minus_sign:                                             | N/A                                                            |
-| `additionalProperties`                                         | Record<string, *any*>                                          | :heavy_minus_sign:                                             | N/A                                                            |
+| Field                                           | Type                                            | Required                                        | Description                                     |
+| ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `text`                                          | *string*                                        | :heavy_check_mark:                              | N/A                                             |
+| `receipt`                                       | [models.ReceiptBody](../models/receipt-body.md) | :heavy_minus_sign:                              | N/A                                             |
+| `additionalProperties`                          | Record<string, *any*>                           | :heavy_minus_sign:                              | N/A                                             |

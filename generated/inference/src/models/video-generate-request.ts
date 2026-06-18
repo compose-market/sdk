@@ -5,20 +5,16 @@
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 
 export type VideoGenerateRequest = {
   model: string;
   prompt?: string | undefined;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   duration?: number | undefined;
   aspectRatio?: string | undefined;
   resolution?: string | undefined;
@@ -27,7 +23,6 @@ export type VideoGenerateRequest = {
   image?: string | undefined;
   imageUrl?: string | undefined;
   user?: string | undefined;
-  provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -35,8 +30,8 @@ export type VideoGenerateRequest = {
 export type VideoGenerateRequest$Outbound = {
   model: string;
   prompt?: string | undefined;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   duration?: number | undefined;
   aspect_ratio?: string | undefined;
   resolution?: string | undefined;
@@ -45,7 +40,6 @@ export type VideoGenerateRequest$Outbound = {
   image?: string | undefined;
   image_url?: string | undefined;
   user?: string | undefined;
-  provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -58,8 +52,8 @@ export const VideoGenerateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       prompt: z.optional(z.string()),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       duration: z.optional(z.int()),
       aspectRatio: z.optional(z.string()),
       resolution: z.optional(z.string()),
@@ -68,7 +62,6 @@ export const VideoGenerateRequest$outboundSchema: z.ZodMiniType<
       image: z.optional(z.string()),
       imageUrl: z.optional(z.string()),
       user: z.optional(z.string()),
-      provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),
   ),

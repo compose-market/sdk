@@ -15,6 +15,7 @@ export type HookContext = {
   retryConfig: RetryConfig;
   resolvedSecurity: SecurityState | null;
   options: SDKOptions;
+  timeoutMs?: number;
 };
 
 export type Awaitable<T> = T | Promise<T>;
@@ -47,7 +48,7 @@ export interface BeforeCreateRequestHook {
 export interface BeforeRequestHook {
   /**
    * A hook that is called before the SDK sends a request. The hook can
-   * introduce instrumentation code such as logging or tracing, or
+   * introduce instrumentation code such as logging and tracing or
    * replace the request before it is sent or throw an error to stop the
    * request from being sent.
    */
@@ -60,7 +61,7 @@ export interface BeforeRequestHook {
 export interface AfterSuccessHook {
   /**
    * A hook that is called after the SDK receives a response. The hook can
-   * introduce instrumentation code such as logging or tracing, or
+   * introduce instrumentation code such as logging and tracing or
    * modify the response before it is handled or throw an error to stop the
    * response from being handled.
    */
@@ -74,7 +75,7 @@ export interface AfterErrorHook {
   /**
    * A hook that is called after the SDK encounters an error, or a
    * non-successful response. The hook can introduce instrumentation code such
-   * as logging or tracing, or modify the response or error values.
+   * as logging and tracing or modify the response or error values.
    */
   afterError: (
     hookCtx: AfterErrorContext,

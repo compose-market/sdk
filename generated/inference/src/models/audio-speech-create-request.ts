@@ -5,25 +5,20 @@
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 
 export type AudioSpeechCreateRequest = {
   model: string;
   input: string;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   voice?: string | undefined;
   responseFormat?: string | undefined;
   speed?: number | undefined;
   user?: string | undefined;
-  provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -31,13 +26,12 @@ export type AudioSpeechCreateRequest = {
 export type AudioSpeechCreateRequest$Outbound = {
   model: string;
   input: string;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   voice?: string | undefined;
   response_format?: string | undefined;
   speed?: number | undefined;
   user?: string | undefined;
-  provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -50,13 +44,12 @@ export const AudioSpeechCreateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       input: z.string(),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       voice: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
       speed: z.optional(z.number()),
       user: z.optional(z.string()),
-      provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),
   ),

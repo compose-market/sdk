@@ -7,9 +7,9 @@ import { safeParse } from "../lib/schemas.js";
 import { Result as SafeParseResult } from "../types/fp.js";
 import * as types from "../types/primitives.js";
 import {
-  AgentMemoryWorkflowEnvelope,
-  AgentMemoryWorkflowEnvelope$inboundSchema,
-} from "./agent-memory-workflow-envelope.js";
+  AgentMemoryLoopEnvelope,
+  AgentMemoryLoopEnvelope$inboundSchema,
+} from "./agent-memory-loop-envelope.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
 
 export type Stored = {
@@ -19,7 +19,7 @@ export type Stored = {
 };
 
 export type AgentMemoryRecordTurnResponse = {
-  workflow: AgentMemoryWorkflowEnvelope;
+  loop: AgentMemoryLoopEnvelope;
   success: true;
   sessionId: string;
   threadId: string;
@@ -50,7 +50,7 @@ export const AgentMemoryRecordTurnResponse$inboundSchema: z.ZodMiniType<
   AgentMemoryRecordTurnResponse,
   unknown
 > = z.object({
-  workflow: AgentMemoryWorkflowEnvelope$inboundSchema,
+  loop: AgentMemoryLoopEnvelope$inboundSchema,
   success: types.literal(true),
   sessionId: types.string(),
   threadId: types.string(),

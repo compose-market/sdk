@@ -9,6 +9,10 @@ import * as types from "../types/primitives.js";
 import { smartUnion } from "../types/smart-union.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
 import {
+  ModelOperationCapability,
+  ModelOperationCapability$inboundSchema,
+} from "./model-operation-capability.js";
+import {
   ModelProvider,
   ModelProvider$inboundSchema,
 } from "./model-provider.js";
@@ -22,6 +26,7 @@ export type Model = {
   upstreamModelId?: string | undefined;
   name?: string | null | undefined;
   provider: ModelProvider;
+  family?: string | undefined;
   type?: string | Array<string> | null | undefined;
   description?: string | null | undefined;
   input?: any | undefined;
@@ -33,6 +38,7 @@ export type Model = {
   modelType?: any | undefined;
   sourceMetadata?: any | undefined;
   params?: any | undefined;
+  operations?: Array<ModelOperationCapability> | undefined;
   ownedBy?: string | undefined;
   createdAt?: string | number | undefined;
   available?: boolean | undefined;
@@ -77,6 +83,7 @@ export const Model$inboundSchema: z.ZodMiniType<Model, unknown> = z.object({
   upstreamModelId: types.optional(types.string()),
   name: z.optional(z.nullable(types.string())),
   provider: ModelProvider$inboundSchema,
+  family: types.optional(types.string()),
   type: z.optional(
     z.nullable(smartUnion([types.string(), z.array(types.string())])),
   ),
@@ -90,6 +97,7 @@ export const Model$inboundSchema: z.ZodMiniType<Model, unknown> = z.object({
   modelType: types.optional(z.any()),
   sourceMetadata: types.optional(z.any()),
   params: types.optional(z.any()),
+  operations: types.optional(z.array(ModelOperationCapability$inboundSchema)),
   ownedBy: types.optional(types.string()),
   createdAt: types.optional(smartUnion([types.string(), types.number()])),
   available: types.optional(types.boolean()),

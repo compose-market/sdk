@@ -86,9 +86,9 @@ async function $do(
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json",
-    "x-compose-local-runtime-token": encodeSimple(
-      "x-compose-local-runtime-token",
-      payload["x-compose-local-runtime-token"],
+    "x-local-runtime-token": encodeSimple(
+      "x-local-runtime-token",
+      payload["x-local-runtime-token"],
       { explode: false, charEncoding: "none" },
     ),
   }));

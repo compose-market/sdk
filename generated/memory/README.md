@@ -122,8 +122,8 @@ run();
 * [turnRecord](docs/sdks/memory/README.md#turnrecord) - Persist the completed turn.
 * [remember](docs/sdks/memory/README.md#remember) - Save an explicit durable fact or preference.
 * [loop](docs/sdks/memory/README.md#loop) - Single endpoint for the agent memory loop.
-* [workflowsList](docs/sdks/memory/README.md#workflowslist) - List compact agent-first memory workflow manifests.
-* [workflowsGet](docs/sdks/memory/README.md#workflowsget) - Fetch one compact memory workflow manifest.
+* [loopsList](docs/sdks/memory/README.md#loopslist) - List compact agent-first memory loop manifests.
+* [loopsGet](docs/sdks/memory/README.md#loopsget) - Fetch one compact memory loop manifest.
 * [patternsList](docs/sdks/memory/README.md#patternslist) - List learned procedural memory patterns.
 * [patternsGet](docs/sdks/memory/README.md#patternsget) - Fetch one procedural memory pattern.
 * [patternsValidate](docs/sdks/memory/README.md#patternsvalidate) - Validate a procedural memory pattern before promotion.
@@ -217,8 +217,8 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 - [`memoryTurnRecord`](docs/sdks/memory/README.md#turnrecord) - Persist the completed turn.
 - [`memoryVectorIndex`](docs/sdks/memory/README.md#vectorindex) - Index a memory vector.
 - [`memoryVectorSearch`](docs/sdks/memory/README.md#vectorsearch) - Search vector memory.
-- [`memoryWorkflowsGet`](docs/sdks/memory/README.md#workflowsget) - Fetch one compact memory workflow manifest.
-- [`memoryWorkflowsList`](docs/sdks/memory/README.md#workflowslist) - List compact agent-first memory workflow manifests.
+- [`memoryLoopsGet`](docs/sdks/memory/README.md#loopsget) - Fetch one compact memory loop manifest.
+- [`memoryLoopsList`](docs/sdks/memory/README.md#loopslist) - List compact agent-first memory loop manifests.
 
 </details>
 <!-- End Standalone functions [standalone-funcs] -->

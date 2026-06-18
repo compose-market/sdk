@@ -69,7 +69,7 @@ export function meshHaiRegisterRequestBodyToJSON(
 
 /** @internal */
 export type MeshHaiRegisterRequest$Outbound = {
-  "x-compose-local-runtime-token"?: string | undefined;
+  "x-local-runtime-token"?: string | undefined;
   body: MeshHaiRegisterRequestBody$Outbound;
 };
 
@@ -84,7 +84,7 @@ export const MeshHaiRegisterRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      xComposeLocalRuntimeToken: "x-compose-local-runtime-token",
+      xComposeLocalRuntimeToken: "x-local-runtime-token",
     });
   }),
 );

@@ -6,14 +6,10 @@ import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import { ClosedEnum } from "../types/enums.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 
 export const TimestampGranularity = {
   Word: "word",
@@ -24,15 +20,14 @@ export type TimestampGranularity = ClosedEnum<typeof TimestampGranularity>;
 export type AudioTranscriptionCreateRequest = {
   model: string;
   file: string;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   filename?: string | undefined;
   language?: string | undefined;
   responseFormat?: string | undefined;
   prompt?: string | undefined;
   temperature?: number | undefined;
   timestampGranularities?: Array<TimestampGranularity> | undefined;
-  provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -45,15 +40,14 @@ export const TimestampGranularity$outboundSchema: z.ZodMiniEnum<
 export type AudioTranscriptionCreateRequest$Outbound = {
   model: string;
   file: string;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   filename?: string | undefined;
   language?: string | undefined;
   response_format?: string | undefined;
   prompt?: string | undefined;
   temperature?: number | undefined;
   timestamp_granularities?: Array<string> | undefined;
-  provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -66,8 +60,8 @@ export const AudioTranscriptionCreateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       file: z.string(),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       filename: z.optional(z.string()),
       language: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
@@ -76,7 +70,6 @@ export const AudioTranscriptionCreateRequest$outboundSchema: z.ZodMiniType<
       timestampGranularities: z.optional(
         z.array(TimestampGranularity$outboundSchema),
       ),
-      provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),
   ),

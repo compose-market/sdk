@@ -163,7 +163,7 @@ run();
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="compose_keys_create" method="post" path="/api/keys" -->
+<!-- UsageSnippet language="typescript" operationID="create" method="post" path="/api/keys" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
@@ -172,7 +172,7 @@ const composeMarket = new ComposeMarket({
 });
 
 async function run() {
-  const result = await composeMarket.composeKeys.composeKeysCreate({
+  const result = await composeMarket.composeKeys.create({
     xSessionUserAddress: "0x1111111111111111111111111111111111111111",
     xChainId: 347416,
     body: {
@@ -195,7 +195,7 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { composeKeysComposeKeysCreate } from "@compose-market/sdk/funcs/compose-keys-compose-keys-create.js";
+import { composeKeysCreate } from "@compose-market/sdk/funcs/compose-keys-create.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
@@ -204,7 +204,7 @@ const composeMarket = new ComposeMarketCore({
 });
 
 async function run() {
-  const res = await composeKeysComposeKeysCreate(composeMarket, {
+  const res = await composeKeysCreate(composeMarket, {
     xSessionUserAddress: "0x1111111111111111111111111111111111111111",
     xChainId: 347416,
     body: {
@@ -218,7 +218,7 @@ async function run() {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("composeKeysComposeKeysCreate failed:", res.error);
+    console.log("composeKeysCreate failed:", res.error);
   }
 }
 
@@ -250,7 +250,7 @@ run();
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="compose_keys_list" method="get" path="/api/keys" -->
+<!-- UsageSnippet language="typescript" operationID="list" method="get" path="/api/keys" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
@@ -259,7 +259,7 @@ const composeMarket = new ComposeMarket({
 });
 
 async function run() {
-  const result = await composeMarket.composeKeys.composeKeysList({
+  const result = await composeMarket.composeKeys.list({
     xSessionUserAddress: "0x1111111111111111111111111111111111111111",
     xChainId: 452665,
   });
@@ -276,7 +276,7 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { composeKeysComposeKeysList } from "@compose-market/sdk/funcs/compose-keys-compose-keys-list.js";
+import { composeKeysList } from "@compose-market/sdk/funcs/compose-keys-list.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
@@ -285,7 +285,7 @@ const composeMarket = new ComposeMarketCore({
 });
 
 async function run() {
-  const res = await composeKeysComposeKeysList(composeMarket, {
+  const res = await composeKeysList(composeMarket, {
     xSessionUserAddress: "0x1111111111111111111111111111111111111111",
     xChainId: 452665,
   });
@@ -293,7 +293,7 @@ async function run() {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("composeKeysComposeKeysList failed:", res.error);
+    console.log("composeKeysList failed:", res.error);
   }
 }
 
@@ -325,7 +325,7 @@ run();
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="compose_keys_get" method="get" path="/api/keys/{keyId}" -->
+<!-- UsageSnippet language="typescript" operationID="get" method="get" path="/api/keys/{keyId}" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
@@ -334,7 +334,7 @@ const composeMarket = new ComposeMarket({
 });
 
 async function run() {
-  const result = await composeMarket.composeKeys.composeKeysGet({
+  const result = await composeMarket.composeKeys.get({
     keyId: "<id>",
   });
 
@@ -350,7 +350,7 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { composeKeysComposeKeysGet } from "@compose-market/sdk/funcs/compose-keys-compose-keys-get.js";
+import { composeKeysGet } from "@compose-market/sdk/funcs/compose-keys-get.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
@@ -359,14 +359,14 @@ const composeMarket = new ComposeMarketCore({
 });
 
 async function run() {
-  const res = await composeKeysComposeKeysGet(composeMarket, {
+  const res = await composeKeysGet(composeMarket, {
     keyId: "<id>",
   });
   if (res.ok) {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("composeKeysComposeKeysGet failed:", res.error);
+    console.log("composeKeysGet failed:", res.error);
   }
 }
 
@@ -398,7 +398,7 @@ run();
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="compose_keys_revoke" method="delete" path="/api/keys/{keyId}" -->
+<!-- UsageSnippet language="typescript" operationID="revoke" method="delete" path="/api/keys/{keyId}" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
@@ -407,7 +407,7 @@ const composeMarket = new ComposeMarket({
 });
 
 async function run() {
-  const result = await composeMarket.composeKeys.composeKeysRevoke({
+  const result = await composeMarket.composeKeys.revoke({
     keyId: "<id>",
   });
 
@@ -423,7 +423,7 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { composeKeysComposeKeysRevoke } from "@compose-market/sdk/funcs/compose-keys-compose-keys-revoke.js";
+import { composeKeysRevoke } from "@compose-market/sdk/funcs/compose-keys-revoke.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
@@ -432,14 +432,14 @@ const composeMarket = new ComposeMarketCore({
 });
 
 async function run() {
-  const res = await composeKeysComposeKeysRevoke(composeMarket, {
+  const res = await composeKeysRevoke(composeMarket, {
     keyId: "<id>",
   });
   if (res.ok) {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("composeKeysComposeKeysRevoke failed:", res.error);
+    console.log("composeKeysRevoke failed:", res.error);
   }
 }
 

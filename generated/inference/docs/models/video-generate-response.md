@@ -6,7 +6,7 @@
 import { VideoGenerateResponse } from "@compose-market/sdk/models";
 
 let value: VideoGenerateResponse = {
-  composeReceipt: {
+  receipt: {
     lineItems: [
       {
         key: "<key>",
@@ -25,14 +25,14 @@ let value: VideoGenerateResponse = {
 
 ## Fields
 
-| Field                                                          | Type                                                           | Required                                                       | Description                                                    |
-| -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `id`                                                           | *string*                                                       | :heavy_minus_sign:                                             | N/A                                                            |
-| `object`                                                       | *"video.generation"*                                           | :heavy_minus_sign:                                             | N/A                                                            |
-| `status`                                                       | *string*                                                       | :heavy_minus_sign:                                             | N/A                                                            |
-| `created`                                                      | *number*                                                       | :heavy_minus_sign:                                             | N/A                                                            |
-| `model`                                                        | *string*                                                       | :heavy_minus_sign:                                             | N/A                                                            |
-| `jobId`                                                        | *string*                                                       | :heavy_minus_sign:                                             | N/A                                                            |
-| `data`                                                         | Record<string, *any*>[]                                        | :heavy_minus_sign:                                             | N/A                                                            |
-| `composeReceipt`                                               | [models.ComposeReceiptBody](../models/compose-receipt-body.md) | :heavy_minus_sign:                                             | N/A                                                            |
-| `additionalProperties`                                         | Record<string, *any*>                                          | :heavy_minus_sign:                                             | N/A                                                            |
+| Field                                           | Type                                            | Required                                        | Description                                     |
+| ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| `id`                                            | *string*                                        | :heavy_minus_sign:                              | N/A                                             |
+| `object`                                        | *"video.generation"*                            | :heavy_minus_sign:                              | N/A                                             |
+| `status`                                        | *string*                                        | :heavy_minus_sign:                              | N/A                                             |
+| `created`                                       | *number*                                        | :heavy_minus_sign:                              | N/A                                             |
+| `model`                                         | *string*                                        | :heavy_minus_sign:                              | N/A                                             |
+| `jobId`                                         | *string*                                        | :heavy_minus_sign:                              | N/A                                             |
+| `data`                                          | Record<string, *any*>[]                         | :heavy_minus_sign:                              | N/A                                             |
+| `receipt`                                       | [models.ReceiptBody](../models/receipt-body.md) | :heavy_minus_sign:                              | N/A                                             |
+| `additionalProperties`                          | Record<string, *any*>                           | :heavy_minus_sign:                              | N/A                                             |

@@ -7,9 +7,9 @@ import { safeParse } from "../lib/schemas.js";
 import { Result as SafeParseResult } from "../types/fp.js";
 import * as types from "../types/primitives.js";
 import {
-  AgentMemoryWorkflowEnvelope,
-  AgentMemoryWorkflowEnvelope$inboundSchema,
-} from "./agent-memory-workflow-envelope.js";
+  AgentMemoryLoopEnvelope,
+  AgentMemoryLoopEnvelope$inboundSchema,
+} from "./agent-memory-loop-envelope.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
 import {
   MemoryRememberedItem,
@@ -17,7 +17,7 @@ import {
 } from "./memory-remembered-item.js";
 
 export type AgentMemoryRememberResponse = {
-  workflow: AgentMemoryWorkflowEnvelope;
+  loop: AgentMemoryLoopEnvelope;
   success: boolean;
   graphSaved: boolean;
   vectorSaved: boolean;
@@ -30,7 +30,7 @@ export const AgentMemoryRememberResponse$inboundSchema: z.ZodMiniType<
   AgentMemoryRememberResponse,
   unknown
 > = z.object({
-  workflow: AgentMemoryWorkflowEnvelope$inboundSchema,
+  loop: AgentMemoryLoopEnvelope$inboundSchema,
   success: types.boolean(),
   graphSaved: types.boolean(),
   vectorSaved: types.boolean(),

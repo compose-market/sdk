@@ -8,8 +8,8 @@
 * [turnRecord](#turnrecord) - Persist the completed turn.
 * [remember](#remember) - Save an explicit durable fact or preference.
 * [loop](#loop) - Single endpoint for the agent memory loop.
-* [workflowsList](#workflowslist) - List compact agent-first memory workflow manifests.
-* [workflowsGet](#workflowsget) - Fetch one compact memory workflow manifest.
+* [loopsList](#loopslist) - List compact agent-first memory loop manifests.
+* [loopsGet](#loopsget) - Fetch one compact memory loop manifest.
 * [patternsList](#patternslist) - List learned procedural memory patterns.
 * [patternsGet](#patternsget) - Fetch one procedural memory pattern.
 * [patternsValidate](#patternsvalidate) - Validate a procedural memory pattern before promotion.
@@ -48,7 +48,7 @@
 
 ## contextAssemble
 
-Agent-first workflow step. Call before reasoning or tool use. Returns a
+Agent-first memory loop step. Call before reasoning or tool use. Returns a
 compact prompt and structured memory items across working, scene, graph,
 patterns, archives, and vectors.
 
@@ -123,7 +123,7 @@ run();
 
 ## turnRecord
 
-Agent-first workflow step. Call after the assistant final answer to store
+Agent-first memory loop step. Call after the assistant final answer to store
 transcript, working memory, and vector memory for later retrieval.
 
 
@@ -195,7 +195,7 @@ run();
 
 ## remember
 
-Agent-first workflow step. Call when the agent identifies a durable fact,
+Agent-first memory loop step. Call when the agent identifies a durable fact,
 preference, correction, decision, or operational lesson.
 
 
@@ -343,20 +343,20 @@ run();
 | errors.ErrorResponse             | 400                              | application/json                 |
 | errors.ComposeMarketDefaultError | 4XX, 5XX                         | \*/\*                            |
 
-## workflowsList
+## loopsList
 
-List compact agent-first memory workflow manifests.
+List compact agent-first memory loop manifests.
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="workflows_list" method="get" path="/api/memory/workflows" -->
+<!-- UsageSnippet language="typescript" operationID="loops_list" method="get" path="/api/memory/loops" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
 const composeMarket = new ComposeMarket();
 
 async function run() {
-  const result = await composeMarket.memory.workflowsList();
+  const result = await composeMarket.memory.loopsList();
 
   console.log(result);
 }
@@ -370,19 +370,19 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { memoryWorkflowsList } from "@compose-market/sdk/funcs/memory-workflows-list.js";
+import { memoryLoopsList } from "@compose-market/sdk/funcs/memory-loops-list.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
 const composeMarket = new ComposeMarketCore();
 
 async function run() {
-  const res = await memoryWorkflowsList(composeMarket);
+  const res = await memoryLoopsList(composeMarket);
   if (res.ok) {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("memoryWorkflowsList failed:", res.error);
+    console.log("memoryLoopsList failed:", res.error);
   }
 }
 
@@ -399,7 +399,7 @@ run();
 
 ### Response
 
-**Promise\<[operations.WorkflowsListResponse](../../models/operations/workflows-list-response.md)\>**
+**Promise\<[operations.LoopsListResponse](../../models/operations/loops-list-response.md)\>**
 
 ### Errors
 
@@ -407,21 +407,21 @@ run();
 | -------------------------------- | -------------------------------- | -------------------------------- |
 | errors.ComposeMarketDefaultError | 4XX, 5XX                         | \*/\*                            |
 
-## workflowsGet
+## loopsGet
 
-Fetch one compact memory workflow manifest.
+Fetch one compact memory loop manifest.
 
 ### Example Usage
 
-<!-- UsageSnippet language="typescript" operationID="workflows_get" method="get" path="/api/memory/workflows/{workflowId}" -->
+<!-- UsageSnippet language="typescript" operationID="loops_get" method="get" path="/api/memory/loops/{loopId}" -->
 ```typescript
 import { ComposeMarket } from "@compose-market/sdk";
 
 const composeMarket = new ComposeMarket();
 
 async function run() {
-  const result = await composeMarket.memory.workflowsGet({
-    workflowId: "<id>",
+  const result = await composeMarket.memory.loopsGet({
+    loopId: "<id>",
   });
 
   console.log(result);
@@ -436,21 +436,21 @@ The standalone function version of this method:
 
 ```typescript
 import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { memoryWorkflowsGet } from "@compose-market/sdk/funcs/memory-workflows-get.js";
+import { memoryLoopsGet } from "@compose-market/sdk/funcs/memory-loops-get.js";
 
 // Use `ComposeMarketCore` for best tree-shaking performance.
 // You can create one instance of it to use across an application.
 const composeMarket = new ComposeMarketCore();
 
 async function run() {
-  const res = await memoryWorkflowsGet(composeMarket, {
-    workflowId: "<id>",
+  const res = await memoryLoopsGet(composeMarket, {
+    loopId: "<id>",
   });
   if (res.ok) {
     const { value: result } = res;
     console.log(result);
   } else {
-    console.log("memoryWorkflowsGet failed:", res.error);
+    console.log("memoryLoopsGet failed:", res.error);
   }
 }
 
@@ -461,14 +461,14 @@ run();
 
 | Parameter                                                                                                                                                                      | Type                                                                                                                                                                           | Required                                                                                                                                                                       | Description                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `request`                                                                                                                                                                      | [operations.WorkflowsGetRequest](../../models/operations/workflows-get-request.md)                                                                                             | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
+| `request`                                                                                                                                                                      | [operations.LoopsGetRequest](../../models/operations/loops-get-request.md)                                                                                             | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
 | `options`                                                                                                                                                                      | RequestOptions                                                                                                                                                                 | :heavy_minus_sign:                                                                                                                                                             | Used to set various options for making HTTP requests.                                                                                                                          |
 | `options.fetchOptions`                                                                                                                                                         | [RequestInit](https://developer.mozilla.org/en-US/docs/Web/API/Request/Request#options)                                                                                        | :heavy_minus_sign:                                                                                                                                                             | Options that are passed to the underlying HTTP request. This can be used to inject extra headers for examples. All `Request` options, except `method` and `body`, are allowed. |
 | `options.retries`                                                                                                                                                              | [RetryConfig](../../lib/utils/retryconfig.md)                                                                                                                                  | :heavy_minus_sign:                                                                                                                                                             | Enables retrying HTTP requests under certain failure conditions.                                                                                                               |
 
 ### Response
 
-**Promise\<[operations.WorkflowsGetResponse](../../models/operations/workflows-get-response.md)\>**
+**Promise\<[operations.LoopsGetResponse](../../models/operations/loops-get-response.md)\>**
 
 ### Errors
 

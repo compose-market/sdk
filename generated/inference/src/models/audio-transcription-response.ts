@@ -3,19 +3,15 @@
  */
 
 import * as z from "zod/v4-mini";
-import { remap as remap$ } from "../lib/primitives.js";
 import { safeParse } from "../lib/schemas.js";
 import { Result as SafeParseResult } from "../types/fp.js";
 import * as types from "../types/primitives.js";
-import {
-  ComposeReceiptBody,
-  ComposeReceiptBody$inboundSchema,
-} from "./compose-receipt-body.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
+import { ReceiptBody, ReceiptBody$inboundSchema } from "./receipt-body.js";
 
 export type AudioTranscriptionResponse = {
   text: string;
-  composeReceipt?: ComposeReceiptBody | undefined;
+  receipt?: ReceiptBody | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -23,19 +19,12 @@ export type AudioTranscriptionResponse = {
 export const AudioTranscriptionResponse$inboundSchema: z.ZodMiniType<
   AudioTranscriptionResponse,
   unknown
-> = z.pipe(
-  z.catchall(
-    z.object({
-      text: types.string(),
-      compose_receipt: types.optional(ComposeReceiptBody$inboundSchema),
-    }),
-    z.any(),
-  ),
-  z.transform((v) => {
-    return remap$(v, {
-      "compose_receipt": "composeReceipt",
-    });
+> = z.catchall(
+  z.object({
+    text: types.string(),
+    receipt: types.optional(ReceiptBody$inboundSchema),
   }),
+  z.any(),
 );
 
 export function audioTranscriptionResponseFromJSON(

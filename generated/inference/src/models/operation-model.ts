@@ -26,6 +26,7 @@ export type OperationModel = {
   upstreamModelId?: string | undefined;
   name?: string | null | undefined;
   provider: ModelProvider;
+  family?: string | undefined;
   type?: string | Array<string> | null | undefined;
   description?: string | null | undefined;
   input?: any | undefined;
@@ -37,13 +38,13 @@ export type OperationModel = {
   modelType?: any | undefined;
   sourceMetadata?: any | undefined;
   params?: any | undefined;
+  operations: Array<ModelOperationCapability>;
   ownedBy?: string | undefined;
   createdAt?: string | number | undefined;
   available?: boolean | undefined;
   availableFrom?: Array<string> | undefined;
   hfInferenceProvider?: string | undefined;
   hfProviderId?: string | undefined;
-  operations: Array<ModelOperationCapability>;
 };
 
 /** @internal */
@@ -87,6 +88,7 @@ export const OperationModel$inboundSchema: z.ZodMiniType<
   upstreamModelId: types.optional(types.string()),
   name: z.optional(z.nullable(types.string())),
   provider: ModelProvider$inboundSchema,
+  family: types.optional(types.string()),
   type: z.optional(
     z.nullable(smartUnion([types.string(), z.array(types.string())])),
   ),
@@ -100,13 +102,13 @@ export const OperationModel$inboundSchema: z.ZodMiniType<
   modelType: types.optional(z.any()),
   sourceMetadata: types.optional(z.any()),
   params: types.optional(z.any()),
+  operations: z.array(ModelOperationCapability$inboundSchema),
   ownedBy: types.optional(types.string()),
   createdAt: types.optional(smartUnion([types.string(), types.number()])),
   available: types.optional(types.boolean()),
   availableFrom: types.optional(z.array(types.string())),
   hfInferenceProvider: types.optional(types.string()),
   hfProviderId: types.optional(types.string()),
-  operations: z.array(ModelOperationCapability$inboundSchema),
 });
 
 export function operationModelFromJSON(

@@ -15,14 +15,13 @@ let value: EmbeddingsCreateRequest = {
 
 ## Fields
 
-| Field                                               | Type                                                | Required                                            | Description                                         |
-| --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| `model`                                             | *string*                                            | :heavy_check_mark:                                  | N/A                                                 |
-| `input`                                             | *models.Input*                                      | :heavy_check_mark:                                  | N/A                                                 |
-| `attachments`                                       | *models.ComposeAttachmentInput*[]                   | :heavy_minus_sign:                                  | N/A                                                 |
-| `attachment`                                        | *models.ComposeAttachmentInput*                     | :heavy_minus_sign:                                  | N/A                                                 |
-| `provider`                                          | [models.ModelProvider](../models/model-provider.md) | :heavy_minus_sign:                                  | N/A                                                 |
-| `dimensions`                                        | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `encodingFormat`                                    | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `user`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `additionalProperties`                              | Record<string, *any*>                               | :heavy_minus_sign:                                  | N/A                                                 |
+| Field                      | Type                       | Required                   | Description                |
+| -------------------------- | -------------------------- | -------------------------- | -------------------------- |
+| `model`                    | *string*                   | :heavy_check_mark:         | N/A                        |
+| `input`                    | *models.Input*             | :heavy_check_mark:         | N/A                        |
+| `attachments`              | *models.AttachmentInput*[] | :heavy_minus_sign:         | N/A                        |
+| `attachment`               | *models.AttachmentInput*   | :heavy_minus_sign:         | N/A                        |
+| `dimensions`               | *number*                   | :heavy_minus_sign:         | N/A                        |
+| `encodingFormat`           | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `user`                     | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `additionalProperties`     | Record<string, *any*>      | :heavy_minus_sign:         | N/A                        |

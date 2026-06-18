@@ -30,7 +30,7 @@ export const Detail = {
 } as const;
 export type Detail = ClosedEnum<typeof Detail>;
 
-export type ComposeAttachment = {
+export type Attachment = {
   /**
    * Advisory attachment kind. Agents and workflows pass attachments through without model-capability gating.
    */
@@ -59,7 +59,7 @@ export const Detail$outboundSchema: z.ZodMiniEnum<typeof Detail> = z.enum(
 );
 
 /** @internal */
-export type ComposeAttachment$Outbound = {
+export type Attachment$Outbound = {
   type?: string | undefined;
   url?: string | undefined;
   uri?: string | undefined;
@@ -77,9 +77,9 @@ export type ComposeAttachment$Outbound = {
 };
 
 /** @internal */
-export const ComposeAttachment$outboundSchema: z.ZodMiniType<
-  ComposeAttachment$Outbound,
-  ComposeAttachment
+export const Attachment$outboundSchema: z.ZodMiniType<
+  Attachment$Outbound,
+  Attachment
 > = z.catchall(
   z.object({
     type: z.optional(Type$outboundSchema),
@@ -100,9 +100,9 @@ export const ComposeAttachment$outboundSchema: z.ZodMiniType<
 );
 
 export function composeAttachmentToJSON(
-  composeAttachment: ComposeAttachment,
+  composeAttachment: Attachment,
 ): string {
   return JSON.stringify(
-    ComposeAttachment$outboundSchema.parse(composeAttachment),
+    Attachment$outboundSchema.parse(composeAttachment),
   );
 }

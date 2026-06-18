@@ -6,8 +6,8 @@
 import { AgentMemoryContextResponse } from "@compose-market/sdk/models";
 
 let value: AgentMemoryContextResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",
@@ -39,7 +39,7 @@ let value: AgentMemoryContextResponse = {
 
 | Field                                                                             | Type                                                                              | Required                                                                          | Description                                                                       |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `workflow`                                                                        | [models.AgentMemoryWorkflowEnvelope](../models/agent-memory-workflow-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
+| `loop`                                                                        | [models.AgentMemoryLoopEnvelope](../models/agent-memory-loop-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
 | `contextId`                                                                       | *string*                                                                          | :heavy_check_mark:                                                                | N/A                                                                               |
 | `prompt`                                                                          | *string*                                                                          | :heavy_check_mark:                                                                | N/A                                                                               |
 | `items`                                                                           | [models.AgentMemoryCompactItem](../models/agent-memory-compact-item.md)[]         | :heavy_check_mark:                                                                | N/A                                                                               |

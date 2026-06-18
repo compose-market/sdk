@@ -4,9 +4,9 @@
 
 import * as z from "zod/v4-mini";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
 } from "./compose-attachment-input.js";
 
 export type AgentChatRequest = {
@@ -15,8 +15,8 @@ export type AgentChatRequest = {
   composeRunId?: string | undefined;
   workflowWallet?: string | undefined;
   userAddress?: string | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
   sessionGrants?: Array<string> | undefined;
   cloudPermissions?: Array<string> | undefined;
   backpackAccounts?: Array<{ [k: string]: any }> | undefined;
@@ -30,8 +30,8 @@ export type AgentChatRequest$Outbound = {
   composeRunId?: string | undefined;
   workflowWallet?: string | undefined;
   userAddress?: string | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
   sessionGrants?: Array<string> | undefined;
   cloudPermissions?: Array<string> | undefined;
   backpackAccounts?: Array<{ [k: string]: any }> | undefined;
@@ -49,8 +49,8 @@ export const AgentChatRequest$outboundSchema: z.ZodMiniType<
     composeRunId: z.optional(z.string()),
     workflowWallet: z.optional(z.string()),
     userAddress: z.optional(z.string()),
-    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+    attachment: z.optional(AttachmentInput$outboundSchema),
+    attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
     sessionGrants: z.optional(z.array(z.string())),
     cloudPermissions: z.optional(z.array(z.string())),
     backpackAccounts: z.optional(z.array(z.record(z.string(), z.any()))),

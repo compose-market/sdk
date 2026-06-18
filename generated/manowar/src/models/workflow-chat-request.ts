@@ -4,9 +4,9 @@
 
 import * as z from "zod/v4-mini";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
 } from "./compose-attachment-input.js";
 
 export type WorkflowChatRequest = {
@@ -14,8 +14,8 @@ export type WorkflowChatRequest = {
   threadId?: string | undefined;
   image?: string | undefined;
   audio?: string | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
   continuous?: boolean | undefined;
   composeRunId?: string | undefined;
   lastEventIndex?: number | undefined;
@@ -28,8 +28,8 @@ export type WorkflowChatRequest$Outbound = {
   threadId?: string | undefined;
   image?: string | undefined;
   audio?: string | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
   continuous?: boolean | undefined;
   composeRunId?: string | undefined;
   lastEventIndex?: number | undefined;
@@ -46,8 +46,8 @@ export const WorkflowChatRequest$outboundSchema: z.ZodMiniType<
     threadId: z.optional(z.string()),
     image: z.optional(z.string()),
     audio: z.optional(z.string()),
-    attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-    attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
+    attachment: z.optional(AttachmentInput$outboundSchema),
+    attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
     continuous: z.optional(z.boolean()),
     composeRunId: z.optional(z.string()),
     lastEventIndex: z.optional(z.int()),

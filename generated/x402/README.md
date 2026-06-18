@@ -221,10 +221,10 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 
 <summary>Available standalone functions</summary>
 
-- [`composeKeysComposeKeysCreate`](docs/sdks/composekeys/README.md#composekeyscreate)
-- [`composeKeysComposeKeysGet`](docs/sdks/composekeys/README.md#composekeysget)
-- [`composeKeysComposeKeysList`](docs/sdks/composekeys/README.md#composekeyslist)
-- [`composeKeysComposeKeysRevoke`](docs/sdks/composekeys/README.md#composekeysrevoke)
+- [`composeKeysCreate`](docs/sdks/composekeys/README.md#composekeyscreate)
+- [`composeKeysGet`](docs/sdks/composekeys/README.md#composekeysget)
+- [`composeKeysList`](docs/sdks/composekeys/README.md#composekeyslist)
+- [`composeKeysRevoke`](docs/sdks/composekeys/README.md#composekeysrevoke)
 - [`composeKeysSessionEventsSubscribe`](docs/sdks/composekeys/README.md#sessioneventssubscribe)
 - [`composeKeysSessionGetActive`](docs/sdks/composekeys/README.md#sessiongetactive)
 - [`feedbackFeedbackList`](docs/sdks/feedback/README.md#feedbacklist)

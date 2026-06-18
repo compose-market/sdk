@@ -16,7 +16,6 @@ export * from "./connectors-onchain-actions-list.js";
 export * from "./connectors-onchain-plugin-get.js";
 export * from "./connectors-onchain-plugins-list.js";
 export * from "./connectors-onchain-status.js";
-export * from "./connectors-runtime-execute.js";
 export * from "./mesh-actions-execute.js";
 export * from "./mesh-conclave-run.js";
 export * from "./mesh-filecoin-pin.js";

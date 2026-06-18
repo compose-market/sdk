@@ -1,6 +1,6 @@
 {
   "name": "@compose-market/sdk",
-  "version": "0.6.98",
+  "version": "0.7.13",
   "author": "Compose.Market",
   "type": "module",
   "main": "./esm/index.js",

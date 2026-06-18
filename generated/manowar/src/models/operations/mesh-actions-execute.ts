@@ -36,7 +36,7 @@ export type MeshActionsExecuteResponse = {
 
 /** @internal */
 export type MeshActionsExecuteRequest$Outbound = {
-  "x-compose-local-runtime-token"?: string | undefined;
+  "x-local-runtime-token"?: string | undefined;
   body: models.MeshActionExecuteRequest$Outbound;
 };
 
@@ -51,7 +51,7 @@ export const MeshActionsExecuteRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      xComposeLocalRuntimeToken: "x-compose-local-runtime-token",
+      xComposeLocalRuntimeToken: "x-local-runtime-token",
     });
   }),
 );

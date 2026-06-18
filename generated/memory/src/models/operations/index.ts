@@ -41,5 +41,5 @@ export * from "./transcripts-index.js";
 export * from "./turn-record.js";
 export * from "./vector-index.js";
 export * from "./vector-search.js";
-export * from "./workflows-get.js";
-export * from "./workflows-list.js";
+export * from "./loops-get.js";
+export * from "./loops-list.js";

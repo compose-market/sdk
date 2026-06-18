@@ -12,7 +12,7 @@ import { SDKValidationError } from "../errors/sdk-validation-error.js";
 import * as models from "../index.js";
 
 export const PatternType = {
-  Workflow: "workflow",
+  Routine: "routine",
   Decision: "decision",
   Response: "response",
   ToolSequence: "tool_sequence",

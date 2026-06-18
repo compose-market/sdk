@@ -5,27 +5,22 @@
 import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 
 export type ImagesGenerateRequest = {
   model: string;
   prompt: string;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
   responseFormat?: string | undefined;
   style?: string | undefined;
   user?: string | undefined;
-  provider?: ModelProvider | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -33,15 +28,14 @@ export type ImagesGenerateRequest = {
 export type ImagesGenerateRequest$Outbound = {
   model: string;
   prompt: string;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
   response_format?: string | undefined;
   style?: string | undefined;
   user?: string | undefined;
-  provider?: string | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -54,15 +48,14 @@ export const ImagesGenerateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       prompt: z.string(),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       n: z.optional(z.int()),
       size: z.optional(z.string()),
       quality: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
       style: z.optional(z.string()),
       user: z.optional(z.string()),
-      provider: z.optional(ModelProvider$outboundSchema),
     }),
     z.any(),
   ),

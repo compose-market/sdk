@@ -6,8 +6,8 @@
 import { AgentMemoryRememberResponse } from "@compose-market/sdk/models";
 
 let value: AgentMemoryRememberResponse = {
-  workflow: {
-    v: "compose.agent_memory.v1",
+  loop: {
+    v: "compose.agent_memory_loop.v1",
     step: "remember",
     next: [
       "pre_turn",
@@ -23,7 +23,7 @@ let value: AgentMemoryRememberResponse = {
 
 | Field                                                                             | Type                                                                              | Required                                                                          | Description                                                                       |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `workflow`                                                                        | [models.AgentMemoryWorkflowEnvelope](../models/agent-memory-workflow-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
+| `loop`                                                                        | [models.AgentMemoryLoopEnvelope](../models/agent-memory-loop-envelope.md) | :heavy_check_mark:                                                                | N/A                                                                               |
 | `success`                                                                         | *boolean*                                                                         | :heavy_check_mark:                                                                | N/A                                                                               |
 | `graphSaved`                                                                      | *boolean*                                                                         | :heavy_check_mark:                                                                | N/A                                                                               |
 | `vectorSaved`                                                                     | *boolean*                                                                         | :heavy_check_mark:                                                                | N/A                                                                               |

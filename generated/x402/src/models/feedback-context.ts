@@ -36,7 +36,7 @@ export type FeedbackContext = {
   modelId?: string | undefined;
   provider?: string | undefined;
   agentWallet?: string | undefined;
-  workflowId?: string | undefined;
+  workflowWallet?: string | undefined;
   endpoint?: Endpoint | undefined;
   receipt?: Receipt | undefined;
   sdk?: SDK | undefined;
@@ -155,7 +155,7 @@ export const FeedbackContext$inboundSchema: z.ZodMiniType<
   modelId: types.optional(types.string()),
   provider: types.optional(types.string()),
   agentWallet: types.optional(types.string()),
-  workflowId: types.optional(types.string()),
+  workflowWallet: types.optional(types.string()),
   endpoint: types.optional(z.lazy(() => Endpoint$inboundSchema)),
   receipt: types.optional(z.lazy(() => Receipt$inboundSchema)),
   sdk: types.optional(z.lazy(() => SDK$inboundSchema)),
@@ -169,7 +169,7 @@ export type FeedbackContext$Outbound = {
   modelId?: string | undefined;
   provider?: string | undefined;
   agentWallet?: string | undefined;
-  workflowId?: string | undefined;
+  workflowWallet?: string | undefined;
   endpoint?: Endpoint$Outbound | undefined;
   receipt?: Receipt$Outbound | undefined;
   sdk?: SDK$Outbound | undefined;
@@ -187,7 +187,7 @@ export const FeedbackContext$outboundSchema: z.ZodMiniType<
   modelId: z.optional(z.string()),
   provider: z.optional(z.string()),
   agentWallet: z.optional(z.string()),
-  workflowId: z.optional(z.string()),
+  workflowWallet: z.optional(z.string()),
   endpoint: z.optional(z.lazy(() => Endpoint$outboundSchema)),
   receipt: z.optional(z.lazy(() => Receipt$outboundSchema)),
   sdk: z.optional(z.lazy(() => SDK$outboundSchema)),

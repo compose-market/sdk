@@ -6,14 +6,10 @@ import * as z from "zod/v4-mini";
 import { remap as remap$ } from "../lib/primitives.js";
 import { ClosedEnum } from "../types/enums.js";
 import {
-  ComposeAttachmentInput,
-  ComposeAttachmentInput$Outbound,
-  ComposeAttachmentInput$outboundSchema,
-} from "./compose-attachment-input.js";
-import {
-  ModelProvider,
-  ModelProvider$outboundSchema,
-} from "./model-provider.js";
+  AttachmentInput,
+  AttachmentInput$Outbound,
+  AttachmentInput$outboundSchema,
+} from "./attachment-input.js";
 import {
   ReasoningOptions,
   ReasoningOptions$Outbound,
@@ -42,9 +38,8 @@ export type Modality = ClosedEnum<typeof Modality>;
 export type ResponsesCreateRequest = {
   model: string;
   input: any;
-  attachments?: Array<ComposeAttachmentInput> | undefined;
-  attachment?: ComposeAttachmentInput | undefined;
-  provider?: ModelProvider | undefined;
+  attachments?: Array<AttachmentInput> | undefined;
+  attachment?: AttachmentInput | undefined;
   stream?: boolean | undefined;
   modalities?: Array<Modality> | undefined;
   instructions?: string | undefined;
@@ -87,9 +82,8 @@ export const Modality$outboundSchema: z.ZodMiniEnum<typeof Modality> = z.enum(
 export type ResponsesCreateRequest$Outbound = {
   model: string;
   input: any;
-  attachments?: Array<ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: ComposeAttachmentInput$Outbound | undefined;
-  provider?: string | undefined;
+  attachments?: Array<AttachmentInput$Outbound> | undefined;
+  attachment?: AttachmentInput$Outbound | undefined;
   stream?: boolean | undefined;
   modalities?: Array<string> | undefined;
   instructions?: string | undefined;
@@ -132,9 +126,8 @@ export const ResponsesCreateRequest$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       input: z.any(),
-      attachments: z.optional(z.array(ComposeAttachmentInput$outboundSchema)),
-      attachment: z.optional(ComposeAttachmentInput$outboundSchema),
-      provider: z.optional(ModelProvider$outboundSchema),
+      attachments: z.optional(z.array(AttachmentInput$outboundSchema)),
+      attachment: z.optional(AttachmentInput$outboundSchema),
       stream: z.optional(z.boolean()),
       modalities: z.optional(z.array(Modality$outboundSchema)),
       instructions: z.optional(z.string()),

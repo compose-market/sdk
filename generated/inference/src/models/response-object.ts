@@ -9,11 +9,8 @@ import * as openEnums from "../types/enums.js";
 import { OpenEnum } from "../types/enums.js";
 import { Result as SafeParseResult } from "../types/fp.js";
 import * as types from "../types/primitives.js";
-import {
-  ComposeReceiptBody,
-  ComposeReceiptBody$inboundSchema,
-} from "./compose-receipt-body.js";
 import { SDKValidationError } from "./errors/sdk-validation-error.js";
+import { ReceiptBody, ReceiptBody$inboundSchema } from "./receipt-body.js";
 
 export const ResponseObjectStatus = {
   Completed: "completed",
@@ -34,7 +31,7 @@ export type ResponseObject = {
   error?: { [k: string]: any } | undefined;
   previousResponseId?: string | undefined;
   jobId?: string | undefined;
-  composeReceipt?: ComposeReceiptBody | undefined;
+  receipt?: ReceiptBody | undefined;
   [additionalProperties: string]: unknown;
 };
 
@@ -61,7 +58,7 @@ export const ResponseObject$inboundSchema: z.ZodMiniType<
       error: types.optional(z.record(z.string(), z.any())),
       previous_response_id: types.optional(types.string()),
       job_id: types.optional(types.string()),
-      compose_receipt: types.optional(ComposeReceiptBody$inboundSchema),
+      receipt: types.optional(ReceiptBody$inboundSchema),
     }),
     z.any(),
   ),
@@ -70,7 +67,6 @@ export const ResponseObject$inboundSchema: z.ZodMiniType<
       "created_at": "createdAt",
       "previous_response_id": "previousResponseId",
       "job_id": "jobId",
-      "compose_receipt": "composeReceipt",
     });
   }),
 );

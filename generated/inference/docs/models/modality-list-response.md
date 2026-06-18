@@ -9,7 +9,7 @@ let value: ModalityListResponse = {
   object: "list",
   data: [
     {
-      modality: "embedding",
+      modality: "realtime",
       operations: [
         {
           operation: "<value>",

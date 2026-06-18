@@ -12,6 +12,7 @@ export const CanonicalModality = {
   Audio: "audio",
   Video: "video",
   Embedding: "embedding",
+  Realtime: "realtime",
 } as const;
 export type CanonicalModality = OpenEnum<typeof CanonicalModality>;
 

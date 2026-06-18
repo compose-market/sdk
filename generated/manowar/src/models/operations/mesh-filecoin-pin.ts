@@ -35,7 +35,7 @@ export type MeshFilecoinPinResponse = {
 
 /** @internal */
 export type MeshFilecoinPinRequest$Outbound = {
-  "x-compose-local-runtime-token"?: string | undefined;
+  "x-local-runtime-token"?: string | undefined;
   body: { [k: string]: any };
 };
 
@@ -50,7 +50,7 @@ export const MeshFilecoinPinRequest$outboundSchema: z.ZodMiniType<
   }),
   z.transform((v) => {
     return remap$(v, {
-      xComposeLocalRuntimeToken: "x-compose-local-runtime-token",
+      xComposeLocalRuntimeToken: "x-local-runtime-token",
     });
   }),
 );

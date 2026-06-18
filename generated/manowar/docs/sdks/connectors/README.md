@@ -14,7 +14,6 @@
 * [connectorsMcpSpawn](#connectorsmcpspawn)
 * [connectorsMcpActionsList](#connectorsmcpactionslist)
 * [connectorsMcpActionExecute](#connectorsmcpactionexecute)
-* [connectorsRuntimeExecute](#connectorsruntimeexecute)
 
 ## connectorsOnchainStatus
 
@@ -738,79 +737,6 @@ run();
 ### Response
 
 **Promise\<[operations.ConnectorsMcpActionExecuteResponse](../../models/operations/connectors-mcp-action-execute-response.md)\>**
-
-### Errors
-
-| Error Type                       | Status Code                      | Content Type                     |
-| -------------------------------- | -------------------------------- | -------------------------------- |
-| errors.ComposeMarketDefaultError | 4XX, 5XX                         | \*/\*                            |
-
-## connectorsRuntimeExecute
-
-### Example Usage
-
-<!-- UsageSnippet language="typescript" operationID="connectors_runtime_execute" method="post" path="/runtime/execute" -->
-```typescript
-import { ComposeMarket } from "@compose-market/sdk";
-
-const composeMarket = new ComposeMarket({
-  runtimeBearerAuth: "<YOUR_BEARER_TOKEN_HERE>",
-});
-
-async function run() {
-  const result = await composeMarket.connectors.connectorsRuntimeExecute({
-    source: "mcp",
-    toolName: "<value>",
-  });
-
-  console.log(result);
-}
-
-run();
-```
-
-### Standalone function
-
-The standalone function version of this method:
-
-```typescript
-import { ComposeMarketCore } from "@compose-market/sdk/core.js";
-import { connectorsConnectorsRuntimeExecute } from "@compose-market/sdk/funcs/connectors-connectors-runtime-execute.js";
-
-// Use `ComposeMarketCore` for best tree-shaking performance.
-// You can create one instance of it to use across an application.
-const composeMarket = new ComposeMarketCore({
-  runtimeBearerAuth: "<YOUR_BEARER_TOKEN_HERE>",
-});
-
-async function run() {
-  const res = await connectorsConnectorsRuntimeExecute(composeMarket, {
-    source: "mcp",
-    toolName: "<value>",
-  });
-  if (res.ok) {
-    const { value: result } = res;
-    console.log(result);
-  } else {
-    console.log("connectorsConnectorsRuntimeExecute failed:", res.error);
-  }
-}
-
-run();
-```
-
-### Parameters
-
-| Parameter                                                                                                                                                                      | Type                                                                                                                                                                           | Required                                                                                                                                                                       | Description                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `request`                                                                                                                                                                      | [operations.ConnectorsRuntimeExecuteRequest](../../models/operations/connectors-runtime-execute-request.md)                                                                    | :heavy_check_mark:                                                                                                                                                             | The request object to use for the request.                                                                                                                                     |
-| `options`                                                                                                                                                                      | RequestOptions                                                                                                                                                                 | :heavy_minus_sign:                                                                                                                                                             | Used to set various options for making HTTP requests.                                                                                                                          |
-| `options.fetchOptions`                                                                                                                                                         | [RequestInit](https://developer.mozilla.org/en-US/docs/Web/API/Request/Request#options)                                                                                        | :heavy_minus_sign:                                                                                                                                                             | Options that are passed to the underlying HTTP request. This can be used to inject extra headers for examples. All `Request` options, except `method` and `body`, are allowed. |
-| `options.retries`                                                                                                                                                              | [RetryConfig](../../lib/utils/retryconfig.md)                                                                                                                                  | :heavy_minus_sign:                                                                                                                                                             | Enables retrying HTTP requests under certain failure conditions.                                                                                                               |
-
-### Response
-
-**Promise\<[operations.ConnectorsRuntimeExecuteResponse](../../models/operations/connectors-runtime-execute-response.md)\>**
 
 ### Errors
 

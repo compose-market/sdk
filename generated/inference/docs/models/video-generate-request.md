@@ -12,19 +12,18 @@ let value: VideoGenerateRequest = {
 
 ## Fields
 
-| Field                                               | Type                                                | Required                                            | Description                                         |
-| --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| `model`                                             | *string*                                            | :heavy_check_mark:                                  | N/A                                                 |
-| `prompt`                                            | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `attachments`                                       | *models.ComposeAttachmentInput*[]                   | :heavy_minus_sign:                                  | N/A                                                 |
-| `attachment`                                        | *models.ComposeAttachmentInput*                     | :heavy_minus_sign:                                  | N/A                                                 |
-| `duration`                                          | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `aspectRatio`                                       | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `resolution`                                        | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `size`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `fps`                                               | *number*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `image`                                             | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `imageUrl`                                          | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `user`                                              | *string*                                            | :heavy_minus_sign:                                  | N/A                                                 |
-| `provider`                                          | [models.ModelProvider](../models/model-provider.md) | :heavy_minus_sign:                                  | N/A                                                 |
-| `additionalProperties`                              | Record<string, *any*>                               | :heavy_minus_sign:                                  | N/A                                                 |
+| Field                      | Type                       | Required                   | Description                |
+| -------------------------- | -------------------------- | -------------------------- | -------------------------- |
+| `model`                    | *string*                   | :heavy_check_mark:         | N/A                        |
+| `prompt`                   | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `attachments`              | *models.AttachmentInput*[] | :heavy_minus_sign:         | N/A                        |
+| `attachment`               | *models.AttachmentInput*   | :heavy_minus_sign:         | N/A                        |
+| `duration`                 | *number*                   | :heavy_minus_sign:         | N/A                        |
+| `aspectRatio`              | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `resolution`               | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `size`                     | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `fps`                      | *number*                   | :heavy_minus_sign:         | N/A                        |
+| `image`                    | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `imageUrl`                 | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `user`                     | *string*                   | :heavy_minus_sign:         | N/A                        |
+| `additionalProperties`     | Record<string, *any*>      | :heavy_minus_sign:         | N/A                        |

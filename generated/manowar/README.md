@@ -162,7 +162,6 @@ run();
 * [connectorsMcpSpawn](docs/sdks/connectors/README.md#connectorsmcpspawn)
 * [connectorsMcpActionsList](docs/sdks/connectors/README.md#connectorsmcpactionslist)
 * [connectorsMcpActionExecute](docs/sdks/connectors/README.md#connectorsmcpactionexecute)
-* [connectorsRuntimeExecute](docs/sdks/connectors/README.md#connectorsruntimeexecute)
 
 ### [Health](docs/sdks/health/README.md)
 
@@ -226,7 +225,6 @@ To read more about standalone functions, check [FUNCTIONS.md](./FUNCTIONS.md).
 - [`connectorsConnectorsOnchainPluginGet`](docs/sdks/connectors/README.md#connectorsonchainpluginget)
 - [`connectorsConnectorsOnchainPluginsList`](docs/sdks/connectors/README.md#connectorsonchainpluginslist)
 - [`connectorsConnectorsOnchainStatus`](docs/sdks/connectors/README.md#connectorsonchainstatus)
-- [`connectorsConnectorsRuntimeExecute`](docs/sdks/connectors/README.md#connectorsruntimeexecute)
 - [`healthRuntimeHealthCheck`](docs/sdks/health/README.md#runtimehealthcheck)
 - [`healthRuntimeStatusGet`](docs/sdks/health/README.md#runtimestatusget)
 - [`meshMeshActionsExecute`](docs/sdks/mesh/README.md#meshactionsexecute)

@@ -6,7 +6,7 @@
 import { ModalityCatalogEntry } from "@compose-market/sdk/models";
 
 let value: ModalityCatalogEntry = {
-  modality: "image",
+  modality: "audio",
   operations: [
     {
       operation: "<value>",

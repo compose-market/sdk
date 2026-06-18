@@ -5,7 +5,7 @@
 ```typescript
 import { PatternType } from "@compose-market/sdk/models";
 
-let value: PatternType = "workflow";
+let value: PatternType = "routine";
 
 // Open enum: unrecognized values are captured as Unrecognized<string>
 ```
@@ -13,5 +13,5 @@ let value: PatternType = "workflow";
 ## Values
 
 ```typescript
-"workflow" | "decision" | "response" | "tool_sequence" | Unrecognized<string>
+"routine" | "decision" | "response" | "tool_sequence" | Unrecognized<string>
 ```

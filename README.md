@@ -115,7 +115,7 @@ The default `ComposeSDK` remains the higher-level orchestration surface: Compose
 
 ### Inference
 
-Every billable call resolves to `{ data, receipt, requestId, response }`. The receipt is also available as an SSE `event: compose.receipt` frame on streaming calls and as a `X-Compose-Receipt` base64-url header on all billable responses.
+Every billable call resolves to `{ data, receipt, requestId, response }`. The receipt is also available as an SSE `event: receipt` frame on streaming calls and as a `X-Receipt` base64-url header on all billable responses.
 
 - `sdk.inference.chat.completions.create(params)` / `.stream(params)` — OpenAI Chat Completions with typed tool-call delta aggregation and `reasoning_content` deltas.
 - `sdk.inference.responses.create(params)` / `.stream(params)` / `.get(id)` / `.inputItems(id)` / `.cancel(id)` — OpenAI Responses API.
@@ -142,7 +142,7 @@ Every billable call resolves to `{ data, receipt, requestId, response }`. The re
 Feedback is a side channel. It records reports against stable IDs without blocking inference, settlement, or runtime streams.
 
 - `sdk.feedback.submit({ target, rating, message, category, context })` — submit feedback for `endpoint`, `x402`, `model`, `agent`, or `workflow`.
-- `sdk.feedback.model(modelId, input)`, `.agent(agentWallet, input)`, `.workflow(workflowId, input)`, `.x402(targetId, input)`, `.endpoint(targetId, input)` — target-specific helpers.
+- `sdk.feedback.model(modelId, input)`, `.agent(agentWallet, input)`, `.workflow(workflowWallet, input)`, `.x402(targetId, input)`, `.endpoint(targetId, input)` — target-specific helpers.
 - `sdk.feedback.summary({ type, id })` — reputation summary with rating distribution and verification counts.
 - `sdk.feedback.list({ type, id })` — recent public feedback records.
 
@@ -171,13 +171,15 @@ When a Compose Key is present, feedback is submitted as `compose_key` verified. 
 - `sdk.local.synapse.session({ agentWallet, deviceId, sessionKeyAddress, sessionKeyExpiresAt, depositAmount? })` — provision a Synapse session-key control-plane session.
 - `sdk.local.filecoin.session({ agentWallet, deviceId, sessionKeyAddress, sessionKeyExpiresAt, fileSizeBytes, copies? })` — provision Filecoin Pin storage context for local learning data.
 
-### Backpack
+### Permissions, Accounts, And Channels
 
-- `sdk.backpack.permissions.list()` / `.grant({ consentType, ... })` / `.revoke({ consentType, ... })` — user permission storage.
-- `sdk.backpack.connect({ toolkit })`, `.connections()`, `.status(toolkit)`, `.disconnect({ toolkit })` — Composio connection lifecycle.
-- `sdk.backpack.execute({ toolkit, action, params?, text? })` — execute a connected toolkit action through the API.
-- `sdk.backpack.toolkits.list({ search?, limit? })` / `.actions(toolkit, { limit? })` — discover available toolkits and actions.
-- `sdk.backpack.telegram.link()` / `.status()` — Telegram channel binding helpers. The server webhook route is intentionally not exposed as a client helper.
+- `sdk.permissions.list({ agentWallet })` / `.grant({ agentWallet, consentType, ... })` / `.revoke({ agentWallet, consentType })` — browser permission grants scoped per user and agent.
+- `sdk.accounts.connect({ agentWallet, toolkit })`, `.list({ agentWallet })`, `.status({ agentWallet, toolkit, connectedAccountId })`, `.disconnect({ agentWallet, toolkit, connectedAccountId })` — explicit Composio connected-account lifecycle.
+- `sdk.accounts.execute({ agentWallet, toolkit, connectedAccountId, action, params?, text? })` — execute a connected toolkit action through the API with an explicit connected account.
+- `sdk.accounts.toolkits.list({ search?, limit? })` / `.actions(toolkit, { limit? })` — discover available Composio toolkits and actions.
+- `sdk.channels.link(channel, { agentWallet, agentName?, mode?, privacy? })`, `.status(channel, { agentWallet })`, `.disconnect(channel, { agentWallet })` — create and manage native Telegram, WhatsApp, Slack, and Discord channel bindings through the channels service.
+- Configure `channelsUrl` when using a non-production channels service. `baseUrl` remains the API URL for permissions and accounts; `channelsUrl` defaults to `https://services.compose.market`.
+- Discord supports `mode: "user" | "guild"` and optional guild `privacy: "public" | "private"`. Slack supports DM and workspace/thread bindings through the Slack app. Session renewal links sent by channels are global web-app links, not agent- or channel-scoped payment links.
 
 ### Dispenser And Settlement
 
@@ -228,7 +230,7 @@ The SDK surfaces every SSE event the Compose gateway emits:
 - Standard OpenAI chunks (`chat.completion.chunk`, `response.output_text.delta`, `response.completed`).
 - **Reasoning deltas** — `reasoning_content` in chat chunks, `response.reasoning.delta` in responses streams.
 - **Tool-call deltas** — assembled across chunks into a typed `ChatCompletionMessageToolCall[]`.
-- **`compose.receipt`** — terminal settlement receipt with tx hash, line items, platform fee.
+- **`receipt`** — terminal settlement receipt with tx hash, line items, platform fee.
 - **`compose.error`** — structured stream errors when the upstream fails mid-flight.
 - **`compose.video.status`** — video job progress updates on `videos.stream(id)`.
 

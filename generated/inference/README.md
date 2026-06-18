@@ -15,7 +15,9 @@ Developer-friendly & type-safe Typescript SDK specifically catered to leverage *
 
 Compose Inference: Model discovery, inference, and realtime inference stream contracts.
 
-Canonical contract for Compose model discovery, serverless inference, and realtime inference streams. Payment and session primitives are owned by the Compose x402 contract.
+Canonical contract for Compose model discovery, serverless inference,
+and realtime inference streams. Payment and session primitives are owned by the
+Compose x402 contract.
 <!-- End Summary [summary] -->
 
 <!-- Start Table of Contents [toc] -->

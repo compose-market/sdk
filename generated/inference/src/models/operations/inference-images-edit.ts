@@ -18,15 +18,14 @@ export type InferenceImagesEditSecurity = {
 export type InferenceImagesEditRequestBody = {
   model: string;
   prompt: string;
-  attachments?: Array<models.ComposeAttachmentInput> | undefined;
-  attachment?: models.ComposeAttachmentInput | undefined;
+  attachments?: Array<models.AttachmentInput> | undefined;
+  attachment?: models.AttachmentInput | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
   responseFormat?: string | undefined;
   style?: string | undefined;
   user?: string | undefined;
-  provider?: models.ModelProvider | undefined;
   image?: string | undefined;
   mask?: string | undefined;
   [additionalProperties: string]: unknown;
@@ -96,15 +95,14 @@ export function inferenceImagesEditSecurityToJSON(
 export type InferenceImagesEditRequestBody$Outbound = {
   model: string;
   prompt: string;
-  attachments?: Array<models.ComposeAttachmentInput$Outbound> | undefined;
-  attachment?: models.ComposeAttachmentInput$Outbound | undefined;
+  attachments?: Array<models.AttachmentInput$Outbound> | undefined;
+  attachment?: models.AttachmentInput$Outbound | undefined;
   n?: number | undefined;
   size?: string | undefined;
   quality?: string | undefined;
   response_format?: string | undefined;
   style?: string | undefined;
   user?: string | undefined;
-  provider?: string | undefined;
   image?: string | undefined;
   mask?: string | undefined;
   [additionalProperties: string]: unknown;
@@ -119,17 +117,14 @@ export const InferenceImagesEditRequestBody$outboundSchema: z.ZodMiniType<
     z.object({
       model: z.string(),
       prompt: z.string(),
-      attachments: z.optional(
-        z.array(models.ComposeAttachmentInput$outboundSchema),
-      ),
-      attachment: z.optional(models.ComposeAttachmentInput$outboundSchema),
+      attachments: z.optional(z.array(models.AttachmentInput$outboundSchema)),
+      attachment: z.optional(models.AttachmentInput$outboundSchema),
       n: z.optional(z.int()),
       size: z.optional(z.string()),
       quality: z.optional(z.string()),
       responseFormat: z.optional(z.string()),
       style: z.optional(z.string()),
       user: z.optional(z.string()),
-      provider: z.optional(models.ModelProvider$outboundSchema),
       image: z.optional(z.string()),
       mask: z.optional(z.string()),
     }),

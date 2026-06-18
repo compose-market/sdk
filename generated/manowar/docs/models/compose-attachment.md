@@ -1,11 +1,11 @@
-# ComposeAttachment
+# Attachment
 
 ## Example Usage
 
 ```typescript
-import { ComposeAttachment } from "@compose-market/sdk/models";
+import { Attachment } from "@compose-market/sdk/models";
 
-let value: ComposeAttachment = {};
+let value: Attachment = {};
 ```
 
 ## Fields
