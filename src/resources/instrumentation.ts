@@ -9,7 +9,7 @@
 
 import type { ComposeEventBus } from "../events.js";
 import type {
-    ComposeReceipt,
+    Receipt,
     SessionBudgetSnapshot,
     SessionInvalidReason,
     X402PaymentSigner,
@@ -20,7 +20,7 @@ import { extractSessionBudgetFromResponse } from "../streaming/budget.js";
 export interface InstrumentedResult<T> {
     data: T;
     response: Response;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     requestId: string | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
@@ -49,7 +49,7 @@ export function instrumentBillableResponse<T>(
             chainId: walletCtx.chainId,
             receipt,
             requestId,
-            source: response.headers.get("x-compose-receipt") ? "response-header" : "body",
+            source: response.headers.get("x-receipt") ? "response-header" : "body",
         });
     }
 

@@ -2,7 +2,7 @@
  * Compose workflow runtime stream resource.
  *
  * Subscribes to POST /workflow/:wallet/chat on the Compose runtime and yields
- * typed `WorkflowRuntimeEvent` values. The workflow orchestrator emits its
+ * typed workflow events. The workflow orchestrator emits its
  * own vocabulary (`start`, `step`, `agent`, `progress`, `tool_start`,
  * `tool_end`, `result`, `error`, `complete`, `done`) via named SSE events;
  * each frame carries a JSON payload with an optional `message` field.
@@ -11,7 +11,7 @@
  *   - Tool lifecycle fires on `sdk.events.toolCallStart` / `toolCallEnd`.
  *   - Workflow-level start/end fires on `workflowStreamStart` / `workflowStreamEnd`.
  *   - Budget / receipt / sessionInvalid come from response headers + streamed
- *     `compose.receipt` frames.
+ *     `receipt` frames.
  */
 
 import { ComposeError } from "../errors.js";
@@ -19,10 +19,11 @@ import { applySdkClientHeaders, type FetchLike, type HttpClient } from "../http.
 import { parseSSEStream } from "../streaming/sse.js";
 import { extractReceiptFromResponse, parseReceiptEvent } from "../streaming/receipt.js";
 import { extractSessionBudgetFromResponse } from "../streaming/budget.js";
+import { decode as decodeActivityEvent, type ActivityEvent } from "@compose-market/core/activity";
+import { decode as decodeModelEvent, type ModelEvent } from "@compose-market/core/model";
 import type { ComposeEventBus } from "../events.js";
 import type {
-    ComposeReceipt,
-    WorkflowRuntimeEvent,
+    Receipt,
     WorkflowStreamCreateParams,
     WorkflowStreamFinalResult,
     X402PaymentSigner,
@@ -30,9 +31,11 @@ import type {
 import {
     buildCallHeaders,
     type ComposeCallOptions,
-    ComposeStreamIterator,
+    StreamIterator,
     requestResponseWithPayment,
 } from "./inference.js";
+
+export type WorkflowEvent = ActivityEvent | ModelEvent;
 
 export interface WorkflowResourceContext {
     baseUrl: string;
@@ -51,8 +54,8 @@ export class WorkflowResource {
     stream(
         params: WorkflowStreamCreateParams,
         options: ComposeCallOptions = {},
-    ): ComposeStreamIterator<WorkflowRuntimeEvent, WorkflowStreamFinalResult> {
-        return new ComposeStreamIterator(driveWorkflowStream(this.ctx, params, options));
+    ): StreamIterator<WorkflowEvent, WorkflowStreamFinalResult> {
+        return new StreamIterator(driveWorkflowStream(this.ctx, params, options));
     }
 
     /**
@@ -83,7 +86,7 @@ async function* driveWorkflowStream(
     ctx: WorkflowResourceContext,
     params: WorkflowStreamCreateParams,
     options: ComposeCallOptions,
-): AsyncGenerator<WorkflowRuntimeEvent, WorkflowStreamFinalResult, void> {
+): AsyncGenerator<WorkflowEvent, WorkflowStreamFinalResult, void> {
     const path = `/workflow/${encodeURIComponent(params.workflowWallet)}/chat`;
     const wallet = ctx.getWalletMaybe();
     const token = ctx.getTokenMaybe();
@@ -185,9 +188,10 @@ async function* driveWorkflowStream(
 
     let text = "";
     let structuredOutput: unknown = null;
-    let streamReceipt: ComposeReceipt | null = null;
+    let streamReceipt: Receipt | null = null;
     let emittedDone = false;
     const toolCalls: WorkflowStreamFinalResult["toolCalls"] = [];
+    const decodeOptions = { runId: params.composeRunId };
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: options.signal })) {
@@ -195,12 +199,11 @@ async function* driveWorkflowStream(
             if (!data || data === "[DONE]") {
                 if (data === "[DONE]" && !emittedDone) {
                     emittedDone = true;
-                    yield { type: "done" };
                 }
                 continue;
             }
 
-            if (frame.event === "compose.receipt") {
+            if (frame.event === "receipt") {
                 try {
                     streamReceipt = parseReceiptEvent(frame.data);
                     ctx.events.emit("receipt", {
@@ -224,30 +227,35 @@ async function* driveWorkflowStream(
 
             const eventName = frame.event || "";
 
+            if (payload.domain === "model") {
+                const decoded = decodeModelEvent(payload, decodeOptions);
+                if (decoded) yield decoded;
+                continue;
+            }
+            if (payload.domain === "activity") {
+                const decoded = decodeActivityEvent(payload, decodeOptions);
+                if (decoded) yield decoded;
+                continue;
+            }
+
             if (eventName === "start") {
-                yield { type: "start", message: asString(payload.message, "Starting workflow..."), meta: payload };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "step") {
-                yield {
-                    type: "step",
-                    stepName: typeof payload.stepName === "string" ? payload.stepName : undefined,
-                    message: asString(payload.message, `Processing ${asString(payload.stepName, "workflow step")}...`),
-                    meta: payload,
-                };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "agent") {
-                yield {
-                    type: "agent",
-                    agentName: typeof payload.agentName === "string" ? payload.agentName : undefined,
-                    message: asString(payload.message, `Processing ${asString(payload.agentName, "agent")}...`),
-                    meta: payload,
-                };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "progress") {
-                yield { type: "progress", message: asString(payload.message, "Running workflow..."), meta: payload };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "tool_start") {
@@ -265,7 +273,8 @@ async function* driveWorkflowStream(
                     toolName,
                     summary,
                 });
-                yield { type: "tool-start", toolName, summary, content };
+                const decoded = decodeActivityEvent({ type: "tool-start", toolName, summary, content }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "tool_end") {
@@ -285,7 +294,8 @@ async function* driveWorkflowStream(
                     failed,
                     error,
                 });
-                yield { type: "tool-end", toolName, summary, failed, error };
+                const decoded = decodeActivityEvent({ type: "tool-end", toolName, summary, failed, error }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "result") {
@@ -297,7 +307,8 @@ async function* driveWorkflowStream(
                         ? JSON.stringify(output)
                         : "";
                 if (coerced) text = coerced;
-                yield { type: "result", output };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "error") {
@@ -307,17 +318,20 @@ async function* driveWorkflowStream(
                     : typeof payload.message === "string"
                         ? payload.message
                         : "Workflow stream error";
-                yield { type: "error", code, message };
+                const decoded = decodeActivityEvent({ type: "error", code, message }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "complete") {
-                yield { type: "complete", message: asString(payload.message, "Workflow complete!") };
+                const decoded = decodeActivityEvent(frame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (eventName === "done") {
                 if (!emittedDone) {
                     emittedDone = true;
-                    yield { type: "done" };
+                    const decoded = decodeActivityEvent(frame, decodeOptions);
+                    if (decoded) yield decoded;
                 }
                 continue;
             }
@@ -367,4 +381,4 @@ function mergeSignals(a: AbortSignal | undefined, b: AbortSignal): { signal: Abo
     };
 }
 
-export type { WorkflowStreamCreateParams, WorkflowStreamFinalResult, WorkflowRuntimeEvent };
+export type { WorkflowStreamCreateParams, WorkflowStreamFinalResult, ActivityEvent, ModelEvent };

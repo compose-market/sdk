@@ -2,7 +2,7 @@
  * Webhook signature verification.
  *
  * Compose delivery uses a Stripe-style signature header:
- *   `X-Compose-Signature: t=<unix>,v1=<hex>`
+ *   `X-Signature: t=<unix>,v1=<hex>`
  * where `v1` is `HMAC-SHA256(timestamp + "." + payload, secret)`.
  *
  * `verify()` is a constant-time comparison.

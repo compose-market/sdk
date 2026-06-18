@@ -2,11 +2,12 @@ import type { APIPromise, HttpClient } from "../http.js";
 import { x402Client } from "@x402/core/client";
 import { ExactEvmScheme, toClientEvmSigner, type ClientEvmSigner } from "@x402/evm";
 import { UptoEvmScheme } from "@x402/evm/upto/client";
+import { BatchSettlementEvmScheme } from "@x402/evm/batch-settlement/client";
 import { createPublicClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type {
     ComposePaymentMode,
-    ComposeReceipt,
+    Receipt,
     FacilitatorChainsResponse,
     FacilitatorSupportedResponse,
     ModelMeterInput,
@@ -64,12 +65,15 @@ export function encodePaymentSignature(value: string | PaymentPayload): string {
 
 export function createX402EvmSigner(
     signer: ClientEvmSigner,
-    options: { rpcUrl?: string; schemes?: Array<"upto" | "exact"> } = {},
+    options: { rpcUrl?: string; schemes?: Array<"batch-settlement" | "upto" | "exact"> } = {},
 ): X402PaymentSigner {
-    const schemes = options.schemes ?? ["upto", "exact"];
+    const schemes = options.schemes ?? ["batch-settlement", "upto", "exact"];
     const client = new x402Client();
     const schemeOptions = options.rpcUrl ? { rpcUrl: options.rpcUrl } : undefined;
 
+    if (schemes.includes("batch-settlement")) {
+        client.register("eip155:*", new BatchSettlementEvmScheme(signer, schemeOptions));
+    }
     if (schemes.includes("upto")) {
         client.register("eip155:*", new UptoEvmScheme(signer, schemeOptions));
     }
@@ -84,13 +88,13 @@ export function createX402EvmSigner(
 }
 
 export function createPrivateKeyX402EvmSigner(
-    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"upto" | "exact"> },
+    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"batch-settlement" | "upto" | "exact"> },
 ): X402PaymentSigner {
     return createPrivateKeyX402EvmWallet(input).x402Signer;
 }
 
 export function createPrivateKeyX402EvmWallet(
-    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"upto" | "exact"> },
+    input: { privateKey: string; rpcUrl?: string; schemes?: Array<"batch-settlement" | "upto" | "exact"> },
 ): { address: `0x${string}`; x402Signer: X402PaymentSigner } {
     const privateKey = input.privateKey.startsWith("0x") ? input.privateKey : `0x${input.privateKey}`;
     const account = privateKeyToAccount(privateKey as Hex);
@@ -118,7 +122,7 @@ function filterPaymentRequiredByMaxAmount(paymentRequired: PaymentRequired, maxA
 }
 
 export class FacilitatorResource {
-    constructor(private readonly client: HttpClient) {}
+    constructor(private readonly client: HttpClient) { }
 
     supported(): APIPromise<FacilitatorSupportedResponse> {
         return this.client.request<FacilitatorSupportedResponse>({
@@ -273,9 +277,9 @@ export class X402Resource {
     }
 
     /**
-     * Decode the base64-url X-Compose-Receipt header. Throws on malformed input.
+     * Decode the base64-url X-Receipt header. Throws on malformed input.
      */
-    decodeReceipt(headerValue: string): ComposeReceipt {
+    decodeReceipt(headerValue: string): Receipt {
         return decodeReceiptHeader(headerValue);
     }
 }
