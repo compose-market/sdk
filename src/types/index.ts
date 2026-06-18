@@ -273,7 +273,7 @@ export interface FeedbackContext {
     modelId?: string;
     provider?: string;
     agentWallet?: string;
-    workflowId?: string;
+    workflowWallet?: string;
     endpoint?: {
         method?: string;
         path?: string;
@@ -482,7 +482,7 @@ export interface ComposeAlert {
 // Receipts
 // =============================================================================
 
-export interface ComposeReceiptLineItem {
+export interface ReceiptLineItem {
     key: string;
     unit: string;
     quantity: number;
@@ -490,15 +490,47 @@ export interface ComposeReceiptLineItem {
     amountWei: string;
 }
 
-export interface ComposeReceipt {
-    subject?: string;
-    lineItems?: ComposeReceiptLineItem[];
+export interface ReceiptFees {
+    total: {
+        percent: string;
+        amount: string;
+    };
+    distribution: Record<string, string>;
+}
+
+export interface ReceiptBill {
+    agent: string;
+    agentWallet?: string;
+    depth: number;
+    model?: string;
+    tokens: Record<string, number>;
+    tools: string[];
+    total: string;
+    duration: string;
+    txId?: string;
+    fees: ReceiptFees;
+    children?: ReceiptBill[];
+}
+
+export interface ReceiptCumulative {
+    totalAmountWei: string;
     providerAmountWei?: string;
     platformFeeWei?: string;
-    finalAmountWei: string;
-    txHash?: string;
-    network: `eip155:${number}`;
-    settledAt: number;
+    receiptCount: number;
+}
+
+export interface Receipt {
+    user?: string;
+    runId?: string;
+    duration?: string;
+    bills?: ReceiptBill[];
+}
+
+export interface ReceiptListResponse {
+    userAddress: string;
+    chainId: number;
+    cumulative: ReceiptCumulative;
+    receipts: Receipt[];
 }
 
 // =============================================================================
@@ -521,7 +553,7 @@ export type ModelProvider =
     | "cartesia"
     | "roboflow";
 
-export type CanonicalModality = "text" | "image" | "audio" | "video" | "embedding";
+export type CanonicalModality = "text" | "image" | "audio" | "video" | "embedding" | "realtime";
 
 export interface PricingUnit {
     unitKey: string;
@@ -696,7 +728,7 @@ export interface FrameworksResponse {
 
 export type ChatRole = "system" | "developer" | "user" | "assistant" | "tool";
 
-export type ComposeAttachmentKind =
+export type AttachmentKind =
     | "image"
     | "audio"
     | "video"
@@ -706,8 +738,8 @@ export type ComposeAttachmentKind =
     | "json"
     | "url";
 
-export interface ComposeAttachment {
-    type?: ComposeAttachmentKind | (string & { readonly __brand?: "ComposeAttachmentKind" });
+export interface Attachment {
+    type?: AttachmentKind | (string & { readonly __brand?: "AttachmentKind" });
     url?: string;
     uri?: string;
     data?: string;
@@ -725,37 +757,37 @@ export interface ComposeAttachment {
     [key: string]: unknown;
 }
 
-export type ComposeAttachmentInput = ComposeAttachment | string;
+export type AttachmentInput = Attachment | string;
 
-export interface ChatMessageTextPart {
+export interface MessageTextPart {
     type: "text";
     text: string;
 }
 
-export interface ChatMessageImagePart {
+export interface MessageImagePart {
     type: "image_url";
     image_url: { url: string; detail?: "auto" | "low" | "high" } | string;
 }
 
-export interface ChatMessageAudioPart {
+export interface MessageAudioPart {
     type: "input_audio";
     input_audio: { url: string } | string;
 }
 
-export interface ChatMessageVideoPart {
+export interface MessageVideoPart {
     type: "video_url";
     video_url: { url: string } | string;
 }
 
-export type ChatMessageContentPart =
-    | ChatMessageTextPart
-    | ChatMessageImagePart
-    | ChatMessageAudioPart
-    | ChatMessageVideoPart;
+export type MessageContentPart =
+    | MessageTextPart
+    | MessageImagePart
+    | MessageAudioPart
+    | MessageVideoPart;
 
-export interface ChatMessage {
+export interface Message {
     role: ChatRole;
-    content: string | ChatMessageContentPart[] | null;
+    content: string | MessageContentPart[] | null;
     name?: string;
     tool_call_id?: string;
     tool_calls?: Array<{
@@ -765,7 +797,7 @@ export interface ChatMessage {
     }>;
 }
 
-export interface ChatToolDefinition {
+export interface ToolDefinition {
     type: "function";
     function: {
         name: string;
@@ -833,16 +865,16 @@ export interface OpenAIPassthroughParams {
 
 export interface ChatCompletionsCreateParams extends OpenAIPassthroughParams {
     model: string;
-    messages: ChatMessage[];
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    messages: Message[];
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     stream?: boolean;
     temperature?: number;
     n?: number;
     stop?: string | string[];
     max_tokens?: number;
     max_completion_tokens?: number;
-    tools?: ChatToolDefinition[];
+    tools?: ToolDefinition[];
     tool_choice?: ChatToolChoice;
     [key: string]: unknown;
 }
@@ -875,7 +907,7 @@ export interface ChatCompletion {
         finish_reason: string;
     }>;
     usage: ChatUsage;
-    compose_receipt?: Record<string, unknown>;
+    receipt?: Record<string, unknown>;
 }
 
 export interface ChatCompletionChunk {
@@ -908,15 +940,15 @@ export interface ChatCompletionChunk {
 export interface ResponsesCreateParams extends OpenAIPassthroughParams {
     model: string;
     input: unknown;
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     modalities?: Array<"text" | "image" | "audio" | "video" | "embedding">;
     stream?: boolean;
     instructions?: string;
     previous_response_id?: string;
     max_output_tokens?: number;
     temperature?: number;
-    tools?: ChatToolDefinition[];
+    tools?: ToolDefinition[];
     tool_choice?: ChatToolChoice;
     n?: number;
     size?: string;
@@ -946,7 +978,7 @@ export interface ResponseObject {
     error?: { message: string; type?: string; code?: string };
     previous_response_id?: string;
     job_id?: string;
-    compose_receipt?: Record<string, unknown>;
+    receipt?: Record<string, unknown>;
 }
 
 export interface ResponseOutputItem {
@@ -964,18 +996,6 @@ export interface ResponseOutputItem {
     [key: string]: unknown;
 }
 
-export type ResponseStreamEvent =
-    | { type: "response.created"; response: ResponseObject }
-    | { type: "response.output_text.delta"; response_id: string; model: string; delta: string }
-    | { type: "response.reasoning.delta"; response_id: string; model: string; delta: string }
-    | { type: "response.tool_call"; response_id: string; model: string; tool_call: { id: string; name: string; arguments: string } }
-    | { type: "response.tool_call.delta"; response_id: string; model: string; index: number; delta: { id?: string; name?: string; arguments?: string } }
-    | { type: "response.image_generation_call.partial_image"; response_id: string; model: string; partial_image_index: number; partial_image_b64: string }
-    | { type: "response.image_generation_call.completed"; response_id: string; model: string; image_b64: string; mime_type?: string; revised_prompt?: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } }
-    | { type: "response.output_item.completed"; response_id: string; model: string; output_index: number; item: ResponseOutputItem }
-    | { type: "response.output_video.status"; response_id: string; model: string; job_id: string; status: "queued" | "processing" | "completed" | "failed"; progress?: number; url?: string; error?: string }
-    | { type: "response.completed"; response_id: string; model: string; finish_reason: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } };
-
 // =============================================================================
 // Inference — Embeddings / Images / Audio / Video
 // =============================================================================
@@ -983,8 +1003,8 @@ export type ResponseStreamEvent =
 export interface EmbeddingsCreateParams {
     model: string;
     input: string | string[];
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     dimensions?: number;
     encoding_format?: "float" | "base64" | string;
     user?: string;
@@ -1000,14 +1020,14 @@ export interface EmbeddingsResponse {
     }>;
     model: string;
     usage: { prompt_tokens: number; total_tokens: number };
-    compose_receipt?: Record<string, unknown>;
+    receipt?: Record<string, unknown>;
 }
 
 export interface ImagesGenerateParams {
     model: string;
     prompt: string;
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     n?: number;
     size?: string;
     quality?: string;
@@ -1025,14 +1045,14 @@ export interface ImagesEditParams extends ImagesGenerateParams {
 export interface ImagesResponse {
     created: number;
     data: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
-    compose_receipt?: Record<string, unknown>;
+    receipt?: Record<string, unknown>;
 }
 
 export interface AudioSpeechCreateParams {
     model: string;
     input: string;
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     voice?: string;
     response_format?: string;
     speed?: number;
@@ -1043,8 +1063,8 @@ export interface AudioSpeechCreateParams {
 export interface AudioTranscriptionCreateParams {
     model: string;
     file: string | Blob | File | Uint8Array;
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     filename?: string;
     language?: string;
     response_format?: string;
@@ -1061,14 +1081,14 @@ export interface AudioTranscriptionResponse {
     duration?: number;
     words?: Array<{ word: string; start: number; end: number }>;
     segments?: Array<Record<string, unknown>>;
-    compose_receipt?: Record<string, unknown>;
+    receipt?: Record<string, unknown>;
 }
 
 export interface VideoGenerateParams {
     model: string;
     prompt?: string;
-    attachments?: ComposeAttachmentInput[];
-    attachment?: ComposeAttachmentInput;
+    attachments?: AttachmentInput[];
+    attachment?: AttachmentInput;
     duration?: number;
     aspect_ratio?: string;
     resolution?: string;
@@ -1087,8 +1107,8 @@ export interface VideoGenerateResponse {
     created?: number;
     model?: string;
     job_id?: string;
-    data?: Array<{ url?: string; b64_json?: string; base64?: string; duration?: number; [key: string]: unknown }>;
-    compose_receipt?: Record<string, unknown>;
+    data?: Array<{ url?: string; b64_json?: string; base64?: string; duration?: number;[key: string]: unknown }>;
+    receipt?: Record<string, unknown>;
     [key: string]: unknown;
 }
 
@@ -1133,77 +1153,16 @@ export interface AgentEventDisplay {
     details?: Record<string, unknown>;
 }
 
-export interface AgentTraceRuntimeEvent {
-    type: "trace";
-    source: "capability" | "model" | "tool" | "agent" | "harness" | "route";
-    stage?: string;
-    action?: string;
-    message?: string;
-    display?: AgentEventDisplay;
-    ts?: number;
-    details?: Record<string, unknown>;
-}
+export type AgentHarnessPlanDecision = "approved" | "rejected" | "changes_requested";
 
-export interface AgentChildRuntimeEvent {
-    type: "child";
-    event: "start" | "delta" | "tool-start" | "tool-end" | "done" | "error";
-    rootComposeRunId?: string;
-    parentRunId?: string;
-    subId?: string;
-    depth?: number;
-    agentWallet?: string;
-    userAddress?: string;
-    runKey?: string;
-    runKeyChain?: string[];
-    delta?: string;
-    toolName?: string;
-    input?: unknown;
-    output?: unknown;
-    failed?: boolean;
-    error?: string;
-    usage?: Record<string, unknown>;
-    toolBatches?: number;
-    stopReason?: string;
-    wallMs?: number;
-    display?: AgentEventDisplay;
-    ts?: number;
-}
-
-export interface AgentConclaveRuntimeEvent {
-    type: "conclave";
-    action: "write" | "read" | "list" | "delete";
-    key?: string;
-    success: boolean;
-    display?: AgentEventDisplay;
-    details?: Record<string, unknown>;
-}
-
-export interface AgentRouteRuntimeEvent {
-    type: "route";
-    mode: string;
-    confidence?: number;
-    ambiguous?: boolean;
-    candidates?: unknown[];
-    hints?: Record<string, unknown>;
-    reason?: string;
-    display?: AgentEventDisplay;
-}
-
-export type AgentRuntimeEvent =
-    | { type: "text-delta"; delta: string }
-    | { type: "reasoning-delta"; delta: string }
-    | { type: "tool-args-delta"; id?: string; toolName?: string; argsDelta: string }
-    | { type: "thinking-start"; message: string }
-    | { type: "thinking-end" }
-    | { type: "tool-start"; toolName: string; displayName?: string; summary?: string; content?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }
-    | { type: "tool-end"; toolName: string; displayName?: string; summary?: string; failed: boolean; error?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }
-    | AgentTraceRuntimeEvent
-    | AgentChildRuntimeEvent
-    | AgentConclaveRuntimeEvent
-    | AgentRouteRuntimeEvent
-    | { type: "stopped"; reason: string }
-    | { type: "error"; code?: string; message: string; details?: Record<string, unknown> }
-    | { type: "done" };
+export type AgentArtifactKind =
+    | "image"
+    | "audio"
+    | "video"
+    | "embedding"
+    | "realtime"
+    | "file"
+    | "artifact";
 
 export interface AgentStreamCreateParams {
     agentWallet: string;
@@ -1212,33 +1171,38 @@ export interface AgentStreamCreateParams {
     userAddress: string;
     cloudPermissions?: unknown;
     composeRunId?: string;
-    attachment?: ComposeAttachmentInput;
-    attachments?: ComposeAttachmentInput[];
+    attachment?: AttachmentInput;
+    attachments?: AttachmentInput[];
 }
 
 export interface AgentStreamFinalResult {
     text: string;
     toolCalls: Array<{ toolName: string; displayName?: string; summary?: string; failed: boolean; error?: string; targetKind?: AgentDisplayKind; target?: string; display?: AgentEventDisplay }>;
     requestId: string | null;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
 }
 
-/**
- * Events emitted by the Compose workflow runtime on /workflow/:wallet/chat.
- */
-export type WorkflowRuntimeEvent =
-    | { type: "start"; message: string; meta?: Record<string, unknown> }
-    | { type: "step"; stepName?: string; message: string; meta?: Record<string, unknown> }
-    | { type: "agent"; agentName?: string; message: string; meta?: Record<string, unknown> }
-    | { type: "progress"; message: string; meta?: Record<string, unknown> }
-    | { type: "tool-start"; toolName: string; summary?: string; content?: string }
-    | { type: "tool-end"; toolName: string; summary?: string; failed: boolean; error?: string }
-    | { type: "result"; output: unknown }
-    | { type: "complete"; message: string }
-    | { type: "error"; code?: string; message: string }
-    | { type: "done" };
+export interface AgentDecisionInput {
+    agentWallet: string;
+    runId: string;
+    proposalId: string;
+    version: number;
+    decision: AgentHarnessPlanDecision;
+    approver?: string;
+    reason?: string;
+    feedback?: string;
+}
+
+export interface AgentDecisionResult {
+    ok?: boolean;
+    proposalId?: string;
+    version?: number;
+    state?: string;
+    decision?: AgentHarnessPlanDecision;
+    [key: string]: unknown;
+}
 
 export interface WorkflowStreamCreateParams {
     workflowWallet: string;
@@ -1248,8 +1212,8 @@ export interface WorkflowStreamCreateParams {
     composeRunId?: string;
     continuous?: boolean;
     lastEventIndex?: number;
-    attachment?: ComposeAttachmentInput;
-    attachments?: ComposeAttachmentInput[];
+    attachment?: AttachmentInput;
+    attachments?: AttachmentInput[];
 }
 
 export interface WorkflowStreamFinalResult {
@@ -1257,7 +1221,7 @@ export interface WorkflowStreamFinalResult {
     structuredOutput: unknown;
     toolCalls: Array<{ toolName: string; summary?: string; failed: boolean; error?: string }>;
     requestId: string | null;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
 }
@@ -1506,10 +1470,10 @@ export interface SettlementStatusResponse {
 }
 
 // =============================================================================
-// Backpack
+// Permissions, accounts, and channels
 // =============================================================================
 
-export type BackpackConsentType =
+export type PermissionConsentType =
     | "filesystem"
     | "camera"
     | "microphone"
@@ -1518,114 +1482,119 @@ export type BackpackConsentType =
     | "notifications"
     | string;
 
-export interface BackpackPermission {
+export interface PermissionGrant {
     userAddress: string;
-    sessionId?: string;
-    agentWallet?: string;
-    consentType: BackpackConsentType;
+    agentWallet: string;
+    consentType: PermissionConsentType;
     granted: boolean;
     grantedAt: number;
     expiresAt?: number;
 }
 
-export interface BackpackPermissionListInput {
+export interface PermissionListInput {
     userAddress?: string;
+    agentWallet: string;
 }
 
-export interface BackpackPermissionListResponse {
-    permissions: BackpackPermission[];
+export interface PermissionListResponse {
+    permissions: PermissionGrant[];
 }
 
-export interface BackpackPermissionGrantInput {
+export interface PermissionGrantInput {
     userAddress?: string;
-    consentType: BackpackConsentType;
-    sessionId?: string;
-    agentWallet?: string;
+    agentWallet: string;
+    consentType: PermissionConsentType;
     expiresAt?: number;
 }
 
-export interface BackpackPermissionRevokeInput {
+export interface PermissionRevokeInput {
     userAddress?: string;
-    consentType: BackpackConsentType;
-    sessionId?: string;
-    agentWallet?: string;
+    agentWallet: string;
+    consentType: PermissionConsentType;
 }
 
-export interface BackpackPermissionWriteResponse {
+export interface PermissionWriteResponse {
     success: boolean;
+    permission?: PermissionGrant;
 }
 
-export interface BackpackConnectInput {
+export interface AccountConnectInput {
     userAddress?: string;
+    agentWallet: string;
     toolkit: string;
 }
 
-export interface BackpackConnectResponse {
-    redirectUrl?: string;
-    url?: string;
-    connectedAccountId?: string;
-    connectionRequestId?: string;
-    [key: string]: unknown;
+export interface AccountConnectResponse {
+    redirectUrl: string;
+    userAddress: string;
+    agentWallet: string;
+    toolkit: string;
+    connectedAccountId: string;
+    authMode?: string;
 }
 
-export interface BackpackConnectionsInput {
+export interface AccountListInput {
     userAddress?: string;
+    agentWallet: string;
+    toolkit?: string;
 }
 
-export interface BackpackConnection {
+export interface AccountConnection {
     slug: string;
     name: string;
     connected: boolean;
-    accountId?: string;
+    connectedAccountId: string;
+    accountId: string;
     status?: string;
-    source?: string;
-    sourceLabel?: string;
-    bindingId?: string;
+    source: "composio" | string;
 }
 
-export interface BackpackConnectionsResponse {
-    connections: BackpackConnection[];
+export interface AccountListResponse {
+    connections: AccountConnection[];
 }
 
-export interface BackpackStatusInput {
+export interface AccountStatusInput {
     userAddress?: string;
-}
-
-export interface BackpackStatusResponse {
+    agentWallet: string;
     toolkit: string;
-    connected: boolean;
-    accountId?: string;
+    connectedAccountId: string;
 }
 
-export interface BackpackDisconnectInput {
+export type AccountStatusResponse = AccountConnection;
+
+export interface AccountDisconnectInput {
     userAddress?: string;
+    agentWallet: string;
     toolkit: string;
+    connectedAccountId: string;
 }
 
-export interface BackpackDisconnectResponse {
+export interface AccountDisconnectResponse {
     success: boolean;
 }
 
-export interface BackpackExecuteInput {
+export interface AccountExecuteInput {
     userAddress?: string;
+    agentWallet: string;
     toolkit: string;
+    connectedAccountId: string;
     action: string;
     params?: Record<string, unknown>;
     text?: string;
 }
 
-export interface BackpackExecuteResponse {
+export interface AccountExecuteResponse {
     success: boolean;
     result?: unknown;
     error?: string;
 }
 
-export interface BackpackToolkitsInput {
+export interface AccountToolkitsInput {
     search?: string;
     limit?: number;
 }
 
-export interface BackpackToolkit {
+export interface AccountToolkit {
     slug: string;
     name: string;
     logo: string;
@@ -1635,15 +1604,15 @@ export interface BackpackToolkit {
     composioManagedSchemes: string[];
 }
 
-export interface BackpackToolkitsResponse {
-    toolkits: BackpackToolkit[];
+export interface AccountToolkitsResponse {
+    toolkits: AccountToolkit[];
 }
 
-export interface BackpackToolkitActionsInput {
+export interface AccountToolkitActionsInput {
     limit?: number;
 }
 
-export interface BackpackToolkitAction {
+export interface AccountToolkitAction {
     slug: string;
     name: string;
     description: string;
@@ -1654,28 +1623,90 @@ export interface BackpackToolkitAction {
     inputParameters: Record<string, unknown>;
 }
 
-export interface BackpackToolkitActionsResponse {
+export interface AccountToolkitActionsResponse {
     toolkit: string;
-    actions: BackpackToolkitAction[];
+    actions: AccountToolkitAction[];
 }
 
-export interface BackpackTelegramLinkInput {
+export type ChannelName = "telegram" | "slack" | "discord" | "whatsapp";
+
+export interface ChannelRoute {
+    id: string;
+    channel: ChannelName;
+    userAddress: string;
+    agentWallet: string;
+    accountId: string;
+    threadId: string;
+    label?: string;
+    metadata?: Record<string, unknown>;
+    createdAt: number;
+    updatedAt: number;
+}
+
+export interface ChannelListResponse {
+    channels: ChannelName[];
+}
+
+export interface ChannelGetResponse {
+    channel: ChannelName;
+    link: string;
+    status: string;
+    disconnect: string;
+    webhook: string | null;
+    socket: string | null;
+}
+
+export interface ChannelLinkInput {
     userAddress?: string;
+    agentWallet: string;
+    agentName?: string;
+    mode?: "user" | "guild";
+    privacy?: "public" | "private";
 }
 
-export interface BackpackTelegramLinkResponse {
-    deepLinkUrl: string;
-    linkCode: string;
+export interface ChannelLinkResponse {
+    code: string;
+    channel: ChannelName;
+    userAddress: string;
+    agentWallet: string;
+    agentName?: string;
+    mode?: "user" | "guild";
+    privacy?: "public" | "private";
+    createdAt: number;
+    expiresAt: number;
+    url: string | null;
+    action?: {
+        type: "redirect" | "websocket" | "oauth";
+        label: string;
+        url: string | null;
+        socket?: string;
+        command?: string;
+    };
 }
 
-export interface BackpackTelegramStatusInput {
+export interface ChannelStatusInput {
     userAddress?: string;
+    agentWallet: string;
+    accountId?: string;
+    threadId?: string;
 }
 
-export interface BackpackTelegramStatusResponse {
-    toolkit: "telegram" | string;
-    bound: boolean;
-    chatId?: string;
+export interface ChannelStatusResponse {
+    channel: ChannelName;
+    connected: boolean;
+    routes: ChannelRoute[];
+}
+
+export interface ChannelDisconnectInput {
+    userAddress?: string;
+    agentWallet: string;
+    accountId?: string;
+    threadId?: string;
+}
+
+export interface ChannelDisconnectResponse {
+    channel: ChannelName;
+    disconnected: number;
 }
 
 // =============================================================================
@@ -1690,6 +1721,7 @@ export interface DirectoryAgent {
     x402Support: boolean;
     image?: string;
     avatar?: string;
+    avatarUrl?: string;
     dnaHash: string;
     walletAddress: string;
     walletTimestamp?: number;
@@ -1697,6 +1729,7 @@ export interface DirectoryAgent {
     model: string;
     framework?: "manowar" | string;
     licensePrice: string;
+    creatorFee?: number;
     licenses: number;
     licensesAvailable?: number;
     cloneable: boolean;
@@ -1757,6 +1790,9 @@ export interface DirectoryWorkflow {
 export interface DirectoryAgentListResponse {
     agents: DirectoryAgent[];
     total: number;
+    count?: number;
+    nextCursor?: string | null;
+    hasMore?: boolean;
 }
 
 export interface DirectoryWorkflowListResponse {
@@ -1867,14 +1903,14 @@ export interface AgentMemoryCompactItem {
     createdAt?: number;
 }
 
-export interface AgentMemoryWorkflowEnvelope<TStep extends AgentMemoryLoopStep> {
-    v: "compose.agent_memory.v1";
+export interface AgentMemoryLoopEnvelope<TStep extends AgentMemoryLoopStep> {
+    v: "compose.agent_memory_loop.v1";
     step: TStep;
     next: AgentMemoryLoopStep[];
 }
 
 export interface AgentMemoryContextResponse {
-    workflow: AgentMemoryWorkflowEnvelope<"pre_turn">;
+    loop: AgentMemoryLoopEnvelope<"pre_turn">;
     contextId: string;
     prompt: string | null;
     items: AgentMemoryCompactItem[];
@@ -1891,7 +1927,7 @@ export interface AgentMemoryContextResponse {
 }
 
 export interface AgentMemoryRecordTurnResponse {
-    workflow: AgentMemoryWorkflowEnvelope<"post_turn">;
+    loop: AgentMemoryLoopEnvelope<"post_turn">;
     success: true;
     sessionId: string;
     threadId: string;
@@ -1915,7 +1951,7 @@ export interface AgentMemoryRecordTurnResponse {
 }
 
 export interface AgentMemoryRememberResponse {
-    workflow: AgentMemoryWorkflowEnvelope<"remember">;
+    loop: AgentMemoryLoopEnvelope<"remember">;
     success: boolean;
     graphSaved: boolean;
     vectorSaved: boolean;
@@ -2058,20 +2094,20 @@ export interface MemoryEvalRunResponse {
     }>;
 }
 
-export interface MemoryWorkflowStepManifest {
+export interface MemoryLoopStepManifest {
     operationId: string;
     method: "GET" | "POST" | "PATCH" | "DELETE";
     path: string;
     purpose?: string;
 }
 
-export interface MemoryWorkflowManifest {
+export interface MemoryLoopManifest {
     id: string;
-    version: "compose.agent_memory.v1";
+    version: "compose.agent_memory_loop.v1";
     description: string;
     loop?: "hot" | "durable" | "maintenance";
     tokenPolicy?: "returns compact prompt only" | "returns metadata only";
-    steps: MemoryWorkflowStepManifest[];
+    steps: MemoryLoopStepManifest[];
 }
 
 export interface ProceduralPattern {
@@ -2079,7 +2115,7 @@ export interface ProceduralPattern {
     agentWallet: string;
     mode?: "global" | "local";
     haiId?: string;
-    patternType?: "workflow" | "decision" | "response" | "tool_sequence";
+    patternType?: "routine" | "decision" | "response" | "tool_sequence";
     trigger?: { type: string; value: string; conditions?: Record<string, unknown> };
     steps?: Array<{ action: string; params?: Record<string, unknown>; expectedOutcome?: string; order: number }>;
     summary: string;
@@ -2140,4 +2176,73 @@ export interface SessionMemory {
     createdAt: number;
     expiresAt: number;
     lastAccessedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Realtime Types
+// ---------------------------------------------------------------------------
+
+export interface RealtimeSessionConfig {
+    readonly modalities: ReadonlyArray<"text" | "audio">;
+    readonly instructions?: string;
+    readonly voice?: string;
+    readonly inputAudioFormat?: string;
+    readonly outputAudioFormat?: string;
+    readonly turnDetection?: { readonly type: "server_vad" | "none"; readonly threshold?: number; readonly silenceDurationMs?: number };
+    readonly tools?: ToolDefinition[];
+    readonly toolChoice?: "auto" | "none" | "required" | { readonly type: "tool"; readonly toolName: string } | any;
+    readonly temperature?: number;
+    readonly maxOutputTokens?: number | "inf";
+}
+
+export interface RealtimeResponseConfig {
+    readonly modalities?: ReadonlyArray<"text" | "audio">;
+    readonly instructions?: string;
+    readonly voice?: string;
+    readonly outputAudioFormat?: string;
+    readonly tools?: ToolDefinition[];
+    readonly toolChoice?: RealtimeSessionConfig["toolChoice"];
+    readonly temperature?: number;
+    readonly maxOutputTokens?: number | "inf";
+}
+
+export type RealtimeClientEvent =
+    | { readonly type: "session.update"; readonly session: Partial<RealtimeSessionConfig> }
+    | { readonly type: "input_audio_buffer.append"; readonly audio: Uint8Array | string }
+    | { readonly type: "input_audio_buffer.commit" }
+    | { readonly type: "input_audio_buffer.clear" }
+    | { readonly type: "conversation.item.create"; readonly item: any }
+    | { readonly type: "conversation.item.delete"; readonly itemId: string }
+    | { readonly type: "response.create"; readonly response?: Partial<RealtimeResponseConfig> }
+    | { readonly type: "response.cancel" };
+
+export type RealtimeServerEvent =
+    | { readonly type: "session.created"; readonly sessionId: string; readonly modelId: string }
+    | { readonly type: "session.updated"; readonly session: RealtimeSessionConfig }
+    | { readonly type: "input_audio_buffer.speech_started" }
+    | { readonly type: "input_audio_buffer.speech_stopped" }
+    | { readonly type: "input_audio_buffer.committed"; readonly itemId: string }
+    | { readonly type: "conversation.item.created"; readonly itemId: string }
+    | { readonly type: "response.created"; readonly responseId: string }
+    | { readonly type: "response.audio.delta"; readonly responseId: string; readonly audio: Uint8Array | string }
+    | { readonly type: "response.audio.done"; readonly responseId: string }
+    | { readonly type: "response.text.delta"; readonly responseId: string; readonly text: string }
+    | { readonly type: "response.text.done"; readonly responseId: string; readonly text: string }
+    | { readonly type: "response.tool_call"; readonly responseId: string; readonly id: string; readonly name: string; readonly arguments: string }
+    | { readonly type: "response.done"; readonly responseId: string; readonly usage: any }
+    | { readonly type: "error"; readonly error: any };
+
+export interface RealtimeRequest {
+    model: string;
+    input?: unknown;
+    instructions?: string;
+    customParams?: Record<string, unknown>;
+}
+
+export interface RealtimeSession {
+    readonly id: string;
+    readonly modelId: string;
+    send(event: RealtimeClientEvent): void;
+    readonly events: AsyncIterableIterator<RealtimeServerEvent>;
+    close(): Promise<void>;
 }
