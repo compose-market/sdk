@@ -2,11 +2,12 @@
  * Compose agent runtime stream resource.
  *
  * Subscribes to POST /agent/:wallet/stream on the Compose runtime service
- * and yields typed `AgentRuntimeEvent` values. The runtime emits OpenAI-ish
+ * and yields ordered model/activity events. The runtime emits OpenAI-ish
  * chat.completion.chunk frames for text deltas AND Compose-native frames
  * (`thinking_start`, `thinking_end`, `tool_start`, `tool_end`, `done`,
  * `error`). This resource normalises both into the single
- * `AgentRuntimeEvent` union so callers iterate one loop.
+ * text frames for chat content and Compose-native activity frames for
+ * execution lifecycle. This resource keeps those domains separate.
  *
  * Integrates with:
  *   - `sdk.events.toolCallStart` / `toolCallEnd` — emitted whenever the
@@ -22,16 +23,17 @@ import type { HttpClient } from "../http.js";
 import { parseSSEStream } from "../streaming/sse.js";
 import { extractReceiptFromResponse, parseReceiptEvent } from "../streaming/receipt.js";
 import { extractSessionBudgetFromResponse } from "../streaming/budget.js";
+import { decode as decodeActivityEvent, type ActivityEvent } from "@compose-market/core/activity";
+import { decode as decodeModelEvent, type ModelEvent } from "@compose-market/core/model";
 import type { ComposeEventBus } from "../events.js";
 import type {
-    AgentRuntimeEvent,
-    AgentChildRuntimeEvent,
-    AgentConclaveRuntimeEvent,
+    AgentDecisionInput,
+    AgentDecisionResult,
     AgentEventDisplay,
-    AgentTraceRuntimeEvent,
+    AgentHarnessPlanDecision,
     AgentStreamCreateParams,
     AgentStreamFinalResult,
-    ComposeReceipt,
+    Receipt,
     SessionBudgetSnapshot,
     SessionInvalidReason,
     X402PaymentSigner,
@@ -39,9 +41,76 @@ import type {
 import {
     buildCallHeaders,
     type ComposeCallOptions,
-    ComposeStreamIterator,
+    StreamIterator,
     requestResponseWithPayment,
 } from "./inference.js";
+
+export type RunEvent = ActivityEvent | ModelEvent;
+
+interface AgentTraceRuntimeEvent {
+    type: "trace";
+    source: "capability" | "model" | "tool" | "agent" | "harness" | "route";
+    stage?: string;
+    action?: string;
+    message?: string;
+    display?: AgentEventDisplay;
+    ts?: number;
+    details?: Record<string, unknown>;
+}
+
+interface AgentChildRuntimeEvent {
+    type: "child";
+    event: "start" | "delta" | "tool-start" | "tool-end" | "done" | "error";
+    rootComposeRunId?: string;
+    parentRunId?: string;
+    subId?: string;
+    depth?: number;
+    agentWallet?: string;
+    userAddress?: string;
+    runKey?: string;
+    runKeyChain?: string[];
+    delta?: string;
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+    failed?: boolean;
+    error?: string;
+    usage?: Record<string, unknown>;
+    toolBatches?: number;
+    stopReason?: string;
+    wallMs?: number;
+    display?: AgentEventDisplay;
+    ts?: number;
+}
+
+interface AgentConclaveRuntimeEvent {
+    type: "conclave";
+    action: "write" | "read" | "list" | "delete";
+    key?: string;
+    success: boolean;
+    display?: AgentEventDisplay;
+    details?: Record<string, unknown>;
+}
+
+interface AgentHarnessPlanRuntimeEvent {
+    type: "harness_plan_proposed" | "harness_plan_decided";
+    proposalId: string;
+    version: number;
+    state: string;
+    decision?: AgentHarnessPlanDecision;
+    rootComposeRunId?: string;
+    composeRunId?: string;
+    requestedBy?: string;
+    proposal?: unknown;
+    markdown?: string;
+    ts?: number;
+    updatedAt?: number;
+    approver?: string;
+    reason?: string;
+    feedback?: string;
+    display?: AgentEventDisplay;
+    details?: Record<string, unknown>;
+}
 
 export interface AgentResourceContext {
     baseUrl: string;
@@ -59,8 +128,8 @@ export class AgentResource {
     stream(
         params: AgentStreamCreateParams,
         options: ComposeCallOptions = {},
-    ): ComposeStreamIterator<AgentRuntimeEvent, AgentStreamFinalResult> {
-        return new ComposeStreamIterator(driveAgentStream(this.ctx, params, options));
+    ): StreamIterator<RunEvent, AgentStreamFinalResult> {
+        return new StreamIterator(driveAgentStream(this.ctx, params, options));
     }
 
     /**
@@ -89,13 +158,40 @@ export class AgentResource {
         const data = response.data;
         return { stopped: Boolean(data?.stopped) };
     }
+
+    async decide(params: AgentDecisionInput): Promise<AgentDecisionResult> {
+        const wallet = this.ctx.getWalletMaybe();
+        const token = this.ctx.getTokenMaybe();
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            "User-Agent": this.ctx.userAgent,
+        };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (wallet.address) headers["x-session-user-address"] = wallet.address;
+        if (wallet.chainId !== null) headers["x-chain-id"] = String(wallet.chainId);
+
+        const path = `/agent/${encodeURIComponent(params.agentWallet)}/runs/${encodeURIComponent(params.runId)}/approval`;
+        return await this.ctx.http.request<AgentDecisionResult>({
+            method: "POST",
+            path,
+            headers,
+            body: {
+                proposalId: params.proposalId,
+                version: params.version,
+                decision: params.decision,
+                ...(params.approver ? { approver: params.approver } : {}),
+                ...(params.reason ? { reason: params.reason } : {}),
+                ...(params.feedback ? { feedback: params.feedback } : {}),
+            },
+        });
+    }
 }
 
 async function* driveAgentStream(
     ctx: AgentResourceContext,
     params: AgentStreamCreateParams,
     options: ComposeCallOptions,
-): AsyncGenerator<AgentRuntimeEvent, AgentStreamFinalResult, void> {
+): AsyncGenerator<RunEvent, AgentStreamFinalResult, void> {
     const path = `/agent/${encodeURIComponent(params.agentWallet)}/stream`;
     const wallet = ctx.getWalletMaybe();
     const token = ctx.getTokenMaybe();
@@ -195,11 +291,12 @@ async function* driveAgentStream(
     }
 
     let text = "";
-    let streamReceipt: ComposeReceipt | null = null;
+    let streamReceipt: Receipt | null = null;
     let emittedDone = false;
     const postDoneTimeoutMs = options.paymentMode === "x402" ? 90_000 : 250;
     const toolCalls: AgentStreamFinalResult["toolCalls"] = [];
     const activeTools = new Map<string, { summary?: string }>();
+    const decodeOptions = { runId: params.composeRunId };
 
     try {
         const sse = parseSSEStream(response.body, { signal: options.signal })[Symbol.asyncIterator]();
@@ -211,12 +308,11 @@ async function* driveAgentStream(
             if (frame.data === "[DONE]") {
                 if (!emittedDone) {
                     emittedDone = true;
-                    yield { type: "done" };
                 }
                 continue;
             }
 
-            if (frame.event === "compose.receipt") {
+            if (frame.event === "receipt") {
                 try {
                     streamReceipt = parseReceiptEvent(frame.data);
                     ctx.events.emit("receipt", {
@@ -232,12 +328,9 @@ async function* driveAgentStream(
             }
 
             if (frame.event === "compose.error") {
-                try {
-                    const parsed = JSON.parse(frame.data) as { code?: string; message?: string; details?: Record<string, unknown> };
-                    yield { type: "error", code: parsed.code, message: parsed.message ?? "Agent stream error", details: parsed.details };
-                } catch {
-                    yield { type: "error", message: frame.data };
-                }
+                const decoded = decodeActivityEvent(frame, decodeOptions)
+                    ?? decodeActivityEvent({ type: "error", message: frame.data }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
 
@@ -250,7 +343,23 @@ async function* driveAgentStream(
             } catch {
                 const delta = frame.data;
                 text += delta;
-                yield { type: "text-delta", delta };
+                const decoded = decodeModelEvent(delta, decodeOptions);
+                if (decoded) yield decoded;
+                continue;
+            }
+
+            if (payload.domain === "model") {
+                const decoded = decodeModelEvent(payload, decodeOptions);
+                if (decoded) {
+                    if (decoded.type === "model.text.delta" && decoded.delta) text += decoded.delta;
+                    if (decoded.type === "model.text.done" && decoded.text && !text) text = decoded.text;
+                    yield decoded;
+                }
+                continue;
+            }
+            if (payload.domain === "activity") {
+                const decoded = decodeActivityEvent(payload, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
 
@@ -263,43 +372,58 @@ async function* driveAgentStream(
                     ? (delta as { reasoning_content: string }).reasoning_content
                     : null;
                 if (reasoningChunk) {
-                    yield { type: "reasoning-delta", delta: reasoningChunk };
+                    const decoded = decodeModelEvent({ type: "reasoning-delta", delta: reasoningChunk }, decodeOptions);
+                    if (decoded) yield decoded;
                 }
                 const streamedChunk = typeof (delta as { content?: unknown })?.content === "string"
                     ? (delta as { content: string }).content
                     : null;
                 if (streamedChunk) {
                     text += streamedChunk;
-                    yield { type: "text-delta", delta: streamedChunk };
+                    const decoded = decodeModelEvent({ type: "text-delta", delta: streamedChunk }, decodeOptions);
+                    if (decoded) yield decoded;
                 }
                 continue;
             }
 
             const type = typeof payload.type === "string" ? payload.type : "";
 
+            const proposalFrame = proposal(payload, type);
+            if (proposalFrame) {
+                emitProposal(ctx.events, wallet, requestId, proposalFrame);
+                const decoded = decodeActivityEvent(proposalFrame, decodeOptions);
+                if (decoded) yield decoded;
+                continue;
+            }
+
             const childFrame = child(payload, type);
             if (childFrame) {
                 emitChild(ctx.events, wallet, requestId, childFrame);
-                yield childFrame;
+                const decoded = decodeActivityEvent(childFrame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             const traceFrame = trace(payload, type);
             if (traceFrame) {
-                yield traceFrame;
+                const decoded = decodeActivityEvent(traceFrame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             const conclaveFrame = conclave(payload, type);
             if (conclaveFrame) {
-                yield conclaveFrame;
+                const decoded = decodeActivityEvent(conclaveFrame, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
 
             if (type === "thinking_start") {
-                yield { type: "thinking-start", message: typeof payload.message === "string" ? payload.message : "Thinking..." };
+                const decoded = decodeActivityEvent(payload, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "thinking_end") {
-                yield { type: "thinking-end" };
+                const decoded = decodeActivityEvent(payload, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "reasoning_delta") {
@@ -308,7 +432,10 @@ async function* driveAgentStream(
                     : typeof payload.content === "string"
                         ? payload.content
                         : "";
-                if (delta) yield { type: "reasoning-delta", delta };
+                if (delta) {
+                    const decoded = decodeModelEvent({ type: "reasoning-delta", delta }, decodeOptions);
+                    if (decoded) yield decoded;
+                }
                 continue;
             }
             if (type === "tool_args_delta") {
@@ -320,13 +447,15 @@ async function* driveAgentStream(
                 if (argsDelta) {
                     const id = typeof payload.id === "string" ? payload.id : undefined;
                     const toolName = typeof payload.toolName === "string" ? payload.toolName : undefined;
-                    yield { type: "tool-args-delta", id, toolName, argsDelta };
+                    const decoded = decodeModelEvent({ type: "tool_args_delta", id, toolName, argsDelta }, decodeOptions);
+                    if (decoded) yield decoded;
                 }
                 continue;
             }
             if (type === "stopped") {
                 const reason = typeof payload.reason === "string" ? payload.reason : "user_stop";
-                yield { type: "stopped", reason };
+                const decoded = decodeActivityEvent({ type: "stopped", reason }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "tool_start") {
@@ -350,7 +479,8 @@ async function* driveAgentStream(
                     ...shown,
                     summary,
                 });
-                yield { type: "tool-start", toolName, ...shown, summary, content };
+                const decoded = decodeActivityEvent({ type: "tool-start", toolName, display: meta, summary, content, input: payload.input }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "tool_end") {
@@ -379,7 +509,16 @@ async function* driveAgentStream(
                     failed,
                     error,
                 });
-                yield { type: "tool-end", toolName, ...shown, summary, failed, error };
+                const decoded = decodeActivityEvent({
+                    type: "tool-end",
+                    toolName,
+                    display: meta,
+                    summary,
+                    failed,
+                    error,
+                    output: payload.output ?? payload.message,
+                }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "error") {
@@ -391,24 +530,28 @@ async function* driveAgentStream(
                         : typeof payload.message === "string"
                             ? payload.message
                             : "Agent stream failed";
-                yield { type: "error", code, message };
+                const decoded = decodeActivityEvent({ type: "error", code, message }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (type === "done") {
                 if (!emittedDone) {
                     emittedDone = true;
-                    yield { type: "done" };
+                    const decoded = decodeActivityEvent(payload, decodeOptions);
+                    if (decoded) yield decoded;
                 }
                 continue;
             }
             if (typeof payload.content === "string") {
                 text += payload.content;
-                yield { type: "text-delta", delta: payload.content };
+                const decoded = decodeModelEvent({ type: "text-delta", delta: payload.content }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
             if (typeof payload.text === "string") {
                 text += payload.text;
-                yield { type: "text-delta", delta: payload.text };
+                const decoded = decodeModelEvent({ type: "text-delta", delta: payload.text }, decodeOptions);
+                if (decoded) yield decoded;
                 continue;
             }
         }
@@ -424,7 +567,7 @@ async function* driveAgentStream(
         });
     }
 
-    const finalReceipt: ComposeReceipt | null = streamReceipt ?? headerReceipt;
+    const finalReceipt: Receipt | null = streamReceipt ?? headerReceipt;
 
     return {
         text,
@@ -489,6 +632,40 @@ function view(value: unknown): AgentEventDisplay | undefined {
         ...(str(record.name) ? { name: str(record.name) } : {}),
         ...(str(record.target) ? { target: str(record.target) } : {}),
         ...(str(record.summary) ? { summary: str(record.summary) } : {}),
+        ...(details ? { details } : {}),
+    };
+}
+
+function decision(value: unknown): AgentHarnessPlanRuntimeEvent["decision"] | undefined {
+    return value === "approved" || value === "rejected" || value === "changes_requested"
+        ? value
+        : undefined;
+}
+
+function proposal(payload: Record<string, unknown>, type: string): AgentHarnessPlanRuntimeEvent | null {
+    if (type !== "harness_plan_proposed" && type !== "harness_plan_decided") return null;
+    const proposalId = str(payload.proposalId);
+    const version = num(payload.version);
+    const state = str(payload.state);
+    if (!proposalId || version === undefined || !state) return null;
+    const details = obj(payload.details);
+    return {
+        type,
+        proposalId,
+        version,
+        state,
+        ...(decision(payload.decision) ? { decision: decision(payload.decision) } : {}),
+        ...(str(payload.rootComposeRunId) ? { rootComposeRunId: str(payload.rootComposeRunId) } : {}),
+        ...(str(payload.composeRunId) ? { composeRunId: str(payload.composeRunId) } : {}),
+        ...(str(payload.requestedBy) ? { requestedBy: str(payload.requestedBy) } : {}),
+        ...("proposal" in payload ? { proposal: payload.proposal } : {}),
+        ...(str(payload.markdown) ? { markdown: str(payload.markdown) } : {}),
+        ...(num(payload.ts) !== undefined ? { ts: num(payload.ts) } : {}),
+        ...(num(payload.updatedAt) !== undefined ? { updatedAt: num(payload.updatedAt) } : {}),
+        ...(str(payload.approver) ? { approver: str(payload.approver) } : {}),
+        ...(str(payload.reason) ? { reason: str(payload.reason) } : {}),
+        ...(str(payload.feedback) ? { feedback: str(payload.feedback) } : {}),
+        ...(view(payload.display) ? { display: view(payload.display) } : {}),
         ...(details ? { details } : {}),
     };
 }
@@ -599,6 +776,26 @@ function emitChild(
     }
 }
 
+function emitProposal(
+    events: ComposeEventBus,
+    wallet: { address: string | null; chainId: number | null },
+    requestId: string | null,
+    event: AgentHarnessPlanRuntimeEvent,
+): void {
+    const payload = {
+        ...event,
+        userAddress: wallet.address,
+        chainId: wallet.chainId,
+        requestId,
+        source: "agent" as const,
+    };
+    if (event.type === "harness_plan_proposed") {
+        events.emit("harnessPlanProposed", payload);
+    } else {
+        events.emit("harnessPlanDecided", payload);
+    }
+}
+
 function body(value: unknown): string | undefined {
     const record = obj(value);
     if (!record) return str(value);
@@ -662,4 +859,11 @@ async function readAgentStreamFrame(
 
 // Exported so tests can poke at the internal types. Not part of the public
 // SDK surface beyond `AgentResource.stream(...)`.
-export type { AgentStreamCreateParams, AgentStreamFinalResult, AgentRuntimeEvent, SessionBudgetSnapshot, SessionInvalidReason };
+export type {
+    AgentDecisionInput,
+    AgentDecisionResult,
+    AgentStreamCreateParams,
+    AgentStreamFinalResult,
+    SessionBudgetSnapshot,
+    SessionInvalidReason,
+};
