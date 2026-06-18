@@ -13,15 +13,45 @@ export interface DirectoryRequestOptions {
     timeoutMs?: number;
 }
 
+export interface DirectoryAgentListInput extends DirectoryRequestOptions {
+    limit?: number;
+    cursor?: string | null;
+    q?: string;
+    query?: string;
+    sort?: "newest" | "price-low" | "price-high" | "name";
+    creator?: string;
+    chain?: number | string;
+    framework?: string;
+    cloneable?: boolean;
+    skill?: string;
+    plugin?: string;
+    minPrice?: number | string;
+    maxPrice?: number | string;
+}
+
 export class DirectoryAgentsResource {
     constructor(private readonly client: HttpClient) { }
 
-    list(options: DirectoryRequestOptions = {}): APIPromise<DirectoryAgentListResponse> {
+    list(input: DirectoryAgentListInput = {}, options: DirectoryRequestOptions = {}): APIPromise<DirectoryAgentListResponse> {
         return this.client.request<DirectoryAgentListResponse>({
             method: "GET",
             path: "/agents",
-            signal: options.signal,
-            timeoutMs: options.timeoutMs,
+            query: {
+                limit: input.limit,
+                cursor: input.cursor || undefined,
+                q: input.q || input.query,
+                sort: input.sort,
+                creator: input.creator,
+                chain: input.chain,
+                framework: input.framework,
+                cloneable: typeof input.cloneable === "boolean" ? String(input.cloneable) : undefined,
+                skill: input.skill,
+                plugin: input.plugin,
+                minPrice: input.minPrice,
+                maxPrice: input.maxPrice,
+            },
+            signal: options.signal ?? input.signal,
+            timeoutMs: options.timeoutMs ?? input.timeoutMs,
         });
     }
 
