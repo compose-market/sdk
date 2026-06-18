@@ -46,7 +46,7 @@ import type {
     MemoryPatternValidation,
     MemoryScheduleStatus,
     MemoryVector,
-    MemoryWorkflowManifest,
+    MemoryLoopManifest,
     ProceduralPattern,
     SessionMemory,
 } from "../types/index.js";
@@ -235,12 +235,12 @@ export class MemoryResource {
         return this.request("POST", "/api/memory/evals/runs", params, options);
     }
 
-    listWorkflows(options: MemoryRequestOptions = {}): APIPromise<{ workflows: MemoryWorkflowManifest[] }> {
-        return this.request("GET", "/api/memory/workflows", undefined, options);
+    listLoops(options: MemoryRequestOptions = {}): APIPromise<{ loops: MemoryLoopManifest[] }> {
+        return this.request("GET", "/api/memory/loops", undefined, options);
     }
 
-    getWorkflow(workflowId: string, options: MemoryRequestOptions = {}): APIPromise<{ workflow: MemoryWorkflowManifest }> {
-        return this.request("GET", `/api/memory/workflows/${encodeURIComponent(workflowId)}`, undefined, options);
+    getLoop(loopId: string, options: MemoryRequestOptions = {}): APIPromise<{ loop: MemoryLoopManifest }> {
+        return this.request("GET", `/api/memory/loops/${encodeURIComponent(loopId)}`, undefined, options);
     }
 
     listPatterns(
