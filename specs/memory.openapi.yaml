@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Memory
-  version: 0.6.98
+  version: 0.7.13
   summary: Agent-first memory loop and low-level memory primitives.
   description: |
     Standalone Compose Memory contract. This SDK surface is intentionally
@@ -32,7 +32,7 @@ paths:
       operationId: context_assemble
       summary: Assemble compact pre-turn memory context.
       description: |
-        Agent-first workflow step. Call before reasoning or tool use. Returns a
+        Agent-first memory loop step. Call before reasoning or tool use. Returns a
         compact prompt and structured memory items across working, scene, graph,
         patterns, archives, and vectors.
       requestBody:
@@ -53,7 +53,7 @@ paths:
       operationId: turn_record
       summary: Persist the completed turn.
       description: |
-        Agent-first workflow step. Call after the assistant final answer to store
+        Agent-first memory loop step. Call after the assistant final answer to store
         transcript, working memory, and vector memory for later retrieval.
       requestBody:
         "$ref": "#/components/requestBodies/AgentMemoryRecordTurnRequest"
@@ -73,7 +73,7 @@ paths:
       operationId: remember
       summary: Save an explicit durable fact or preference.
       description: |
-        Agent-first workflow step. Call when the agent identifies a durable fact,
+        Agent-first memory loop step. Call when the agent identifies a durable fact,
         preference, correction, decision, or operational lesson.
       requestBody:
         "$ref": "#/components/requestBodies/AgentMemoryRememberRequest"
@@ -109,38 +109,38 @@ paths:
                 - "$ref": "#/components/schemas/AgentMemoryRememberResponse"
         '400':
           "$ref": "#/components/responses/ErrorResponse"
-  "/api/memory/workflows":
+  "/api/memory/loops":
     get:
       tags:
       - memory
-      operationId: workflows_list
-      summary: List compact agent-first memory workflow manifests.
+      operationId: loops_list
+      summary: List compact agent-first memory loop manifests.
       responses:
         '200':
-          description: Memory workflow manifests.
+          description: Memory loop manifests.
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/MemoryWorkflowListResponse"
-  "/api/memory/workflows/{workflowId}":
+                "$ref": "#/components/schemas/MemoryLoopListResponse"
+  "/api/memory/loops/{loopId}":
     get:
       tags:
       - memory
-      operationId: workflows_get
-      summary: Fetch one compact memory workflow manifest.
+      operationId: loops_get
+      summary: Fetch one compact memory loop manifest.
       parameters:
-      - name: workflowId
+      - name: loopId
         in: path
         required: true
         schema:
           type: string
       responses:
         '200':
-          description: Memory workflow manifest.
+          description: Memory loop manifest.
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/MemoryWorkflowResponse"
+                "$ref": "#/components/schemas/MemoryLoopResponse"
         '404':
           "$ref": "#/components/responses/ErrorResponse"
   "/api/memory/patterns":
@@ -159,7 +159,7 @@ paths:
         schema:
           type: string
           enum:
-          - workflow
+          - routine
           - decision
           - response
           - tool_sequence
@@ -1392,7 +1392,7 @@ components:
           type: integer
         items:
           type: integer
-    AgentMemoryWorkflowEnvelope:
+    AgentMemoryLoopEnvelope:
       type: object
       required:
       - v
@@ -1401,7 +1401,7 @@ components:
       properties:
         v:
           type: string
-          const: compose.agent_memory.v1
+          const: compose.agent_memory_loop.v1
         step:
           "$ref": "#/components/schemas/AgentMemoryLoopStep"
         next:
@@ -1429,7 +1429,7 @@ components:
     AgentMemoryContextResponse:
       type: object
       required:
-      - workflow
+      - loop
       - contextId
       - prompt
       - items
@@ -1437,8 +1437,8 @@ components:
       - contextUsage
       - omitted
       properties:
-        workflow:
-          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        loop:
+          "$ref": "#/components/schemas/AgentMemoryLoopEnvelope"
         contextId:
           type: string
         prompt:
@@ -1467,15 +1467,15 @@ components:
     AgentMemoryRecordTurnResponse:
       type: object
       required:
-      - workflow
+      - loop
       - success
       - sessionId
       - threadId
       - turnId
       - stored
       properties:
-        workflow:
-          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        loop:
+          "$ref": "#/components/schemas/AgentMemoryLoopEnvelope"
         success:
           type: boolean
           const: true
@@ -1503,13 +1503,13 @@ components:
     AgentMemoryRememberResponse:
       type: object
       required:
-      - workflow
+      - loop
       - success
       - graphSaved
       - vectorSaved
       properties:
-        workflow:
-          "$ref": "#/components/schemas/AgentMemoryWorkflowEnvelope"
+        loop:
+          "$ref": "#/components/schemas/AgentMemoryLoopEnvelope"
         success:
           type: boolean
         graphSaved:
@@ -1541,7 +1541,7 @@ components:
           type: string
           enum:
           - active
-    MemoryWorkflowStepManifest:
+    MemoryLoopStepManifest:
       type: object
       required:
       - operationId
@@ -1562,7 +1562,7 @@ components:
           type: string
         purpose:
           type: string
-    MemoryWorkflowManifest:
+    MemoryLoopManifest:
       type: object
       required:
       - id
@@ -1576,7 +1576,7 @@ components:
           type: string
         version:
           type: string
-          const: compose.agent_memory.v1
+          const: compose.agent_memory_loop.v1
         description:
           type: string
         loop:
@@ -1593,23 +1593,23 @@ components:
         steps:
           type: array
           items:
-            "$ref": "#/components/schemas/MemoryWorkflowStepManifest"
-    MemoryWorkflowListResponse:
+            "$ref": "#/components/schemas/MemoryLoopStepManifest"
+    MemoryLoopListResponse:
       type: object
       required:
-      - workflows
+      - loops
       properties:
-        workflows:
+        loops:
           type: array
           items:
-            "$ref": "#/components/schemas/MemoryWorkflowManifest"
-    MemoryWorkflowResponse:
+            "$ref": "#/components/schemas/MemoryLoopManifest"
+    MemoryLoopResponse:
       type: object
       required:
-      - workflow
+      - loop
       properties:
-        workflow:
-          "$ref": "#/components/schemas/MemoryWorkflowManifest"
+        loop:
+          "$ref": "#/components/schemas/MemoryLoopManifest"
     ProceduralPattern:
       type: object
       required:
@@ -1638,7 +1638,7 @@ components:
         patternType:
           type: string
           enum:
-          - workflow
+          - routine
           - decision
           - response
           - tool_sequence

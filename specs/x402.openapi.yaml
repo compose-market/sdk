@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose x402
-  version: 0.6.98
+  version: 0.7.13
   summary: x402 settlement, Compose Keys, sessions, payments, and facilitator contracts.
   description: |
     Canonical contract for Compose x402 settlement, reusable Compose Keys,
@@ -148,7 +148,7 @@ paths:
     post:
       tags:
       - compose-keys
-      operationId: compose_keys_create
+      operationId: create
       parameters:
       - "$ref": "#/components/parameters/SessionUserAddressHeader"
       - "$ref": "#/components/parameters/ChainIdHeader"
@@ -172,7 +172,7 @@ paths:
     get:
       tags:
       - compose-keys
-      operationId: compose_keys_list
+      operationId: list
       parameters:
       - "$ref": "#/components/parameters/SessionUserAddressHeader"
       - "$ref": "#/components/parameters/ChainIdHeader"
@@ -203,7 +203,7 @@ paths:
     get:
       tags:
       - compose-keys
-      operationId: compose_keys_get
+      operationId: get
       security:
       - ComposeKeyAuth: []
       responses:
@@ -220,7 +220,7 @@ paths:
     delete:
       tags:
       - compose-keys
-      operationId: compose_keys_revoke
+      operationId: revoke
       security:
       - ComposeKeyAuth: []
       responses:
@@ -760,8 +760,8 @@ components:
           type: string
         agentWallet:
           "$ref": "#/components/schemas/WalletAddress"
-        workflowId:
-          type: string
+        workflowWallet:
+          "$ref": "#/components/schemas/WalletAddress"
         endpoint:
           type: object
           additionalProperties: false

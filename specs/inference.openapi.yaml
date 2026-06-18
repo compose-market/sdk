@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Inference
-  version: 0.6.98
+  version: 0.7.13
   summary: Model discovery, inference, and realtime inference stream contracts.
   description: |
     Canonical contract for Compose model discovery, serverless inference,
@@ -227,8 +227,8 @@ paths:
         '200':
           description: Chat completion or SSE stream when `stream` is true.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
             PAYMENT-RESPONSE:
               "$ref": "#/components/headers/PaymentResponse"
           content:
@@ -263,8 +263,8 @@ paths:
         '200':
           description: Response object or SSE stream when `stream` is true.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
             PAYMENT-RESPONSE:
               "$ref": "#/components/headers/PaymentResponse"
           content:
@@ -353,8 +353,8 @@ paths:
         '200':
           description: Embedding response.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -383,8 +383,8 @@ paths:
         '200':
           description: Image generation response.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -420,8 +420,8 @@ paths:
         '200':
           description: Image edit response.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -450,8 +450,8 @@ paths:
         '200':
           description: Audio bytes.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/octet-stream:
               schema:
@@ -483,8 +483,8 @@ paths:
         '200':
           description: Transcription result.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -513,8 +513,8 @@ paths:
         '200':
           description: Completed video generation result.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -522,8 +522,8 @@ paths:
         '202':
           description: Accepted asynchronous video generation job.
           headers:
-            X-Compose-Receipt:
-              "$ref": "#/components/headers/ComposeReceipt"
+            X-Receipt:
+              "$ref": "#/components/headers/Receipt"
           content:
             application/json:
               schema:
@@ -687,7 +687,7 @@ components:
       description: Base64-url encoded x402 settlement response.
       schema:
         type: string
-    ComposeReceipt:
+    Receipt:
       description: Base64-url encoded Compose receipt.
       schema:
         type: string
@@ -853,6 +853,7 @@ components:
       - audio
       - video
       - embedding
+      - realtime
     PricingUnit:
       type: object
       required:
@@ -994,6 +995,8 @@ components:
           - 'null'
         provider:
           "$ref": "#/components/schemas/ModelProvider"
+        family:
+          type: string
         type:
           oneOf:
           - type: string
@@ -1150,7 +1153,7 @@ components:
         defaults:
           type: object
           additionalProperties: true
-    ComposeAttachment:
+    Attachment:
       type: object
       additionalProperties: true
       properties:
@@ -1196,14 +1199,14 @@ components:
         metadata:
           type: object
           additionalProperties: true
-    ComposeAttachmentInput:
+    AttachmentInput:
       oneOf:
-      - "$ref": "#/components/schemas/ComposeAttachment"
+      - "$ref": "#/components/schemas/Attachment"
       - type: string
-    ComposeAttachments:
+    Attachments:
       type: array
       items:
-        "$ref": "#/components/schemas/ComposeAttachmentInput"
+        "$ref": "#/components/schemas/AttachmentInput"
     ResponseFormat:
       type: object
       additionalProperties: true
@@ -1247,11 +1250,11 @@ components:
         messages:
           type: array
           items:
-            "$ref": "#/components/schemas/ChatMessage"
+            "$ref": "#/components/schemas/Message"
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         temperature:
           type: number
         top_p:
@@ -1314,7 +1317,7 @@ components:
         text:
           type: object
           additionalProperties: true
-    ChatMessage:
+    Message:
       type: object
       required:
       - role
@@ -1373,10 +1376,10 @@ components:
         usage:
           type: object
           additionalProperties: true
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     ChatCompletionStream:
-      description: SSE frames carrying chat completion chunks plus `compose.receipt`
+      description: SSE frames carrying chat completion chunks plus `receipt`
         and `compose.error`.
       type: string
     ResponsesCreateRequest:
@@ -1390,9 +1393,9 @@ components:
           type: string
         input: {}
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         stream:
           type: boolean
         modalities:
@@ -1508,12 +1511,12 @@ components:
           type: string
         job_id:
           type: string
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     ResponseEventStream:
       description: SSE frames for response creation, text deltas, reasoning deltas,
         tool calls, image partials, typed output items for text/image/audio/video/embedding,
-        video status, completion, `compose.receipt`, and `compose.error`.
+        video status, completion, `receipt`, and `compose.error`.
       type: string
     EmbeddingsCreateRequest:
       type: object
@@ -1531,9 +1534,9 @@ components:
             items:
               type: string
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         dimensions:
           type: integer
         encoding_format:
@@ -1561,8 +1564,8 @@ components:
         usage:
           type: object
           additionalProperties: true
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     ImagesGenerateRequest:
       type: object
       required:
@@ -1575,9 +1578,9 @@ components:
         prompt:
           type: string
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         n:
           type: integer
         size:
@@ -1604,8 +1607,8 @@ components:
           items:
             type: object
             additionalProperties: true
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     AudioSpeechCreateRequest:
       type: object
       required:
@@ -1618,9 +1621,9 @@ components:
         input:
           type: string
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         voice:
           type: string
         response_format:
@@ -1641,9 +1644,9 @@ components:
         file:
           type: string
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         filename:
           type: string
         language:
@@ -1669,8 +1672,8 @@ components:
       properties:
         text:
           type: string
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     VideoGenerateRequest:
       type: object
       required:
@@ -1682,9 +1685,9 @@ components:
         prompt:
           type: string
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         duration:
           type: integer
         aspect_ratio:
@@ -1722,8 +1725,8 @@ components:
           items:
             type: object
             additionalProperties: true
-        compose_receipt:
-          "$ref": "#/components/schemas/ComposeReceiptBody"
+        receipt:
+          "$ref": "#/components/schemas/ReceiptBody"
     VideoJobStatus:
       type: object
       required:
@@ -1752,7 +1755,7 @@ components:
     VideoStatusEventStream:
       description: SSE frames named `compose.video.status`, `compose.error`, and `done`.
       type: string
-    ComposeReceiptBody:
+    ReceiptBody:
       type: object
       additionalProperties: true
       properties:
@@ -1761,7 +1764,7 @@ components:
         line_items:
           type: array
           items:
-            "$ref": "#/components/schemas/ComposeReceiptLineItem"
+            "$ref": "#/components/schemas/ReceiptLineItem"
         provider_amount_wei:
           "$ref": "#/components/schemas/AtomicAmount"
         platform_fee_wei:
@@ -1774,7 +1777,7 @@ components:
           "$ref": "#/components/schemas/ChainNetwork"
         settled_at:
           type: integer
-    ComposeReceiptLineItem:
+    ReceiptLineItem:
       type: object
       required:
       - key

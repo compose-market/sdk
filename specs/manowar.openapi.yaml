@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: Compose Manowar
-  version: 0.6.98
+  version: 0.7.13
   summary: Agent, workflow, workspace, connector, MCP, and mesh execution contracts.
   description: |
     Canonical contract for Compose manowar loops: agents, workflows, workspace
@@ -77,7 +77,7 @@ paths:
         '200':
           description: Completed agent execution.
           headers:
-            x-compose-run-id:
+            x-run-id:
               "$ref": "#/components/headers/ComposeRunId"
           content:
             application/json:
@@ -112,7 +112,7 @@ paths:
           description: Agent SSE stream carrying thinking, text, tool, error, and
             done frames.
           headers:
-            x-compose-run-id:
+            x-run-id:
               "$ref": "#/components/headers/ComposeRunId"
           content:
             text/event-stream:
@@ -247,7 +247,7 @@ paths:
           description: Workflow SSE stream carrying start, step, agent, progress,
             tool, result, error, and done frames.
           headers:
-            x-compose-run-id:
+            x-run-id:
               "$ref": "#/components/headers/ComposeRunId"
           content:
             text/event-stream:
@@ -604,40 +604,6 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/runtime/execute":
-    post:
-      tags:
-      - connectors
-      operationId: connectors_runtime_execute
-      security:
-      - RuntimeBearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - source
-              - toolName
-              properties:
-                source:
-                  type: string
-                  enum:
-                  - onchain
-                  - mcp
-                pluginId:
-                  type: string
-                serverId:
-                  type: string
-                toolName:
-                  type: string
-                args:
-                  type: object
-                  additionalProperties: true
-      responses:
-        '200':
-          "$ref": "#/components/responses/JsonObjectResponse"
   "/mesh/actions/execute":
     post:
       tags:
@@ -821,7 +787,7 @@ components:
       schema:
         "$ref": "#/components/schemas/AtomicAmount"
     LocalRuntimeTokenHeader:
-      name: x-compose-local-runtime-token
+      name: x-local-runtime-token
       in: header
       required: false
       schema:
@@ -880,7 +846,7 @@ components:
           type: string
         timestamp:
           type: string
-    ComposeAttachment:
+    Attachment:
       type: object
       additionalProperties: true
       properties:
@@ -925,14 +891,14 @@ components:
         metadata:
           type: object
           additionalProperties: true
-    ComposeAttachmentInput:
+    AttachmentInput:
       oneOf:
-      - "$ref": "#/components/schemas/ComposeAttachment"
+      - "$ref": "#/components/schemas/Attachment"
       - type: string
-    ComposeAttachments:
+    Attachments:
       type: array
       items:
-        "$ref": "#/components/schemas/ComposeAttachmentInput"
+        "$ref": "#/components/schemas/AttachmentInput"
     AgentChatRequest:
       type: object
       required:
@@ -951,9 +917,9 @@ components:
         userAddress:
           "$ref": "#/components/schemas/WalletAddress"
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         sessionGrants:
           type: array
           items:
@@ -1019,9 +985,9 @@ components:
         audio:
           type: string
         attachment:
-          "$ref": "#/components/schemas/ComposeAttachmentInput"
+          "$ref": "#/components/schemas/AttachmentInput"
         attachments:
-          "$ref": "#/components/schemas/ComposeAttachments"
+          "$ref": "#/components/schemas/Attachments"
         continuous:
           type: boolean
         composeRunId:
