@@ -7,7 +7,7 @@
  *   - `x-session-budget-used`       spent (wei, string)
  *   - `x-session-budget-locked`     reserved (wei, string)
  *   - `x-session-budget-remaining`  remaining (wei, string)
- *   - `x-compose-session-invalid`   truthy string when the session must be torn
+ *   - `x-session-invalid`   truthy string when the session must be torn
  *                                   down (e.g. "budget-depleted", "expired")
  *
  * This helper converts them into a typed object for the SDK event bus.
@@ -23,7 +23,7 @@ export function extractSessionBudgetFromResponse(
     const locked = response.headers.get("x-session-budget-locked");
     const remaining = response.headers.get("x-session-budget-remaining");
 
-    const invalidRaw = response.headers.get("x-compose-session-invalid");
+    const invalidRaw = response.headers.get("x-session-invalid");
     const sessionInvalidReason = typeof invalidRaw === "string" && invalidRaw.length > 0
         ? (invalidRaw as SessionInvalidReason)
         : null;
