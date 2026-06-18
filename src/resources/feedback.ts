@@ -127,13 +127,13 @@ export class FeedbackResource {
         });
     }
 
-    workflow(workflowId: string, input: FeedbackWithoutTarget): APIPromise<FeedbackSubmitResponse> {
+    workflow(workflowWallet: string, input: FeedbackWithoutTarget): APIPromise<FeedbackSubmitResponse> {
         return this.submit({
             ...input,
-            target: { type: "workflow", id: workflowId },
+            target: { type: "workflow", id: workflowWallet },
             context: {
                 ...(input.context ?? {}),
-                workflowId: input.context?.workflowId ?? workflowId,
+                workflowWallet: input.context?.workflowWallet ?? workflowWallet,
             },
         });
     }
