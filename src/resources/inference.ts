@@ -6,7 +6,7 @@ import type {
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionsCreateParams,
-    ComposeReceipt,
+    Receipt,
     EmbeddingsCreateParams,
     EmbeddingsResponse,
     ImagesGenerateParams,
@@ -15,7 +15,6 @@ import type {
     ComposePaymentMode,
     ResponseOutputItem,
     ResponseObject,
-    ResponseStreamEvent,
     ResponsesCreateParams,
     SessionBudgetSnapshot,
     SessionInvalidReason,
@@ -24,11 +23,11 @@ import type {
     VideoGenerateParams,
     VideoGenerateResponse,
     VideoJobStatus,
-    VideoStatusStreamEvent,
 } from "../types/index.js";
 import { AuthenticationError, BadRequestError, ComposeError, ComposePaymentRequiredError } from "../errors.js";
 import { parseSSEStream } from "../streaming/sse.js";
 import { parseReceiptEvent } from "../streaming/receipt.js";
+import { decode as decodeModelEvent, type ModelEvent } from "@compose-market/core/model";
 import { encodePaymentSignature } from "./x402.js";
 import {
     instrumentBillableResponse,
@@ -36,6 +35,18 @@ import {
 } from "./instrumentation.js";
 
 export type { InferenceContext } from "./instrumentation.js";
+
+type WireResponseStreamEvent =
+    | { type: "response.created"; response: ResponseObject }
+    | { type: "response.output_text.delta"; response_id: string; model: string; delta: string }
+    | { type: "response.reasoning.delta"; response_id: string; model: string; delta: string }
+    | { type: "response.tool_call"; response_id: string; model: string; tool_call: { id: string; name: string; arguments: string } }
+    | { type: "response.tool_call.delta"; response_id: string; model: string; index: number; delta: { id?: string; name?: string; arguments?: string } }
+    | { type: "response.image_generation_call.partial_image"; response_id: string; model: string; partial_image_index: number; partial_image_b64: string }
+    | { type: "response.image_generation_call.completed"; response_id: string; model: string; image_b64: string; mime_type?: string; revised_prompt?: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } }
+    | { type: "response.output_item.completed"; response_id: string; model: string; output_index: number; item: ResponseOutputItem }
+    | { type: "response.output_video.status"; response_id: string; model: string; job_id: string; status: "queued" | "processing" | "completed" | "failed"; progress?: number; url?: string; error?: string }
+    | { type: "response.completed"; response_id: string; model: string; finish_reason: string; usage?: { input_tokens: number; output_tokens: number; total_tokens: number } };
 
 export interface ComposeCallOptions {
     signal?: AbortSignal;
@@ -65,21 +76,21 @@ export interface ComposeCallOptions {
  * Typed wrapper returned by every billable, non-streaming inference call.
  *
  * `data`               — the parsed JSON body.
- * `receipt`            — the settlement receipt decoded from `X-Compose-Receipt`
- *                        (or mirrored from the `compose_receipt` body field).
+ * `receipt`            — the settlement receipt decoded from `X-Receipt`
+ *                        (or mirrored from the `receipt` body field).
  * `requestId`          — the server-issued `X-Request-Id` for tracing.
  * `response`           — the raw `Response` (still-readable if the caller asked
  *                        for `.asResponse()` directly; consumed here).
  * `budget`             — live `x-session-budget-*` snapshot parsed from
  *                        response headers, or `null` if the endpoint did not
  *                        emit budget headers.
- * `sessionInvalidReason` — truthy `x-compose-session-invalid` value when the
+ * `sessionInvalidReason` — truthy `x-session-invalid` value when the
  *                        session must be torn down as a side effect of this
  *                        call (budget depleted, revoked, etc).
  */
 export interface ComposeCompletion<T> {
     data: T;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     requestId: string | null;
     response: Response;
     budget: SessionBudgetSnapshot | null;
@@ -88,7 +99,7 @@ export interface ComposeCompletion<T> {
 
 export interface ChatCompletionFinalResult {
     chatCompletion: ChatCompletion;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     requestId: string | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
@@ -97,7 +108,7 @@ export interface ChatCompletionFinalResult {
 export interface ResponsesStreamFinalResult {
     response: ResponseObject | null;
     toolCalls: Array<{ id: string; name: string; arguments: string }>;
-    receipt: ComposeReceipt | null;
+    receipt: Receipt | null;
     requestId: string | null;
     budget: SessionBudgetSnapshot | null;
     sessionInvalidReason: SessionInvalidReason | null;
@@ -114,8 +125,8 @@ export function buildCallHeaders(
     const tokenResolved = options?.paymentMode === "x402"
         ? null
         : options && "composeKey" in options
-        ? options.composeKey
-        : ctxToken;
+            ? options.composeKey
+            : ctxToken;
 
     return {
         userAddress: options?.userAddress ?? ctxWallet.address ?? undefined,
@@ -276,12 +287,12 @@ function toComposeCompletion<T>(
 /**
  * Emit budget / receipt / invalid events for a streaming response. The receipt
  * is attached optionally because streaming calls produce it via the in-band
- * `compose.receipt` SSE frame, not necessarily via the header.
+ * `receipt` SSE frame, not necessarily via the header.
  */
 function emitStreamingEvents(
     ctx: InferenceContext,
     response: Response,
-    receipt: ComposeReceipt | null,
+    receipt: Receipt | null,
     requestId: string | null,
 ): { budget: SessionBudgetSnapshot | null; sessionInvalidReason: SessionInvalidReason | null } {
     const walletCtx = ctx.getWalletMaybe();
@@ -372,7 +383,7 @@ async function encodeAudioFile(value: AudioTranscriptionCreateParams["file"]): P
  * return value is captured internally so a subsequent `await stream.final()`
  * resolves to the typed final object even when the caller drove iteration.
  */
-export class ComposeStreamIterator<Chunk, Final> implements AsyncIterable<Chunk> {
+export class StreamIterator<Chunk, Final> implements AsyncIterable<Chunk> {
     private readonly iterator: AsyncGenerator<Chunk, Final, void>;
     private finalResult: Final | null = null;
     private finalSettled = false;
@@ -436,7 +447,7 @@ class ChatCompletionsNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     async create(
         params: ChatCompletionsCreateParams,
@@ -462,9 +473,9 @@ class ChatCompletionsNamespace {
     stream(
         params: ChatCompletionsCreateParams,
         options?: ComposeCallOptions,
-    ): ComposeStreamIterator<ChatCompletionChunk, ChatCompletionFinalResult> {
+    ): StreamIterator<ModelEvent, ChatCompletionFinalResult> {
         const iterator = streamChatCompletions(this.client, this.ctx, params, options);
-        return new ComposeStreamIterator(iterator);
+        return new StreamIterator(iterator);
     }
 }
 
@@ -473,7 +484,7 @@ async function* streamChatCompletions(
     ctx: InferenceContext,
     params: ChatCompletionsCreateParams,
     options: ComposeCallOptions | undefined,
-): AsyncGenerator<ChatCompletionChunk, ChatCompletionFinalResult, void> {
+): AsyncGenerator<ModelEvent, ChatCompletionFinalResult, void> {
     const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/chat/completions",
@@ -491,7 +502,7 @@ async function* streamChatCompletions(
         });
     }
 
-    let receipt: ComposeReceipt | null = null;
+    let receipt: Receipt | null = null;
     const aggregator = buildChatCompletionAggregator(params.model);
     const emittedToolStarts = new Set<string>();
     let streamError: ComposeError | null = null;
@@ -499,7 +510,7 @@ async function* streamChatCompletions(
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: options?.signal })) {
-            if (frame.event === "compose.receipt") {
+            if (frame.event === "receipt") {
                 try { receipt = parseReceiptEvent(frame.data); } catch { /* ignore */ }
                 continue;
             }
@@ -512,6 +523,8 @@ async function* streamChatCompletions(
                         details: parsed.details,
                     });
                 } catch { /* ignore */ }
+                const decoded = decodeModelEvent(frame, { runId: options?.composeRunId });
+                if (decoded) yield decoded;
                 continue;
             }
             if (frame.data === "[DONE]") {
@@ -571,7 +584,8 @@ async function* streamChatCompletions(
                 }
             }
 
-            yield parsed;
+            const decoded = decodeModelEvent(parsed, { runId: options?.composeRunId, responseId: parsed.id, model: parsed.model });
+            if (decoded) yield decoded;
         }
 
         if (streamError) throw streamError;
@@ -674,7 +688,7 @@ class ResponsesNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     async create(
         params: ResponsesCreateParams,
@@ -699,9 +713,9 @@ class ResponsesNamespace {
     stream(
         params: ResponsesCreateParams,
         options?: ComposeCallOptions,
-    ): ComposeStreamIterator<ResponseStreamEvent, ResponsesStreamFinalResult> {
+    ): StreamIterator<ModelEvent, ResponsesStreamFinalResult> {
         const iterator = streamResponses(this.client, this.ctx, params, options);
-        return new ComposeStreamIterator(iterator);
+        return new StreamIterator(iterator);
     }
 
     async get(responseId: string, options?: ComposeCallOptions): Promise<ResponseObject> {
@@ -724,6 +738,24 @@ class ResponsesNamespace {
         });
     }
 
+    async append(
+        responseId: string,
+        params: { input?: unknown; params?: Record<string, unknown>; custom_params?: Record<string, unknown>; [key: string]: unknown } | unknown,
+        options?: ComposeCallOptions,
+    ): Promise<{ object: "list"; data: Record<string, unknown>[] }> {
+        const body = params && typeof params === "object" && !Array.isArray(params)
+            ? params as Record<string, unknown>
+            : { input: params };
+        return this.client.request({
+            method: "POST",
+            path: `/v1/responses/${encodeURIComponent(responseId)}/input_items`,
+            body,
+            headers: buildCallHeaders(options, this.ctx.getWalletMaybe(), this.ctx.getTokenMaybe()),
+            signal: options?.signal,
+            timeoutMs: options?.timeoutMs,
+        });
+    }
+
     async cancel(responseId: string, options?: ComposeCallOptions): Promise<ResponseObject> {
         return this.client.request<ResponseObject>({
             method: "POST",
@@ -740,7 +772,7 @@ async function* streamResponses(
     ctx: InferenceContext,
     params: ResponsesCreateParams,
     options: ComposeCallOptions | undefined,
-): AsyncGenerator<ResponseStreamEvent, ResponsesStreamFinalResult, void> {
+): AsyncGenerator<ModelEvent, ResponsesStreamFinalResult, void> {
     const response = await requestResponseWithPayment<unknown>(client, ctx, {
         method: "POST",
         path: "/v1/responses",
@@ -755,8 +787,8 @@ async function* streamResponses(
         throw new ComposeError({ code: "upstream_error", message: "Streaming response had no body" });
     }
 
-    let receipt: ComposeReceipt | null = null;
-    let lastCompleted: ResponseStreamEvent | null = null;
+    let receipt: Receipt | null = null;
+    let lastCompleted: WireResponseStreamEvent | null = null;
     let streamError: ComposeError | null = null;
     let sawDone = false;
     let created: ResponseObject | null = null;
@@ -766,7 +798,7 @@ async function* streamResponses(
 
     try {
         for await (const frame of parseSSEStream(response.body, { signal: options?.signal })) {
-            if (frame.event === "compose.receipt") {
+            if (frame.event === "receipt") {
                 try { receipt = parseReceiptEvent(frame.data); } catch { /* ignore */ }
                 continue;
             }
@@ -778,6 +810,8 @@ async function* streamResponses(
                         message: parsed.message ?? "Stream error",
                     });
                 } catch { /* ignore */ }
+                const decoded = decodeModelEvent(frame, { runId: options?.composeRunId });
+                if (decoded) yield decoded;
                 continue;
             }
             if (frame.data === "[DONE]") {
@@ -787,9 +821,9 @@ async function* streamResponses(
             if (sawDone) continue;
             if (frame.event !== "message") continue;
 
-            let parsed: ResponseStreamEvent;
+            let parsed: WireResponseStreamEvent;
             try {
-                parsed = JSON.parse(frame.data) as ResponseStreamEvent;
+                parsed = JSON.parse(frame.data) as WireResponseStreamEvent;
             } catch {
                 continue;
             }
@@ -898,7 +932,10 @@ async function* streamResponses(
                     });
                 }
             }
-            yield parsed;
+            const responseId = "response_id" in parsed ? parsed.response_id : "response" in parsed ? parsed.response.id : undefined;
+            const model = "model" in parsed ? parsed.model : "response" in parsed ? parsed.response.model : undefined;
+            const decoded = decodeModelEvent(parsed, { runId: options?.composeRunId, responseId, model });
+            if (decoded) yield decoded;
         }
 
         if (streamError) throw streamError;
@@ -958,7 +995,7 @@ class EmbeddingsNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     async create(params: EmbeddingsCreateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<EmbeddingsResponse>> {
         const { data, response } = await requestJsonWithPayment<EmbeddingsResponse>(this.client, this.ctx, {
@@ -981,7 +1018,7 @@ class ImagesNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     async generate(params: ImagesGenerateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<ImagesResponse>> {
         const { data, response } = await requestJsonWithPayment<ImagesResponse>(this.client, this.ctx, {
@@ -1016,7 +1053,7 @@ class AudioNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     /**
      * Text-to-speech. Returns the raw audio `Response` (stream the body via
@@ -1025,7 +1062,7 @@ class AudioNamespace {
      */
     async speech(params: AudioSpeechCreateParams, options?: ComposeCallOptions): Promise<{
         response: Response;
-        receipt: ComposeReceipt | null;
+        receipt: Receipt | null;
         requestId: string | null;
         budget: SessionBudgetSnapshot | null;
         sessionInvalidReason: SessionInvalidReason | null;
@@ -1082,7 +1119,7 @@ class VideosNamespace {
     constructor(
         private readonly client: HttpClient,
         private readonly ctx: InferenceContext,
-    ) {}
+    ) { }
 
     async generate(params: VideoGenerateParams, options?: ComposeCallOptions): Promise<ComposeCompletion<VideoGenerateResponse>> {
         const { data, response } = await requestJsonWithPayment<VideoGenerateResponse>(this.client, this.ctx, {
@@ -1114,9 +1151,9 @@ class VideosNamespace {
     stream(
         videoId: string,
         opts: ComposeCallOptions & { pollIntervalMs?: number; timeoutMs?: number } = {},
-    ): ComposeStreamIterator<VideoStatusStreamEvent, { final: VideoJobStatus | null; requestId: string | null }> {
+    ): StreamIterator<ModelEvent, { final: VideoJobStatus | null; requestId: string | null }> {
         const iterator = streamVideoStatus(this.client, this.ctx, videoId, opts);
-        return new ComposeStreamIterator(iterator);
+        return new StreamIterator(iterator);
     }
 
     /**
@@ -1128,7 +1165,7 @@ class VideosNamespace {
         opts: ComposeCallOptions & {
             pollIntervalMs?: number;
             timeoutMs?: number;
-            onStatus?: (status: VideoStatusStreamEvent) => void;
+            onStatus?: (status: ModelEvent) => void;
         } = {},
     ): Promise<VideoJobStatus | null> {
         const stream = this.stream(videoId, opts);
@@ -1145,7 +1182,7 @@ async function* streamVideoStatus(
     ctx: InferenceContext,
     videoId: string,
     opts: ComposeCallOptions & { pollIntervalMs?: number; timeoutMs?: number },
-): AsyncGenerator<VideoStatusStreamEvent, { final: VideoJobStatus | null; requestId: string | null }, void> {
+): AsyncGenerator<ModelEvent, { final: VideoJobStatus | null; requestId: string | null }, void> {
     const query: Record<string, string> = {};
     if (opts.pollIntervalMs !== undefined) query.pollIntervalMs = String(opts.pollIntervalMs);
     if (opts.timeoutMs !== undefined) query.timeoutMs = String(opts.timeoutMs);
@@ -1172,7 +1209,6 @@ async function* streamVideoStatus(
             if (frame.data === "[DONE]") {
                 if (!emittedDone) {
                     emittedDone = true;
-                    yield { type: "done" };
                 }
                 continue;
             }
@@ -1194,15 +1230,14 @@ async function* streamVideoStatus(
                         error: parsed.error,
                         progress: parsed.progress,
                     };
-                    yield { type: "compose.video.status", ...parsed };
+                    const decoded = decodeModelEvent({ type: "compose.video.status", ...parsed }, { runId: opts.composeRunId, responseId: videoId });
+                    if (decoded) yield decoded;
                 } catch { /* skip malformed frame */ }
                 continue;
             }
             if (frame.event === "compose.error") {
-                try {
-                    const parsed = JSON.parse(frame.data) as { code?: string; message?: string; details?: Record<string, unknown> };
-                    yield { type: "compose.error", code: parsed.code ?? "upstream_error", message: parsed.message ?? "Stream error", details: parsed.details };
-                } catch { /* skip */ }
+                const decoded = decodeModelEvent(frame, { runId: opts.composeRunId, responseId: videoId });
+                if (decoded) yield decoded;
                 continue;
             }
         }
