@@ -7,13 +7,13 @@
  *
  *   - `budget`         — session-budget snapshot parsed from response headers
  *                        on every billable call.
- *   - `sessionInvalid` — `x-compose-session-invalid` header was set, the
+ *   - `sessionInvalid` — `x-session-invalid` header was set, the
  *                        session must be torn down.
  *   - `sessionExpired` — SSE `session-expired` frame arrived from
  *                        `/api/session/events`.
  *   - `sessionActive`  — SSE `session-active` heartbeat frame arrived.
- *   - `receipt`        — settlement receipt parsed from `X-Compose-Receipt`
- *                        (or the SSE `event: compose.receipt` frame).
+ *   - `receipt`        — settlement receipt parsed from `X-Receipt`
+ *                        (or the SSE `event: receipt` frame).
  *   - `alert`          — typed operational/client alert emitted by Compose
  *                        services, for example session-stream lease rotation.
  *
@@ -23,9 +23,11 @@
  */
 
 import type {
+    AgentArtifactKind,
     ComposeAlert,
-    ComposeReceipt,
+    Receipt,
     AgentEventDisplay,
+    AgentHarnessPlanDecision,
     SessionActiveEvent,
     SessionBudgetSnapshot,
     SessionExpiredEvent,
@@ -50,15 +52,15 @@ export interface SessionInvalidEvent {
 export interface ReceiptEvent {
     userAddress: string | null;
     chainId: number | null;
-    receipt: ComposeReceipt;
+    receipt: Receipt;
     requestId: string | null;
     /**
      * Which code path produced the receipt:
-     *   - "response-header" — decoded from `X-Compose-Receipt` on a normal
+     *   - "response-header" — decoded from `X-Receipt` on a normal
      *     JSON response.
-     *   - "stream"          — parsed from the `event: compose.receipt` SSE
+     *   - "stream"          — parsed from the `event: receipt` SSE
      *     frame on a streaming inference call.
-     *   - "body"            — mirrored from the `compose_receipt` field on
+     *   - "body"            — mirrored from the `receipt` field on
      *     the JSON body (fallback).
      */
     source: "response-header" | "stream" | "body";
@@ -124,6 +126,50 @@ export interface ChildAgentLifecycleEvent {
     ts?: number;
 }
 
+export interface AgentHarnessPlanEvent {
+    type: "harness_plan_proposed" | "harness_plan_decided";
+    proposalId: string;
+    version: number;
+    state: string;
+    decision?: AgentHarnessPlanDecision;
+    rootComposeRunId?: string;
+    composeRunId?: string;
+    requestedBy?: string;
+    proposal?: unknown;
+    markdown?: string;
+    ts?: number;
+    updatedAt?: number;
+    approver?: string;
+    reason?: string;
+    feedback?: string;
+    display?: AgentEventDisplay;
+    details?: Record<string, unknown>;
+    userAddress: string | null;
+    chainId: number | null;
+    requestId: string | null;
+    source: "agent";
+}
+
+export interface AgentArtifactEvent {
+    type: "artifact";
+    artifactType: AgentArtifactKind;
+    url?: string;
+    inline?: boolean;
+    mimeType?: string;
+    bytes?: number;
+    responseId?: string;
+    status?: string;
+    jobId?: string;
+    sourceTool?: string;
+    runKey?: string;
+    parentRunId?: string;
+    raw?: Record<string, unknown>;
+    userAddress: string | null;
+    chainId: number | null;
+    requestId: string | null;
+    source: "agent" | "child";
+}
+
 export interface WorkflowStreamLifecycleEvent {
     userAddress: string | null;
     chainId: number | null;
@@ -147,6 +193,9 @@ export interface ComposeEventMap {
     childAgentToolEnd: ChildAgentLifecycleEvent;
     childAgentDone: ChildAgentLifecycleEvent;
     childAgentError: ChildAgentLifecycleEvent;
+    harnessPlanProposed: AgentHarnessPlanEvent;
+    harnessPlanDecided: AgentHarnessPlanEvent;
+    agentArtifact: AgentArtifactEvent;
     agentStreamStart: AgentStreamLifecycleEvent;
     agentStreamEnd: AgentStreamLifecycleEvent;
     workflowStreamStart: WorkflowStreamLifecycleEvent;

@@ -102,7 +102,7 @@ export interface APIPromise<T> extends PromiseLike<T> {
 }
 
 const RETRYABLE_STATUSES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
-export const SDK_CLIENT_HEADER = "x-compose-sdk";
+export const SDK_CLIENT_HEADER = "x-sdk";
 
 export function isBrowserLikeRuntime(): boolean {
     const root = globalThis as typeof globalThis & {
@@ -235,7 +235,7 @@ export function buildHeaders(input: HeaderBagInput & {
     }
 
     if (input.composeRunId) {
-        headers.set("x-compose-run-id", input.composeRunId);
+        headers.set("x-run-id", input.composeRunId);
     }
 
     if (input.requestId) {
@@ -324,6 +324,11 @@ export class HttpClient {
     constructor(options: HttpClientOptions) {
         this.options = options;
     }
+
+    get baseUrl(): string {
+        return this.options.baseUrl;
+    }
+
 
     request<T>(config: RequestOptions): APIPromise<T> {
         // The promise is built lazily and backed by one network execution.

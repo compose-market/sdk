@@ -12,7 +12,7 @@
  *     typed tool-call deltas and reasoning deltas, typed cost receipts, and
  *     live session-budget updates emitted on every response.
  *   - x402 facilitator access (supported / chains / verify / settle) and typed
- *     decoders for PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-Compose-Receipt.
+ *     decoders for PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-Receipt.
  *   - Agent-first runtime memory loop (`sdk.memory.context`,
  *     `sdk.memory.recordTurn`, `sdk.memory.remember`, `sdk.memory.loop`) for
  *     compact pre-turn recall, post-turn persistence, and durable facts.
@@ -64,7 +64,9 @@ import { SystemResource } from "./resources/system.js";
 import { LocalResource } from "./resources/local.js";
 import { DispenserResource } from "./resources/dispenser.js";
 import { SettlementResource } from "./resources/settlement.js";
-import { BackpackResource } from "./resources/backpack.js";
+import { PermissionsResource } from "./resources/permissions.js";
+import { AccountsResource } from "./resources/accounts.js";
+import { ChannelsResource } from "./resources/channels.js";
 import { ReceiptsResource } from "./resources/receipts.js";
 import { instrumentBillableResponse } from "./resources/instrumentation.js";
 import { encodePaymentSignature } from "./resources/x402.js";
@@ -95,7 +97,7 @@ export type {
     ComposeCompletion,
     ChatCompletionFinalResult,
     ResponsesStreamFinalResult,
-    ComposeStreamIterator,
+    StreamIterator,
     InferenceContext,
 } from "./resources/inference.js";
 export type {
@@ -112,13 +114,15 @@ export type {
     SessionInvalidEvent,
     ToolCallLifecycleEvent,
     ChildAgentLifecycleEvent,
+    AgentArtifactEvent,
+    AgentHarnessPlanEvent,
     AgentStreamLifecycleEvent,
     WorkflowStreamLifecycleEvent,
 } from "./events.js";
 export type { ComposeStorage } from "./storage.js";
 export type { SessionEventsOptions } from "./resources/session-events.js";
-export type { AgentResource } from "./resources/agent.js";
-export type { WorkflowResource } from "./resources/workflow.js";
+export type { AgentResource, RunEvent } from "./resources/agent.js";
+export type { WorkflowEvent, WorkflowResource } from "./resources/workflow.js";
 export type { MemoryResource } from "./resources/memory.js";
 export type { FeedbackResource } from "./resources/feedback.js";
 export type { DirectoryResource } from "./resources/directory.js";
@@ -126,11 +130,39 @@ export type { SystemResource } from "./resources/system.js";
 export type { LocalResource } from "./resources/local.js";
 export type { DispenserResource } from "./resources/dispenser.js";
 export type { SettlementResource } from "./resources/settlement.js";
-export type { BackpackResource } from "./resources/backpack.js";
+export type { PermissionsResource } from "./resources/permissions.js";
+export type { AccountsResource } from "./resources/accounts.js";
+export type { ChannelsResource } from "./resources/channels.js";
 export type { ReceiptsResource, ReceiptListOptions } from "./resources/receipts.js";
 
 export { decodeReceiptHeader, extractReceiptFromResponse, parseReceiptEvent } from "./streaming/receipt.js";
-export { parseSSEStream } from "./streaming/sse.js";
+export { parseSSEStream, parse, format, named, done } from "@compose-market/core/transport";
+export type { Frame, SSEFrame } from "@compose-market/core/transport";
+export {
+    create as createModelState,
+    decode as decodeModelEvent,
+    reduce as reduceModelState,
+} from "@compose-market/core/model";
+export type {
+    AssetKind,
+    ModelAsset,
+    ModelEvent,
+    ModelState,
+    ModelStatus,
+} from "@compose-market/core/model";
+export {
+    create as createActivityState,
+    decode as decodeActivityEvent,
+    reduce as reduceActivityState,
+} from "@compose-market/core/activity";
+export type {
+    ActivityEvent,
+    ActivityKind,
+    ActivityNode,
+    ActivityState,
+    ActivityStatus,
+    ActivityTarget,
+} from "@compose-market/core/activity";
 export { extractSessionBudgetFromResponse } from "./streaming/budget.js";
 export {
     createPrivateKeyX402EvmSigner,
@@ -147,6 +179,8 @@ export { createMemoryStorage } from "./storage.js";
 export interface ComposeSDKOptions {
     /** API base URL. Defaults to `https://api.compose.market`. */
     baseUrl?: string;
+    /** Channels service URL. Defaults to `https://services.compose.market`. */
+    channelsUrl?: string;
     /** Custom fetch implementation. Defaults to the global `fetch`. */
     fetch?: FetchLike;
     /**
@@ -217,6 +251,31 @@ function normalizeBaseUrl(value: string | undefined): string {
     return (value || "https://api.compose.market").replace(/\/+$/, "");
 }
 
+function normalizeChannelsUrl(value: string | undefined): string {
+    return (value || "https://services.compose.market").replace(/\/+$/, "");
+}
+
+function channelHeaders(headers: Record<string, string> | undefined): Record<string, string> {
+    const blocked = new Set([
+        "authorization",
+        "payment-signature",
+        "x-chain-id",
+        "x-run-id",
+        "x-session-user-address",
+        "x-x402-max-amount-wei",
+        "x-idempotency-key",
+    ]);
+    const kept: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers || {})) {
+        const lower = key.toLowerCase();
+        if (blocked.has(lower) || lower.startsWith("x-session-") || lower.startsWith("x-payment-")) {
+            continue;
+        }
+        kept[key] = value;
+    }
+    return kept;
+}
+
 function normalizeUserAddress(value: string): string {
     const trimmed = value.trim().toLowerCase();
     if (!/^0x[a-f0-9]{40}$/.test(trimmed)) {
@@ -239,6 +298,8 @@ export class ComposeSDK {
 
     /** Resolved API base URL, trimmed of trailing slashes. */
     readonly baseUrl: string;
+    /** Resolved channels service URL, trimmed of trailing slashes. */
+    readonly channelsUrl: string;
 
     readonly keys: KeysResource;
     readonly models: ModelsResource;
@@ -255,7 +316,9 @@ export class ComposeSDK {
     readonly local: LocalResource;
     readonly dispenser: DispenserResource;
     readonly settlement: SettlementResource;
-    readonly backpack: BackpackResource;
+    readonly permissions: PermissionsResource;
+    readonly accounts: AccountsResource;
+    readonly channels: ChannelsResource;
     readonly receipts: ReceiptsResource;
 
     readonly wallets: {
@@ -267,7 +330,7 @@ export class ComposeSDK {
     /**
      * Typed, in-memory event bus. Listeners registered here receive:
      *   - `budget`         — live `x-session-budget-*` snapshot on every billable call.
-     *   - `sessionInvalid` — `x-compose-session-invalid` header set by the server.
+     *   - `sessionInvalid` — `x-session-invalid` header set by the server.
      *   - `sessionActive`  — SSE `session-active` heartbeat from `/api/session/events`.
      *   - `sessionExpired` — SSE `session-expired` frame from `/api/session/events`.
      *   - `receipt`        — settlement receipt on every billable response / stream.
@@ -288,6 +351,7 @@ export class ComposeSDK {
         this.userAddress = options.userAddress ? normalizeUserAddress(options.userAddress) : null;
         this.chainId = normalizeChainId(options.chainId);
         this.baseUrl = normalizeBaseUrl(options.baseUrl);
+        this.channelsUrl = normalizeChannelsUrl(options.channelsUrl);
         this.tokenScope = options.tokenScope ?? DEFAULT_TOKEN_SCOPE;
         this.storage = resolveStorage(options.storage) ?? createMemoryStorage();
 
@@ -321,6 +385,15 @@ export class ComposeSDK {
             fetch: this.rawFetch,
             timeoutMs: options.timeoutMs ?? 60_000,
             defaultHeaders: { ...(options.defaultHeaders ?? {}) },
+            retry: { ...DEFAULT_RETRY, ...(options.retry ?? {}) },
+            userAgent,
+            logger: options.logger,
+        });
+        const channelHttp = new HttpClient({
+            baseUrl: this.channelsUrl,
+            fetch: this.rawFetch,
+            timeoutMs: options.timeoutMs ?? 60_000,
+            defaultHeaders: channelHeaders(options.defaultHeaders),
             retry: { ...DEFAULT_RETRY, ...(options.retry ?? {}) },
             userAgent,
             logger: options.logger,
@@ -406,9 +479,16 @@ export class ComposeSDK {
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
         });
-        this.backpack = new BackpackResource(this.http, {
+        this.permissions = new PermissionsResource(this.http, {
             getWalletMaybe,
             getTokenMaybe: () => this.composeKey,
+        });
+        this.accounts = new AccountsResource(this.http, {
+            getWalletMaybe,
+            getTokenMaybe: () => this.composeKey,
+        });
+        this.channels = new ChannelsResource(channelHttp, {
+            getWalletMaybe,
         });
         this.receipts = new ReceiptsResource(this.http, {
             getWalletMaybe,
@@ -513,8 +593,8 @@ export class ComposeSDK {
         if (idempotencyKey && !headers.has("x-idempotency-key")) {
             headers.set("x-idempotency-key", idempotencyKey);
         }
-        if (composeRunId && !headers.has("x-compose-run-id")) {
-            headers.set("x-compose-run-id", composeRunId);
+        if (composeRunId && !headers.has("x-run-id")) {
+            headers.set("x-run-id", composeRunId);
         }
         applySdkClientHeaders(headers, this.userAgent);
 

@@ -6,4 +6,4 @@
  * to change the version is `package.json`.
  */
 
-export const SDK_VERSION = "0.6.98" as const;
+export const SDK_VERSION = "0.7.13" as const;
