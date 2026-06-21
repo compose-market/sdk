@@ -1739,7 +1739,7 @@ export interface DirectoryAgent {
     knowledge?: string[];
     endpoint?: string;
     protocols: Array<{ name: string; version: string }>;
-    plugins?: Array<{
+    connectors?: Array<{
         registryId: string;
         name: string;
         origin: string;

@@ -470,39 +470,29 @@ paths:
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/onchain/plugins":
+  "/onchain":
     get:
       tags:
       - connectors
-      operationId: connectors_onchain_plugins_list
+      operationId: connectors_onchain_connectors_list
       security:
       - RuntimeBearerAuth: []
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/onchain/actions":
+  "/onchain/{connectorId}":
     get:
       tags:
       - connectors
-      operationId: connectors_onchain_actions_list
-      security:
-      - RuntimeBearerAuth: []
-      responses:
-        '200':
-          "$ref": "#/components/responses/JsonObjectResponse"
-  "/onchain/plugins/{pluginId}":
-    get:
-      tags:
-      - connectors
-      operationId: connectors_onchain_plugin_get
+      operationId: connectors_onchain_connector_get
       security:
       - RuntimeBearerAuth: []
       parameters:
-      - "$ref": "#/components/parameters/PluginIdPath"
+      - "$ref": "#/components/parameters/ConnectorIdPath"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
-  "/onchain/plugins/{pluginId}/actions/{actionName}":
+  "/onchain/{connectorId}/actions/{actionName}":
     get:
       tags:
       - connectors
@@ -510,11 +500,12 @@ paths:
       security:
       - RuntimeBearerAuth: []
       parameters:
-      - "$ref": "#/components/parameters/PluginIdPath"
+      - "$ref": "#/components/parameters/ConnectorIdPath"
       - "$ref": "#/components/parameters/ActionNamePath"
       responses:
         '200':
           "$ref": "#/components/responses/JsonObjectResponse"
+  "/onchain/{connectorId}/execute/{actionName}":
     post:
       tags:
       - connectors
@@ -522,7 +513,7 @@ paths:
       security:
       - RuntimeBearerAuth: []
       parameters:
-      - "$ref": "#/components/parameters/PluginIdPath"
+      - "$ref": "#/components/parameters/ConnectorIdPath"
       - "$ref": "#/components/parameters/ActionNamePath"
       requestBody:
         "$ref": "#/components/requestBodies/ActionExecuteRequest"
@@ -747,8 +738,8 @@ components:
       required: true
       schema:
         type: string
-    PluginIdPath:
-      name: pluginId
+    ConnectorIdPath:
+      name: connectorId
       in: path
       required: true
       schema:

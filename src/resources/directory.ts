@@ -24,7 +24,7 @@ export interface DirectoryAgentListInput extends DirectoryRequestOptions {
     framework?: string;
     cloneable?: boolean;
     skill?: string;
-    plugin?: string;
+    connector?: string;
     minPrice?: number | string;
     maxPrice?: number | string;
 }
@@ -46,7 +46,7 @@ export class DirectoryAgentsResource {
                 framework: input.framework,
                 cloneable: typeof input.cloneable === "boolean" ? String(input.cloneable) : undefined,
                 skill: input.skill,
-                plugin: input.plugin,
+                connector: input.connector,
                 minPrice: input.minPrice,
                 maxPrice: input.maxPrice,
             },

@@ -74,7 +74,7 @@ interface AgentSummary {
     framework: string;
     model: string;
     skills: string[];
-    plugins: string[];
+    connectors: string[];
     cardCid: string;
 }
 
@@ -130,8 +130,8 @@ async function discoverFujiAgents(): Promise<AgentSummary[]> {
                 framework: typeof card.framework === "string" ? card.framework : "",
                 model: typeof card.model === "string" ? card.model : "",
                 skills: Array.isArray(card.skills) ? (card.skills as unknown[]).filter((s): s is string => typeof s === "string") : [],
-                plugins: Array.isArray(card.plugins)
-                    ? (card.plugins as unknown[]).map((p) => typeof p === "string" ? p : (p as { registryId?: string }).registryId).filter((p): p is string => Boolean(p))
+                connectors: Array.isArray(card.connectors)
+                    ? (card.connectors as unknown[]).map((p) => typeof p === "string" ? p : (p as { registryId?: string }).registryId).filter((p): p is string => Boolean(p))
                     : [],
                 cardCid,
             });
@@ -151,14 +151,14 @@ async function pickAgent(): Promise<AgentSummary> {
         return found;
     }
     // Only `manowar` framework agents are accepted by the runtime; framework="langchain" cards
-    // are pre-existing and unsupported. Among manowar agents, prefer ones with non-empty plugins
+    // are pre-existing and unsupported. Among manowar agents, prefer ones with non-empty connectors
     // so we can exercise multi-step tool use.
     const manowar = all.filter((a) => a.framework === "manowar");
     if (manowar.length === 0) {
         throw new Error(`No manowar-framework agents found among ${all.length} discovered`);
     }
-    const withPlugins = manowar.find((a) => a.plugins.length > 0);
-    return withPlugins ?? manowar[0];
+    const withConnectors = manowar.find((a) => a.connectors.length > 0);
+    return withConnectors ?? manowar[0];
 }
 
 interface StreamTrace {
@@ -283,7 +283,7 @@ async function probeIdentity(sdk: ComposeSDK, agent: AgentSummary, userAddress: 
 }
 
 async function probeMultiStep(sdk: ComposeSDK, agent: AgentSummary, userAddress: string): Promise<{ pass: boolean; reason: string; trace: StreamTrace }> {
-    const isPricey = agent.plugins.some((p) => /coin|price|dex|0x|cmc|coingecko|allora|defill/.test(p.toLowerCase()));
+    const isPricey = agent.connectors.some((p) => /coin|price|dex|0x|cmc|coingecko|allora|defill/.test(p.toLowerCase()));
     const message = isPricey
         ? "What is the current USD price of bitcoin and how has it moved in the last 24h? Be concise."
         : "Search your memory for anything you remember about me, then summarise what you know.";
@@ -419,7 +419,7 @@ async function main() {
     const userAddress = wallet.address.toLowerCase();
     console.log(`[e2e] api=${COMPOSE_API_URL} factory=${FACTORY} userAddress=${userAddress}`);
     const agent = await pickAgent();
-    console.log(`[e2e] picked agent: ${agent.name} (${agent.walletAddress}) skills=${JSON.stringify(agent.skills)} plugins=${JSON.stringify(agent.plugins)}`);
+    console.log(`[e2e] picked agent: ${agent.name} (${agent.walletAddress}) skills=${JSON.stringify(agent.skills)} connectors=${JSON.stringify(agent.connectors)}`);
 
     const sdk = buildSdk(userAddress);
 
