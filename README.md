@@ -194,26 +194,26 @@ When a Compose Key is present, feedback is submitted as `compose_key` verified. 
 
 ## Error model
 
-Typed error hierarchy — every error derives from `ComposeError` and has a stable `code` matching the canonical server enum.
+Typed error hierarchy — every error derives from `Error` and has a stable `code` matching the canonical server enum.
 
 ```ts
 import {
-  ComposeError,
-  ComposeAPIError,
-  ComposePaymentRequiredError,
-  ComposeBudgetExhaustedError,
+  Error,
+  APIError,
+  PaymentRequiredError,
+  BudgetExhaustedError,
   AuthenticationError,
   PermissionDeniedError,
   NotFoundError,
   RateLimitError,
-  ComposeConnectionError,
-  ComposeTimeoutError,
+  ConnectionError,
+  TimeoutError,
 } from "@compose-market/sdk";
 
 try {
   await sdk.inference.chat.completions.create({ /* ... */ });
 } catch (err) {
-  if (err instanceof ComposePaymentRequiredError) {
+  if (err instanceof PaymentRequiredError) {
     console.log("x402 payment required:", err.paymentRequired);
   } else if (err instanceof RateLimitError) {
     console.log("Retry after", err.retryAfter, "seconds");
