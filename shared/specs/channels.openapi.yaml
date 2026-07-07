@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: Compose Channels
+  version: 0.8.9
+  description: |
+    Channel linking, status, and disconnect for WhatsApp, Telegram, Slack, and Discord.
+    The channels service runs at `https://services.compose.market`.
+  contact:
+    name: Compose.Market
+    url: https://compose.market
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+
+servers:
+  - url: https://services.compose.market
+    description: Production
+  - url: http://127.0.0.1:4002
+    description: Local development
+
+tags:
+  - name: channels
+    description: Channel linking, status, and disconnection
+
+paths:
+  /channels:
+    get:
+      operationId: list
+      tags: [channels]
+      summary: List available channels
+      responses:
+        "200":
+          description: Available channel names
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelListResponse"
+
+  /channels/{channel}:
+    get:
+      operationId: get
+      tags: [channels]
+      summary: Get channel info and available endpoints
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ChannelName"
+      responses:
+        "200":
+          description: Channel info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelGetResponse"
+        "404":
+          description: Channel not found
+
+  /channels/{channel}/link:
+    post:
+      operationId: link
+      tags: [channels]
+      summary: Create a linking code for a channel
+      description: |
+        Generates a short-lived linking code that pairs a user's wallet with an agent
+        on the specified channel. The response includes a URL or action that the user
+        must follow to complete the linking process (QR code for WhatsApp, OAuth redirect
+        for Slack/Discord, bot link for Telegram).
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ChannelName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelLinkRequest"
+      responses:
+        "200":
+          description: Linking code created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelLinkResponse"
+        "400":
+          description: Invalid request
+
+  /channels/{channel}/status:
+    get:
+      operationId: status
+      tags: [channels]
+      summary: Check connection status and list routes
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ChannelName"
+        - name: userAddress
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agentWallet
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ChannelScope"
+          description: Route scope. Omit or use global for hosted/global ties; use local with haiId for HAI-bound local ties.
+        - name: haiId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Required when scope is local.
+        - name: accountId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: threadId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelStatusResponse"
+
+  /channels/{channel}/disconnect:
+    post:
+      operationId: disconnect
+      tags: [channels]
+      summary: Disconnect routes for a channel
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ChannelName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelDisconnectRequest"
+      responses:
+        "200":
+          description: Disconnection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelDisconnectResponse"
+
+  /channels/slack/manifest:
+    get:
+      operationId: slack_manifest
+      tags: [channels]
+      summary: Get Slack app manifest
+      responses:
+        "200":
+          description: Slack app manifest JSON
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    ChannelName:
+      type: string
+      enum: [telegram, slack, discord, whatsapp]
+
+    ChannelScope:
+      type: string
+      enum: [global, local]
+      description: Channel route scope. Local scope requires haiId.
+
+    ChannelListResponse:
+      type: object
+      required: [channels]
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelName"
+
+    ChannelGetResponse:
+      type: object
+      required: [channel, link, status, disconnect]
+      properties:
+        channel:
+          $ref: "#/components/schemas/ChannelName"
+        link:
+          type: string
+          description: URL for creating a link
+        status:
+          type: string
+          description: URL for checking status
+        disconnect:
+          type: string
+          description: URL for disconnecting
+        webhook:
+          type: string
+          nullable: true
+          description: Webhook URL for platform callbacks (Telegram/Slack/Discord)
+        socket:
+          type: string
+          nullable: true
+          description: WebSocket URL for pairing (WhatsApp)
+
+    ChannelLinkRequest:
+      type: object
+      required: [agentWallet]
+      properties:
+        userAddress:
+          type: string
+          description: User wallet address (inferred from x-session-user-address header if omitted)
+        agentWallet:
+          type: string
+          description: Agent wallet address to link
+        scope:
+          $ref: "#/components/schemas/ChannelScope"
+          description: Use local with haiId for local HAI-bound channel ties.
+        haiId:
+          type: string
+          description: Required when scope is local.
+        agentName:
+          type: string
+          description: Display name for the agent on the channel
+        mode:
+          type: string
+          enum: [user, guild]
+          default: user
+          description: Linking mode (guild for Slack/Discord server-level linking)
+        privacy:
+          type: string
+          enum: [public, private]
+          default: public
+
+    ChannelLinkResponse:
+      type: object
+      required: [code, channel, userAddress, agentWallet, scope, createdAt, expiresAt]
+      properties:
+        code:
+          type: string
+          description: Short-lived linking code (10 min TTL)
+        channel:
+          $ref: "#/components/schemas/ChannelName"
+        userAddress:
+          type: string
+        agentWallet:
+          type: string
+        scope:
+          $ref: "#/components/schemas/ChannelScope"
+        haiId:
+          type: string
+        agentName:
+          type: string
+        mode:
+          type: string
+          enum: [user, guild]
+        privacy:
+          type: string
+          enum: [public, private]
+        createdAt:
+          type: number
+          description: Unix timestamp (ms)
+        expiresAt:
+          type: number
+          description: Unix timestamp (ms)
+        url:
+          type: string
+          nullable: true
+          description: URL the user should visit to complete linking
+        action:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [redirect, websocket, oauth]
+            label:
+              type: string
+            url:
+              type: string
+              nullable: true
+            socket:
+              type: string
+            command:
+              type: string
+
+    ChannelRoute:
+      type: object
+      required: [id, channel, userAddress, agentWallet, scope, accountId, threadId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        channel:
+          $ref: "#/components/schemas/ChannelName"
+        userAddress:
+          type: string
+        agentWallet:
+          type: string
+        scope:
+          $ref: "#/components/schemas/ChannelScope"
+        haiId:
+          type: string
+        accountId:
+          type: string
+          description: Platform-specific account identifier (chat ID, channel ID, etc.)
+        threadId:
+          type: string
+          description: Platform-specific thread/conversation identifier
+        label:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: number
+        updatedAt:
+          type: number
+
+    ChannelStatusResponse:
+      type: object
+      required: [channel, connected, routes]
+      properties:
+        channel:
+          $ref: "#/components/schemas/ChannelName"
+        connected:
+          type: boolean
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelRoute"
+
+    ChannelDisconnectRequest:
+      type: object
+      required: [agentWallet]
+      properties:
+        userAddress:
+          type: string
+        agentWallet:
+          type: string
+        scope:
+          $ref: "#/components/schemas/ChannelScope"
+        haiId:
+          type: string
+        accountId:
+          type: string
+        threadId:
+          type: string
+
+    ChannelDisconnectResponse:
+      type: object
+      required: [channel, disconnected]
+      properties:
+        channel:
+          $ref: "#/components/schemas/ChannelName"
+        disconnected:
+          type: number
+          description: Number of routes disconnected

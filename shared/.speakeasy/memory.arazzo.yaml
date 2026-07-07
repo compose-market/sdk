@@ -1,0 +1,251 @@
+arazzo: 1.0.1
+info:
+  title: Compose Memory — agent-first contracts
+  version: 0.8.9
+  summary: |
+    You are an agent. You have memory. Three calls cover 99% of turns.
+
+    PRE-TURN (always):  POST /api/memory/context/assemble
+      → returns { prompt: string|null, items, contextUsage }
+      → inject `prompt` as a system message if non-null. Done.
+
+    POST-TURN (always): POST /api/memory/turns/record  (fire-and-forget)
+      → persists transcript + working buffer + per-turn vector
+      → triggers async fact extraction (graph layer)
+      → idempotent on `turnId`. Pass it.
+
+    REMEMBER (rare):    POST /api/memory/remember
+      → only when the user states a stable fact AND the auto-extractor
+        in record_turn missed it. 99% of facts are auto-extracted.
+
+    Scope contract — memorise these 3 rules and you cannot fail:
+      1. (agentWallet, userAddress) is the durability boundary.
+      2. threadId narrows working+scene only. graph/vectors are
+         cross-thread — recall a fact from any past session.
+      3. mode="local" + haiId partitions a side-tree (HAI-bound). Omit both
+         for default global agent memory.
+
+    Layers (you do NOT pick them; ranker picks for you):
+      working   = rolling thread context        (Mongo sessions)
+      scene     = full transcripts              (Mongo session_transcripts)
+      graph     = durable user facts            (Mongo memory, source:fact)
+      patterns  = mined tool sequences          (Mongo patterns)
+      archives  = cold storage                  (Mongo archives + Pinata)
+      vectors   = hybrid recall                 (Mongo memory, source:session)
+
+    One ranker (Cloudflare BAAI bge-reranker-base + temporal decay + MMR)
+    shortlists across all 6 layers into ≤ 900 chars / ≤ 6 items per turn.
+
+    Token / latency budget defaults (override via params):
+      pre_turn block:  ≤ 900 chars, ≤ 6 items, p50 < 200ms
+      post_turn:       fire-and-forget, p50 < 50ms server-side
+      fact extraction: ~$0.000075/turn (gemini-3.1-flash-lite-preview)
+      voyage embed:    ~$0.00002/turn (voyage-4-large 1024-d)
+      cf rerank:       ~$0.0001/turn (skipped when top-1 dominates)
+
+    Storage summary: Mongo Atlas + Voyage embeddings + Cloudflare reranker.
+    No mem0. No vendor cloud. First-party from end to end.
+
+sourceDescriptions:
+  - name: memory
+    url: ../specs/memory.openapi.yaml
+    type: openapi
+
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_RUNTIME_TEST_URL; https://runtime.compose.market"
+
+workflows:
+  # ──────────────────────────────────────────────────────────────────
+  # agent_turn_loop — RUN THIS ON EVERY TURN.
+  # ──────────────────────────────────────────────────────────────────
+  - workflowId: agent_turn_loop
+    summary: pre_turn → (agent's model call) → post_turn → optional remember
+    description: |
+      Three steps. Hit them in order.
+        1. pre_turn_context  → get prompt block; inject if non-null.
+        2. post_turn_record  → persist; fire-and-forget; idempotent on turnId.
+        3. remember_fact     → optional; only on explicit user fact.
+
+      Do NOT block your response on step 2 or 3.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, threadId, query, userMessage, assistantMessage, modelUsed, totalTokens, turnId]
+      properties:
+        agentWallet:
+          type: string
+          description: agent's on-chain wallet. durability key.
+          examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"]
+        userAddress:
+          type: string
+          description: end-user wallet. durability key.
+          examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"]
+        threadId:
+          type: string
+          description: conversation id. narrows working+scene only.
+          examples: ["arazzo-thread-1"]
+        query:
+          type: string
+          description: user's latest message verbatim. used as recall query.
+          examples: ["what did I tell you about my project?"]
+        userMessage:
+          type: string
+          description: the user side of this turn (often == query).
+          examples: ["I work on AI agents and prefer concise answers."]
+        assistantMessage:
+          type: string
+          description: your reply for this turn.
+          examples: ["Got it — concise, AI agents focus."]
+        modelUsed:
+          type: string
+          description: model id. used for receipts + cost telemetry.
+          examples: ["gpt-4o"]
+        totalTokens:
+          type: integer
+          description: input + output + reasoning tokens for this turn.
+          examples: [1209]
+        turnId:
+          type: string
+          description: |
+            stable id for THIS turn. dedup key for record_turn retries.
+            generate once per turn (e.g. crypto.randomUUID()) and reuse.
+          examples: ["turn_a1b2c3"]
+
+    steps:
+      - stepId: pre_turn_context
+        description: |
+          Hits /api/memory/context/assemble. Returns:
+            prompt: string|null            — inject as system msg verbatim
+            items: AgentMemoryCompactItem[] — for telemetry/debug
+            totals: Record<layer, count>   — pre-shortlist counts
+            contextUsage: { characters, savedCharactersVsRaw, items }
+        operationId: $sourceDescriptions.memory.context_assemble
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            query: "$inputs.query"
+            limit: 8
+            maxItems: 6
+            maxItemChars: 360
+            budget: { maxCharacters: 900 }
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          contextId: $response.body#/contextId
+          prompt: $response.body#/prompt
+
+      - stepId: post_turn_record
+        description: |
+          Hits /api/memory/turns/record. Returns:
+            stored: { transcript, working, vector, graph }
+              — transcript/working/vector are written in-band; assert true.
+              — graph is fire-and-forget (Gemini fact extraction runs async,
+                indexes into source:"fact" rows on completion). Always
+                returns `false` at response-time. Facts surface in the next
+                pre_turn recall.
+            turnId, sessionId, vectorId
+          Idempotent on turnId. Fire-and-forget on the agent side.
+        operationId: $sourceDescriptions.memory.turn_record
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            contextId: $steps.pre_turn_context.outputs.contextId
+            turnId: "$inputs.turnId"
+            userMessage: "$inputs.userMessage"
+            assistantMessage: "$inputs.assistantMessage"
+            modelUsed: "$inputs.modelUsed"
+            totalTokens: "$inputs.totalTokens"
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: remember_fact
+        description: |
+          OPTIONAL. Only call when the user volunteers a stable fact AND
+          you suspect the auto-extractor missed it. Use `type` to
+          categorise so the ranker surfaces the fact correctly later.
+          types: preference|identity|context|skill|relationship|event
+        operationId: $sourceDescriptions.memory.remember
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            threadId: "$inputs.threadId"
+            content: "The user prefers concise answers and works on AI agents."
+            type: preference
+            confidence: 0.95
+        successCriteria:
+          - condition: $statusCode == 200
+
+  # ──────────────────────────────────────────────────────────────────
+  # eval_loop — measure recall@K. Use to gate deploys.
+  # ──────────────────────────────────────────────────────────────────
+  - workflowId: eval_loop
+    summary: Run a memory eval and assert recall@K ≥ 0.95.
+    description: |
+      Pass {query, expected} test cases. Server returns recallAtK,
+      precisionAtK, avgContextCharacters. Default layer set covers all 6
+      so you measure end-to-end ranker behaviour.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress]
+      properties:
+        agentWallet: { type: string, examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"] }
+        userAddress: { type: string, examples: ["x-env: COMPOSE_TEST_USER_ADDRESS"] }
+    steps:
+      - stepId: run_eval
+        operationId: $sourceDescriptions.memory.evals_run
+        requestBody:
+          contentType: application/json
+          payload:
+            agentWallet: "$inputs.agentWallet"
+            userAddress: "$inputs.userAddress"
+            testCases:
+              - { query: "What is my favourite color?", expected: "azure" }
+              - { query: "What do I work on?",          expected: "AI agents" }
+              - { query: "What music do I like?",       expected: "jazz" }
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body#/scores/recallAtK >= 0.95
+
+  # ──────────────────────────────────────────────────────────────────
+  # maintenance_loop — Temporal already runs these on schedule.
+  # Hit only for out-of-band forced passes (bulk imports, debugging).
+  # ──────────────────────────────────────────────────────────────────
+  - workflowId: maintenance_loop
+    summary: Force decay refresh + cleanup out-of-band.
+    description: |
+      Daily/weekly Temporal schedules already run these. Use only
+      after bulk imports or for debugging.
+    inputs:
+      type: object
+      required: [agentWallet]
+      properties:
+        agentWallet: { type: string, examples: ["x-env: COMPOSE_TEST_AGENT_WALLET"] }
+        halfLifeDays: { type: integer, default: 30 }
+    steps:
+      - stepId: run_decay_refresh
+        operationId: $sourceDescriptions.memory.jobs_create
+        requestBody:
+          contentType: application/json
+          payload:
+            type: decay_update
+            execution: inline
+            halfLifeDays: "$inputs.halfLifeDays"
+        successCriteria:
+          - condition: $statusCode == 200
+      - stepId: cleanup_expired
+        operationId: $sourceDescriptions.memory.jobs_create
+        requestBody:
+          contentType: application/json
+          payload:
+            type: cleanup
+            execution: inline
+            olderThanDays: 90
+        successCriteria:
+          - condition: $statusCode == 200

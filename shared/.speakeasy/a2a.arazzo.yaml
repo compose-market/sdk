@@ -1,0 +1,383 @@
+arazzo: 1.0.1
+info:
+  title: Compose A2A — Agent-to-Agent x402 Payment & Stream
+  version: 0.8.9
+  summary: |
+    Complete recipe for calling any Compose agent from another agent, a shell
+    script, or any HTTP client using x402 v2 payments. Covers all three EVM
+    payment schemes (exact, upto, batch-settlement), the PAYMENT-SIGNATURE
+    header format, channel recovery for batch-settlement, SSE stream parsing,
+    and post-call feedback.
+
+    Key points:
+    - The client sends a request, gets 402 back with payment requirements.
+    - The client creates a signed payment payload using x402Client.
+    - The client base64url-encodes the payload and sends it in the
+      PAYMENT-SIGNATURE header (NOT X-PAYMENT) on the retry.
+    - For batch-settlement, the signer MUST be created with a publicClient
+      (createPublicClient + http(rpcUrl)) so the SDK can recover channel
+      state from onchain. Without this, you get
+      "invalid_batch_settlement_evm_cumulative_below_claimed".
+    - The createPaymentPayload call needs the full 402 challenge spread
+      AND a paymentRequirements field set to challenge.accepts.
+    - The response is an SSE stream with data: lines containing typed events.
+sourceDescriptions:
+  - name: manowar
+    url: ../specs/manowar.openapi.yaml
+    type: openapi
+  - name: x402
+    url: ../specs/x402.openapi.yaml
+    type: openapi
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_API_TEST_URL; https://api.compose.market"
+
+workflows:
+  - workflowId: a2a_agent_x402_batch_settlement
+    summary: |
+      The production path for Compose agents. The DEPLOYER_KEY has a
+      pre-funded batch-settlement channel on Avalanche Fuji (chainId 43113).
+      Each request signs an off-chain cumulative voucher; the server verifies
+      instantly and claims in batches. No per-request onchain tx needed.
+
+      Prerequisites:
+      - Node.js with @x402/core, @x402/evm, and viem installed
+      - A funded EVM wallet with an open batch-settlement channel
+      - The wallet's private key
+
+      Key difference from exact/upto: the signer MUST be created with
+      toClientEvmSigner(account, publicClient) where publicClient is
+      createPublicClient({ transport: http(rpcUrl) }). This gives the
+      signer readContract capability for channel recovery.
+
+      The PAYMENT-SIGNATURE header is base64url-encoded (not base64).
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, message, privateKey, rpcUrl]
+      properties:
+        agentWallet:
+          type: string
+          description: The deployed Compose agent's wallet address.
+          examples: ["0xa7abfd271130c3ee5c8f8862a123f3697e75af0d"]
+        userAddress:
+          type: string
+          description: The caller's EVM wallet address.
+          examples: ["0x058271e764154c322f3d3ddc18af44f7d91b1c80"]
+        chainId:
+          type: integer
+          description: CAIP-2 chain id (43113 = Avalanche Fuji).
+          examples: [43113]
+        message:
+          type: string
+          description: The prompt to send to the agent.
+          examples: ["Hey, what do you do?"]
+        threadId:
+          type: string
+          description: Stable conversation identifier for memory continuity.
+          examples: ["a2a-thread-1"]
+        privateKey:
+          type: string
+          description: EVM private key (0x-prefixed) with a funded channel.
+          examples: ["0xYOUR_PRIVATE_KEY"]
+        rpcUrl:
+          type: string
+          description: RPC endpoint for the chain (needed for channel recovery).
+          examples: ["https://avax-fuji.g.alchemy.com/v2/YOUR_KEY"]
+
+    steps:
+      - stepId: discover
+        summary: |
+          Send the request without payment. The server responds with 402
+          containing the payment requirements (scheme, network, asset, amount).
+
+          Request:
+            POST /agent/{agentWallet}/stream
+            Headers: Content-Type, x-session-user-address, x-chain-id
+            Body: { message, threadId }
+
+          Response: 402 with JSON body containing:
+            - x402Version: 2
+            - accepts: [{ scheme, network, asset, amount, payTo, ... }]
+            - extensions: { compose-metering-v1, compose-payment-intent-v1 }
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 402
+        outputs:
+          paymentRequired: $response.body
+
+      - stepId: paid_stream
+        summary: |
+          Create the signed payment payload and retry with PAYMENT-SIGNATURE.
+
+          Node.js code to create the payment header:
+          ```
+          const { privateKeyToAccount } = require("viem/accounts");
+          const { createPublicClient, http } = require("viem");
+          const { x402Client } = require("@x402/core/client");
+          const { BatchSettlementEvmScheme, toClientEvmSigner } = require("@x402/evm");
+
+          const account = privateKeyToAccount(privateKey);
+          const publicClient = createPublicClient({ transport: http(rpcUrl) });
+          const signer = toClientEvmSigner(account, publicClient);
+          const client = new x402Client();
+          client.register("eip155:*", new BatchSettlementEvmScheme(signer, { rpcUrl }));
+
+          const payload = await client.createPaymentPayload({
+            ...challenge,
+            paymentRequirements: challenge.accepts,
+          });
+          const header = Buffer.from(JSON.stringify(payload))
+            .toString("base64")
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+          ```
+
+          Send the retry with:
+            Headers: same as step 1 + PAYMENT-SIGNATURE: <base64url payload>
+            Body: same as step 1
+
+          Response: 200 with SSE stream containing:
+            - timing events (msm_start, msm_end, model_start, first_text_delta)
+            - text deltas (choices[0].delta.content)
+            - tool_start/tool_end events
+            - done event with usage stats
+            - receipt event with settlement details
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+          - name: PAYMENT-SIGNATURE
+            in: header
+            value: "$inputs.paymentSignature"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          composeRunId: $response.header.x-run-id
+
+      - stepId: feedback
+        summary: |
+          Optional: submit structured feedback to train the reputation graph.
+        operationId: $sourceDescriptions.x402.feedback_submit
+        parameters:
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            target:
+              type: agent
+              id: "$inputs.agentWallet"
+            rating: 5
+            category: integration
+            message: "Worked first try."
+            context:
+              composeRunId: $steps.paid_stream.outputs.composeRunId
+              chainId: "$inputs.chainId"
+              agentWallet: "$inputs.agentWallet"
+              endpoint:
+                method: POST
+                path: "/agent/{agentWallet}/stream"
+        successCriteria:
+          - condition: $statusCode == 201
+
+  - workflowId: a2a_agent_x402_exact
+    summary: |
+      Fixed-price path for one-shot calls. No pre-funding needed — the client
+      signs an EIP-3009 transferWithAuthorization for the exact amount.
+
+      Use this when:
+      - You don't have a batch-settlement channel
+      - You're making a single call (not repeated)
+      - The server advertises scheme: "exact" in the 402
+
+      The signer does NOT need a publicClient for exact scheme.
+      Use ExactEvmScheme instead of BatchSettlementEvmScheme.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, message, privateKey]
+      properties:
+        agentWallet:
+          type: string
+          examples: ["0xa7abfd271130c3ee5c8f8862a123f3697e75af0d"]
+        userAddress:
+          type: string
+          examples: ["0x058271e764154c322f3d3ddc18af44f7d91b1c80"]
+        chainId:
+          type: integer
+          examples: [43113]
+        message:
+          type: string
+          examples: ["What can you do?"]
+        threadId:
+          type: string
+          examples: ["a2a-exact-1"]
+        privateKey:
+          type: string
+          description: EVM private key with sufficient USDC balance.
+    steps:
+      - stepId: discover
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 402
+        outputs:
+          paymentRequired: $response.body
+
+      - stepId: paid_stream
+        summary: |
+          For exact scheme, use ExactEvmScheme (no publicClient needed):
+          ```
+          const { ExactEvmScheme, toClientEvmSigner } = require("@x402/evm");
+          const signer = toClientEvmSigner(privateKeyToAccount(privateKey));
+          const client = new x402Client();
+          client.register("eip155:*", new ExactEvmScheme(signer));
+          ```
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+          - name: PAYMENT-SIGNATURE
+            in: header
+            value: "$inputs.paymentSignature"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          composeRunId: $response.header.x-run-id
+
+  - workflowId: a2a_agent_x402_upto
+    summary: |
+      Usage-based path for metered calls (LLM token billing). The client
+      signs a Permit2 authorization for a maximum amount; the server settles
+      for the actual usage after processing.
+
+      Use UptoEvmScheme — same setup as exact but the server charges less
+      than or equal to the signed maximum.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, message, privateKey]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        message:
+          type: string
+        threadId:
+          type: string
+        privateKey:
+          type: string
+    steps:
+      - stepId: discover
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 402
+        outputs:
+          paymentRequired: $response.body
+
+      - stepId: paid_stream
+        summary: |
+          For upto scheme, use UptoEvmScheme:
+          ```
+          const { UptoEvmScheme, toClientEvmSigner } = require("@x402/evm");
+          const signer = toClientEvmSigner(privateKeyToAccount(privateKey));
+          const client = new x402Client();
+          client.register("eip155:*", new UptoEvmScheme(signer));
+          ```
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+          - name: PAYMENT-SIGNATURE
+            in: header
+            value: "$inputs.paymentSignature"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$inputs.message"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          composeRunId: $response.header.x-run-id

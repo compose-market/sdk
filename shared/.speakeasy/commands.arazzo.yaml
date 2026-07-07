@@ -1,0 +1,433 @@
+arazzo: 1.0.1
+info:
+  title: Compose Slash Commands — Agent Stream Commands
+  version: 0.8.9
+  summary: |
+    Slash commands are productized user/agent actions sent as the message
+    field in the agent stream request. They are parsed by the runtime and
+    either handled inline (returning a result) or passed through to the
+    agent as a continuation message.
+
+    Commands:
+    - /plan <prompt>     — Create a plan with tasks, then /plan run to execute
+    - /goal <objective>  — Pin a durable goal the agent works toward across turns
+    - /mode solo|swarm   — Switch execution mode
+    - /sandbox on|off    — Force sandboxed/isolation execution
+    - /proof on|off      — Force proof-of-execution mode
+    - /thread            — List past conversation threads
+    - /artifacts         — List past generated media
+    - /receipt           — List x402 payment receipts
+
+    All commands are sent as the `message` field in POST /agent/{wallet}/stream.
+    The runtime parses the slash prefix and dispatches to the appropriate handler.
+    Commands that set state (/plan, /goal, /mode, /sandbox, /proof) return an
+    action event in the SSE stream with the result.
+sourceDescriptions:
+  - name: manowar
+    url: ../specs/manowar.openapi.yaml
+    type: openapi
+x-speakeasy-test-server:
+  baseUrl: "x-env: COMPOSE_API_TEST_URL; https://api.compose.market"
+
+workflows:
+  - workflowId: plan_create_run_observe
+    summary: |
+      Create a plan with tasks, run it, and observe task completion.
+      The plan is persisted in the actions database and tracked across turns.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, planPrompt]
+      properties:
+        agentWallet:
+          type: string
+          examples: ["0xa7abfd271130c3ee5c8f8862a123f3697e75af0d"]
+        userAddress:
+          type: string
+          examples: ["0x058271e764154c322f3d3ddc18af44f7d91b1c80"]
+        chainId:
+          type: integer
+          examples: [43113]
+        planPrompt:
+          type: string
+          description: The plan prompt — should describe a multi-step task.
+          examples: ["Build a todo app with user auth, task CRUD, and a dashboard"]
+        threadId:
+          type: string
+          examples: ["plan-test-1"]
+    steps:
+      - stepId: create_plan
+        summary: |
+          Send /plan <prompt> as the message. The runtime creates a plan
+          with a draft task and returns an action event with the plan state.
+          The agent also receives the prompt as a continuation message and
+          generates a detailed plan breakdown.
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$concat: ['/plan ', $inputs.planPrompt]"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          planAction: $response.body
+
+      - stepId: run_plan
+        summary: |
+          Send /plan run to start executing the first task. The runtime
+          marks the first todo task as "doing" and passes the task title
+          to the agent as a continuation message.
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "/plan run"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: goal_set_pursue_status
+    summary: |
+      Pin a durable goal that the agent works toward across multiple turns.
+      The goal persists until completed, paused, or cleared. Each turn the
+      agent's output is observed and the goal verification status is updated.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, goalObjective]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        goalObjective:
+          type: string
+          description: |
+            A real multi-step objective, not a one-shot question.
+            The agent will keep working toward this across turns.
+          examples: ["Launch a bakery: figure out products, pricing, and the smallest paid test"]
+        threadId:
+          type: string
+          examples: ["goal-test-1"]
+    steps:
+      - stepId: set_goal
+        summary: |
+          Send /goal <objective> as the message. The runtime creates an
+          active goal and the agent begins working on it.
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$concat: ['/goal ', $inputs.goalObjective]"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: follow_up
+        summary: |
+          Send a follow-up message in the same thread. The agent continues
+          working on the goal. The goal's heartbeat is updated.
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "What about the products? Give me 3 concrete options."
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+      - stepId: goal_status
+        summary: |
+          Send /goal status to check the current goal state.
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "/goal status"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: mode_switch
+    summary: |
+      Switch between solo and swarm execution modes.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, mode]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        mode:
+          type: string
+          enum: [solo, swarm]
+          description: "Execution mode to enforce"
+        threadId:
+          type: string
+    steps:
+      - stepId: set_mode
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$concat: ['/mode ', $inputs.mode]"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: sandbox_toggle
+    summary: |
+      Force sandboxed/isolation execution mode for unsafe operations.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, value]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        value:
+          type: string
+          enum: [on, off]
+        threadId:
+          type: string
+    steps:
+      - stepId: toggle_sandbox
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$concat: ['/sandbox ', $inputs.value]"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: proof_toggle
+    summary: |
+      Force proof-of-execution mode for auditable verifiable trails.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId, value]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        value:
+          type: string
+          enum: [on, off]
+        threadId:
+          type: string
+    steps:
+      - stepId: toggle_proof
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "$concat: ['/proof ', $inputs.value]"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: thread_list
+    summary: |
+      List past conversation threads for an agent:user pair.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        threadId:
+          type: string
+    steps:
+      - stepId: list_threads
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "/thread"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: artifacts_list
+    summary: |
+      List past generated media (images, audio, video) for an agent:user pair.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        threadId:
+          type: string
+    steps:
+      - stepId: list_artifacts
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "/artifacts"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
+
+  - workflowId: receipt_latest
+    summary: |
+      List the latest x402 payment receipts for the current session.
+    inputs:
+      type: object
+      required: [agentWallet, userAddress, chainId]
+      properties:
+        agentWallet:
+          type: string
+        userAddress:
+          type: string
+        chainId:
+          type: integer
+          examples: [43113]
+        threadId:
+          type: string
+    steps:
+      - stepId: get_receipt
+        operationId: $sourceDescriptions.manowar.agents_stream_create
+        parameters:
+          - name: walletAddress
+            in: path
+            value: "$inputs.agentWallet"
+          - name: x-session-user-address
+            in: header
+            value: "$inputs.userAddress"
+          - name: x-chain-id
+            in: header
+            value: "$inputs.chainId"
+        requestBody:
+          contentType: application/json
+          payload:
+            message: "/receipt"
+            threadId: "$inputs.threadId"
+        successCriteria:
+          - condition: $statusCode == 200
