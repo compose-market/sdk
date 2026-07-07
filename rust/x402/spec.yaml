@@ -1,0 +1,1266 @@
+---
+openapi: 3.1.0
+info:
+  title: Compose x402
+  version: 0.8.9
+  summary: x402 settlement, Compose Keys, sessions, payments, and facilitator contracts.
+  description: |
+    Canonical contract for Compose x402 settlement, reusable Compose Keys,
+    session state, payments, and facilitator operations.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+- url: https://api.compose.market
+  x-speakeasy-server-id: x402
+  description: Production x402 endpoint
+- url: http://127.0.0.1:3000
+  x-speakeasy-server-id: local
+  description: Local x402 development endpoint
+tags:
+- name: health
+- name: x402
+- name: compose-keys
+- name: payments
+- name: feedback
+security: []
+paths:
+  "/health":
+    get:
+      tags:
+      - health
+      operationId: check
+      responses:
+        '200':
+          description: API service health.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/HealthResponse"
+  "/api/x402/facilitator/supported":
+    get:
+      tags:
+      - x402
+      operationId: supported
+      responses:
+        '200':
+          description: Supported x402 schemes and networks.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FacilitatorSupportedResponse"
+  "/api/x402/facilitator/chains":
+    get:
+      tags:
+      - x402
+      operationId: chains_list
+      responses:
+        '200':
+          description: EVM chains currently configured for x402 settlement.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FacilitatorChainsResponse"
+  "/api/x402/facilitator/verify":
+    post:
+      tags:
+      - x402
+      operationId: payment_verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FacilitatorPaymentRequest"
+      responses:
+        '200':
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/VerifyResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/x402/facilitator/settle":
+    post:
+      tags:
+      - x402
+      operationId: payment_settle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FacilitatorPaymentRequest"
+      responses:
+        '200':
+          description: Settlement result.
+          headers:
+            PAYMENT-RESPONSE:
+              "$ref": "#/components/headers/PaymentResponse"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SettleResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/session":
+    get:
+      tags:
+      - compose-keys
+      operationId: session_get_active
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeader"
+      - "$ref": "#/components/parameters/ChainIdHeader"
+      responses:
+        '200':
+          description: Active Compose Key session metadata, including the active
+            session token for cross-device hydration.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ActiveSessionMetadata"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/session/events":
+    get:
+      tags:
+      - compose-keys
+      operationId: session_events_subscribe
+      parameters:
+      - name: userAddress
+        in: query
+        required: true
+        schema:
+          "$ref": "#/components/schemas/WalletAddress"
+      - name: chainId
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Server-sent session-active and session-expired frames.
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/SessionEventStream"
+  "/api/keys":
+    post:
+      tags:
+      - compose-keys
+      operationId: create
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeader"
+      - "$ref": "#/components/parameters/ChainIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/KeyCreateRequest"
+      responses:
+        '201':
+          description: Compose Key token, returned exactly once.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/KeyCreateResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+        '402':
+          "$ref": "#/components/responses/ErrorResponse"
+    get:
+      tags:
+      - compose-keys
+      operationId: list
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeader"
+      - "$ref": "#/components/parameters/ChainIdHeader"
+      responses:
+        '200':
+          description: Keys owned by the wallet.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - keys
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/KeyRecord"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/keys/{keyId}":
+    parameters:
+    - name: keyId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    get:
+      tags:
+      - compose-keys
+      operationId: get
+      security:
+      - KeyAuth: []
+      responses:
+        '200':
+          description: Key details.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/KeyRecord"
+        '401':
+          "$ref": "#/components/responses/ErrorResponse"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+    delete:
+      tags:
+      - compose-keys
+      operationId: revoke
+      security:
+      - KeyAuth: []
+      responses:
+        '200':
+          description: Revocation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - keyId
+                properties:
+                  success:
+                    type: boolean
+                  keyId:
+                    type: string
+        '401':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/payments/prepare":
+    post:
+      tags:
+      - payments
+      operationId: prepare
+      security:
+      - KeyAuth: []
+      - X402Payment: []
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      - "$ref": "#/components/parameters/X402MaxAmountWeiHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/PaymentPrepareRequest"
+      responses:
+        '200':
+          description: Prepared payment intent or raw x402 settlement context.
+          headers:
+            PAYMENT-RESPONSE:
+              "$ref": "#/components/headers/PaymentResponse"
+            PAYMENT-REQUIRED:
+              "$ref": "#/components/headers/PaymentRequired"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PaymentPrepareResponse"
+        '402':
+          "$ref": "#/components/responses/PaymentRequiredResponse"
+  "/api/payments/settle":
+    post:
+      tags:
+      - payments
+      operationId: settle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paymentIntentId
+              properties:
+                paymentIntentId:
+                  type: string
+                  minLength: 1
+                finalAmountWei:
+                  "$ref": "#/components/schemas/AtomicAmount"
+                meter:
+                  "$ref": "#/components/schemas/MeteredInput"
+      responses:
+        '200':
+          description: Payment intent settlement result.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PaymentSettleResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/payments/abort":
+    post:
+      tags:
+      - payments
+      operationId: abort
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paymentIntentId
+              properties:
+                paymentIntentId:
+                  type: string
+                  minLength: 1
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Payment intent abort result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - paymentIntentId
+                properties:
+                  success:
+                    type: boolean
+                  paymentIntentId:
+                    type: string
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/api/payments/meter/model":
+    post:
+      tags:
+      - payments
+      operationId: model_meter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ModelMeterRequest"
+      responses:
+        '200':
+          description: Resolved model metering quote.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/feedback":
+    post:
+      tags:
+      - feedback
+      operationId: submit
+      security:
+      - KeyAuth: []
+      - {}
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/ChainIdHeaderOptional"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FeedbackSubmitRequest"
+      responses:
+        '201':
+          description: Feedback accepted.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackSubmitResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+    get:
+      tags:
+      - feedback
+      operationId: feedback_list
+      x-speakeasy-name-override: list
+      parameters:
+      - "$ref": "#/components/parameters/FeedbackTargetTypeQuery"
+      - "$ref": "#/components/parameters/FeedbackTargetIdQuery"
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Recent feedback for one target.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackListResponse"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/v1/feedback/summary":
+    get:
+      tags:
+      - feedback
+      operationId: summary_get
+      parameters:
+      - "$ref": "#/components/parameters/FeedbackTargetTypeQuery"
+      - "$ref": "#/components/parameters/FeedbackTargetIdQuery"
+      - name: recentLimit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Reputation summary for one endpoint, x402 flow, model, agent, or workflow target.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FeedbackSummary"
+        '400':
+          "$ref": "#/components/responses/ErrorResponse"
+components:
+  securitySchemes:
+    KeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: compose-key
+      description: "`Authorization: Bearer compose-<jwt>`."
+    X402Payment:
+      type: apiKey
+      in: header
+      name: PAYMENT-SIGNATURE
+      description: Base64-url x402 v2 `PaymentPayload`.
+  parameters:
+    SessionUserAddressHeader:
+      name: x-session-user-address
+      in: header
+      required: true
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    SessionUserAddressHeaderOptional:
+      name: x-session-user-address
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    ChainIdHeader:
+      name: x-chain-id
+      in: header
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    ChainIdHeaderOptional:
+      name: x-chain-id
+      in: header
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    X402MaxAmountWeiHeader:
+      name: x-x402-max-amount-wei
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/AtomicAmount"
+    FeedbackTargetTypeQuery:
+      name: targetType
+      in: query
+      required: true
+      schema:
+        "$ref": "#/components/schemas/FeedbackTargetType"
+    FeedbackTargetIdQuery:
+      name: targetId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+  headers:
+    PaymentRequired:
+      description: Base64-url encoded x402 v2 PaymentRequired object.
+      schema:
+        type: string
+    PaymentResponse:
+      description: Base64-url encoded x402 settlement response.
+      schema:
+        type: string
+  responses:
+    ErrorResponse:
+      description: Compose error response.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - "$ref": "#/components/schemas/ErrorEnvelope"
+            - "$ref": "#/components/schemas/LegacyError"
+    PaymentRequiredResponse:
+      description: x402 payment challenge.
+      headers:
+        PAYMENT-REQUIRED:
+          "$ref": "#/components/headers/PaymentRequired"
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - "$ref": "#/components/schemas/PaymentRequired"
+            - "$ref": "#/components/schemas/ErrorEnvelope"
+  schemas:
+    AtomicAmount:
+      type: string
+      pattern: "^[0-9]+$"
+      description: Non-negative integer amount in USDC atomic units.
+      examples:
+      - '1000000'
+    WalletAddress:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+      examples:
+      - '0x1111111111111111111111111111111111111111'
+    ChainNetwork:
+      type: string
+      pattern: "^eip155:[0-9]+$"
+      examples:
+      - eip155:43113
+    HealthResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+        timestamp:
+          type: string
+    ErrorEnvelope:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    LegacyError:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    PaymentRequirements:
+      type: object
+      required:
+      - scheme
+      - network
+      - amount
+      - asset
+      - payTo
+      - maxTimeoutSeconds
+      properties:
+        scheme:
+          type: string
+          enum:
+          - exact
+          - upto
+        network:
+          "$ref": "#/components/schemas/ChainNetwork"
+        amount:
+          "$ref": "#/components/schemas/AtomicAmount"
+        asset:
+          "$ref": "#/components/schemas/WalletAddress"
+        payTo:
+          "$ref": "#/components/schemas/WalletAddress"
+        maxTimeoutSeconds:
+          type: integer
+          minimum: 1
+        extra:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    PaymentRequired:
+      type: object
+      required:
+      - x402Version
+      - resource
+      - accepts
+      properties:
+        x402Version:
+          const: 2
+        error:
+          type: string
+        resource:
+          type: object
+          required:
+          - url
+          properties:
+            url:
+              type: string
+              format: uri
+            description:
+              type: string
+            mimeType:
+              type: string
+        accepts:
+          type: array
+          minItems: 1
+          items:
+            "$ref": "#/components/schemas/PaymentRequirements"
+        extensions:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    PaymentPayload:
+      type: object
+      required:
+      - x402Version
+      - accepted
+      - payload
+      properties:
+        x402Version:
+          const: 2
+        accepted:
+          "$ref": "#/components/schemas/PaymentRequirements"
+        payload:
+          description: Scheme-specific signed authorization payload.
+        resource:
+          "$ref": "#/components/schemas/PaymentRequired/properties/resource"
+        extensions:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    FacilitatorPaymentRequest:
+      type: object
+      required:
+      - x402Version
+      - paymentPayload
+      - paymentRequirements
+      properties:
+        x402Version:
+          const: 2
+        paymentPayload:
+          "$ref": "#/components/schemas/PaymentPayload"
+        paymentRequirements:
+          "$ref": "#/components/schemas/PaymentRequirements"
+    VerifyResponse:
+      type: object
+      required:
+      - isValid
+      properties:
+        isValid:
+          type: boolean
+        invalidReason:
+          type: string
+        invalidMessage:
+          type: string
+        payer:
+          type: string
+    SettleResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        errorReason:
+          type: string
+        errorMessage:
+          type: string
+        payer:
+          type: string
+        transaction:
+          type: string
+        network:
+          "$ref": "#/components/schemas/ChainNetwork"
+        amount:
+          "$ref": "#/components/schemas/AtomicAmount"
+    FeedbackTargetType:
+      type: string
+      enum:
+      - endpoint
+      - x402
+      - model
+      - agent
+      - workflow
+    FeedbackCategory:
+      type: string
+      enum:
+      - general
+      - bug
+      - latency
+      - quality
+      - pricing
+      - settlement
+      - model_capability
+      - safety
+      - docs
+      - integration
+    FeedbackVerificationKind:
+      type: string
+      enum:
+      - anonymous
+      - wallet_header
+      - compose_key
+    FeedbackTarget:
+      type: object
+      required:
+      - type
+      - id
+      properties:
+        type:
+          "$ref": "#/components/schemas/FeedbackTargetType"
+        id:
+          type: string
+          minLength: 1
+          maxLength: 512
+    FeedbackContext:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+        paymentIntentId:
+          type: string
+        runId:
+          type: string
+        chainId:
+          type: integer
+          minimum: 1
+        modelId:
+          type: string
+        provider:
+          type: string
+        agentWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        workflowWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        endpoint:
+          type: object
+          additionalProperties: false
+          properties:
+            method:
+              type: string
+            path:
+              type: string
+            url:
+              type: string
+        receipt:
+          type: object
+          additionalProperties: false
+          properties:
+            network:
+              "$ref": "#/components/schemas/ChainNetwork"
+            txHash:
+              type: string
+            finalAmountWei:
+              "$ref": "#/components/schemas/AtomicAmount"
+        sdk:
+          type: object
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+    FeedbackSubmitRequest:
+      type: object
+      required:
+      - target
+      properties:
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        category:
+          "$ref": "#/components/schemas/FeedbackCategory"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        message:
+          type: string
+          maxLength: 4000
+        labels:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 64
+        context:
+          "$ref": "#/components/schemas/FeedbackContext"
+        metadata:
+          type: object
+          additionalProperties: true
+      anyOf:
+      - required:
+        - rating
+      - required:
+        - message
+    FeedbackSubmitResponse:
+      type: object
+      required:
+      - feedbackId
+      - target
+      - verification
+      - createdAt
+      properties:
+        feedbackId:
+          type: string
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        verification:
+          "$ref": "#/components/schemas/FeedbackVerificationKind"
+        createdAt:
+          type: integer
+    FeedbackRecord:
+      type: object
+      required:
+      - id
+      - target
+      - category
+      - labels
+      - context
+      - metadata
+      - verification
+      - createdAt
+      properties:
+        id:
+          type: string
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        category:
+          "$ref": "#/components/schemas/FeedbackCategory"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        message:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        context:
+          "$ref": "#/components/schemas/FeedbackContext"
+        metadata:
+          type: object
+          additionalProperties: true
+        verification:
+          "$ref": "#/components/schemas/FeedbackVerificationKind"
+        createdAt:
+          type: integer
+    FeedbackListResponse:
+      type: object
+      required:
+      - object
+      - data
+      properties:
+        object:
+          const: list
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FeedbackRecord"
+    FeedbackSummary:
+      type: object
+      required:
+      - target
+      - count
+      - ratingCount
+      - ratingAverage
+      - ratings
+      - categories
+      - verification
+      - recent
+      properties:
+        target:
+          "$ref": "#/components/schemas/FeedbackTarget"
+        count:
+          type: integer
+          minimum: 0
+        ratingCount:
+          type: integer
+          minimum: 0
+        ratingAverage:
+          type:
+          - number
+          - 'null'
+        ratings:
+          type: object
+          required:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          properties:
+            '1':
+              type: integer
+            '2':
+              type: integer
+            '3':
+              type: integer
+            '4':
+              type: integer
+            '5':
+              type: integer
+        categories:
+          type: object
+          additionalProperties:
+            type: integer
+        verification:
+          type: object
+          required:
+          - anonymous
+          - wallet_header
+          - compose_key
+          properties:
+            anonymous:
+              type: integer
+            wallet_header:
+              type: integer
+            compose_key:
+              type: integer
+        recent:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FeedbackRecord"
+    FacilitatorSupportedResponse:
+      type: object
+      required:
+      - kinds
+      - extensions
+      properties:
+        kinds:
+          type: array
+          items:
+            type: object
+            required:
+            - x402Version
+            - scheme
+            - network
+            properties:
+              x402Version:
+                type: integer
+              scheme:
+                type: string
+              network:
+                type: string
+              extra:
+                type: object
+                additionalProperties: true
+        extensions:
+          type: array
+          items:
+            type: string
+        signers:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    FacilitatorChain:
+      type: object
+      required:
+      - chainId
+      - name
+      - network
+      - isTestnet
+      - usdcAddress
+      - schemes
+      - asset
+      - decimals
+      properties:
+        chainId:
+          type: integer
+        name:
+          type: string
+        network:
+          "$ref": "#/components/schemas/ChainNetwork"
+        shortName:
+          type: string
+        isTestnet:
+          type: boolean
+        explorer:
+          type: string
+        usdcAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        x402UptoPermit2Proxy:
+          "$ref": "#/components/schemas/WalletAddress"
+        schemes:
+          type: array
+          items:
+            type: string
+            enum:
+            - exact
+            - upto
+        asset:
+          const: USDC
+        decimals:
+          const: 6
+    FacilitatorChainsResponse:
+      type: object
+      required:
+      - chains
+      - defaultChainId
+      properties:
+        chains:
+          type: array
+          items:
+            "$ref": "#/components/schemas/FacilitatorChain"
+        defaultChainId:
+          type: integer
+    KeyPurpose:
+      type: string
+      enum:
+      - session
+      - api
+    KeyCreateRequest:
+      type: object
+      required:
+      - budgetLimit
+      - expiresAt
+      - purpose
+      - chainId
+      properties:
+        budgetLimit:
+          "$ref": "#/components/schemas/AtomicAmount"
+        expiresAt:
+          type: integer
+          minimum: 1
+        purpose:
+          "$ref": "#/components/schemas/KeyPurpose"
+        chainId:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+    KeyCreateResponse:
+      type: object
+      required:
+      - keyId
+      - token
+      - purpose
+      - budgetLimit
+      - budgetUsed
+      - budgetRemaining
+      - createdAt
+      - expiresAt
+      - chainId
+      properties:
+        keyId:
+          type: string
+        token:
+          type: string
+          pattern: "^compose-.+"
+        purpose:
+          "$ref": "#/components/schemas/KeyPurpose"
+        budgetLimit:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetUsed:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetRemaining:
+          "$ref": "#/components/schemas/AtomicAmount"
+        createdAt:
+          type: integer
+        expiresAt:
+          type: integer
+        chainId:
+          type: integer
+        name:
+          type: string
+    KeyRecord:
+      type: object
+      required:
+      - keyId
+      - purpose
+      - budgetLimit
+      - budgetUsed
+      - budgetRemaining
+      - createdAt
+      - expiresAt
+      properties:
+        keyId:
+          type: string
+        purpose:
+          "$ref": "#/components/schemas/KeyPurpose"
+        budgetLimit:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetUsed:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetReserved:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetRemaining:
+          "$ref": "#/components/schemas/AtomicAmount"
+        createdAt:
+          type: integer
+        expiresAt:
+          type: integer
+        revokedAt:
+          type: integer
+        lastUsedAt:
+          type: integer
+        name:
+          type: string
+        chainId:
+          type: integer
+    ActiveSessionMetadata:
+      type: object
+      required:
+      - hasSession
+      properties:
+        hasSession:
+          type: boolean
+        reason:
+          type: string
+        keyId:
+          type: string
+        token:
+          type: string
+        budgetLimit:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetUsed:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetLocked:
+          "$ref": "#/components/schemas/AtomicAmount"
+        budgetRemaining:
+          "$ref": "#/components/schemas/AtomicAmount"
+        expiresAt:
+          type: integer
+        chainId:
+          type: integer
+        name:
+          type: string
+        status:
+          type: object
+          additionalProperties: true
+    SessionEventStream:
+      description: SSE frames named `session-active` and `session-expired`.
+      type: string
+    PaymentPrepareRequest:
+      type: object
+      required:
+      - service
+      - action
+      - resource
+      - method
+      properties:
+        service:
+          type: string
+          minLength: 1
+        action:
+          type: string
+          minLength: 1
+        resource:
+          type: string
+          minLength: 1
+        method:
+          type: string
+          minLength: 1
+        maxAmountWei:
+          "$ref": "#/components/schemas/AtomicAmount"
+        meter:
+          "$ref": "#/components/schemas/MeteredInput"
+        runId:
+          type: string
+        idempotencyKey:
+          type: string
+    PaymentPrepareResponse:
+      type: object
+      additionalProperties: true
+    PaymentSettleResponse:
+      type: object
+      additionalProperties: true
+    MeteredInput:
+      type: object
+      required:
+      - subject
+      - lineItems
+      properties:
+        subject:
+          type: string
+          minLength: 1
+        lineItems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+            - key
+            - unit
+            - quantity
+            - unitPriceUsd
+            properties:
+              key:
+                type: string
+                minLength: 1
+              unit:
+                type: string
+                minLength: 1
+              quantity:
+                type: number
+                exclusiveMinimum: 0
+              unitPriceUsd:
+                type: number
+                exclusiveMinimum: 0
+    ModelMeterRequest:
+      type: object
+      required:
+      - modelId
+      - modality
+      properties:
+        modelId:
+          type: string
+        modality:
+          type: string
+        usage:
+          type: object
+          additionalProperties: true
+        media:
+          type: object
+          additionalProperties: true
+    ModelProvider:
+      type: string
+      enum:
+      - gemini
+      - openai
+      - fireworks
+      - deepinfra
+      - asicloud
+      - alibaba
+      - hugging face
+      - azure
+      - aiml
+      - vertex
+      - cloudflare
+      - deepgram
+      - elevenlabs
+      - cartesia
+      - roboflow

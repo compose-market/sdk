@@ -1,0 +1,28 @@
+[package]
+name = "compose-memory"
+version.workspace = true
+edition.workspace = true
+description = "Generated memory state-machine client for the Compose Market SDK."
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[dependencies]
+base64.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+compose-core = { package = "compose-market-core", path = "../core", version = "0.8.9" }
+futures-core.workspace = true
+progenitor-client.workspace = true
+rand.workspace = true
+regress.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_urlencoded.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+compose-core = { package = "compose-market-core", path = "../core", version = "0.8.9", features = ["codegen"] }

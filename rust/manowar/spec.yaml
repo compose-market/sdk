@@ -1,0 +1,879 @@
+---
+openapi: 3.1.0
+info:
+  title: Compose Manowar
+  version: 0.8.9
+  summary: Agent, workflow, workspace, connector, and MCP execution contracts.
+  description: |
+    Canonical contract for Compose manowar loops: agents, workflows, workspace
+    indexing, and MCP/onchain connector execution.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+- url: https://api.compose.market
+  x-speakeasy-server-id: compose-api
+  description: Production API gateway for public agent and workflow execution endpoints
+- url: https://connectors.compose.market
+  x-speakeasy-server-id: connectors
+  description: Production connectors Worker endpoint
+- url: http://127.0.0.1:8787
+  x-speakeasy-server-id: local
+  description: Local manowar development endpoint
+tags:
+- name: agents
+- name: workflows
+- name: workspace
+- name: connectors
+security: []
+paths:
+  "/agent/{walletAddress}/stream":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public agent execution.
+    post:
+      tags:
+      - agents
+      operationId: stream_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AgentStreamRequest"
+      responses:
+        '200':
+          description: Agent SSE stream carrying thinking, text, tool, error, and
+            done frames.
+          headers:
+            x-run-id:
+              "$ref": "#/components/headers/RunId"
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/AgentEventStream"
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/agent/{walletAddress}/responses":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public agent execution.
+    post:
+      tags:
+      - agents
+      operationId: responses_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Dynamic Responses API result executed through the agent model.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/agent/{walletAddress}/runs/{runId}/state":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public agent run state.
+    get:
+      tags:
+      - agents
+      operationId: runs_state_get
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      - name: threadId
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Durable agent run state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/execute":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow execution.
+    post:
+      tags:
+      - workflows
+      operationId: execute
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - payload
+              properties:
+                payload:
+                  "$ref": "#/components/schemas/WorkflowExecutePayload"
+      responses:
+        '200':
+          description: Workflow execution result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/{walletAddress}/stream":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow execution.
+    post:
+      tags:
+      - workflows
+      operationId: workflow_stream_create
+      x-speakeasy-name-override: stream_create
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      - "$ref": "#/components/parameters/SessionBudgetRemainingHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/WorkflowStreamRequest"
+      responses:
+        '200':
+          description: Workflow SSE stream carrying start, step, agent, progress,
+            tool, result, error, and done frames.
+          headers:
+            x-run-id:
+              "$ref": "#/components/headers/RunId"
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/WorkflowEventStream"
+  "/workflow/{walletAddress}/stop":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow execution.
+    post:
+      tags:
+      - workflows
+      operationId: stop
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                threadId:
+                  type: string
+                runId:
+                  type: string
+      responses:
+        '200':
+          description: Workflow cancellation accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - runId
+                properties:
+                  success:
+                    type: boolean
+                  runId:
+                    type: string
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/{walletAddress}/runs/{runId}/state":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow run state.
+    get:
+      tags:
+      - workflows
+      operationId: workflow_runs_state_get
+      x-speakeasy-name-override: runs_state_get
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      responses:
+        '200':
+          description: Durable workflow run state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          "$ref": "#/components/responses/ErrorResponse"
+  "/workflow/{walletAddress}/runs/{runId}/approval":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow approvals.
+    post:
+      tags:
+      - workflows
+      operationId: runs_approval_signal
+      parameters:
+      - "$ref": "#/components/parameters/WalletAddressPath"
+      - "$ref": "#/components/parameters/RunIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - stepKey
+              - status
+              properties:
+                stepKey:
+                  type: string
+                status:
+                  type: string
+                  enum:
+                  - approved
+                  - rejected
+                approver:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Approval signal accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                properties:
+                  success:
+                    type: boolean
+  "/workflow/{id}/run":
+    servers:
+    - url: https://api.compose.market
+      x-speakeasy-server-id: compose-api
+      description: Production API gateway for public workflow execution.
+    post:
+      tags:
+      - workflows
+      operationId: run_alias
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/WorkflowStreamRequest"
+      responses:
+        '200':
+          description: Alias for `/workflow/{walletAddress}/stream`.
+          content:
+            text/event-stream:
+              schema:
+                "$ref": "#/components/schemas/WorkflowEventStream"
+  "/api/workspace/index":
+    post:
+      tags:
+      - workspace
+      operationId: index
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - agentWallet
+              - documents
+              properties:
+                agentWallet:
+                  "$ref": "#/components/schemas/WalletAddress"
+                documents:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        '200':
+          description: Workspace index result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  "/api/workspace/search":
+    post:
+      tags:
+      - workspace
+      operationId: search
+      parameters:
+      - "$ref": "#/components/parameters/SessionUserAddressHeaderOptional"
+      - "$ref": "#/components/parameters/SessionActiveHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - agentWallet
+              - query
+              properties:
+                agentWallet:
+                  "$ref": "#/components/schemas/WalletAddress"
+                query:
+                  type: string
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: Workspace search result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  "/onchain":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker onchain catalog.
+    get:
+      tags:
+      - connectors
+      operationId: onchain_list
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/onchain/{connectorId}":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker onchain catalog.
+    get:
+      tags:
+      - connectors
+      operationId: onchain_get
+      parameters:
+      - "$ref": "#/components/parameters/ConnectorIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/onchain/{connectorId}/actions/{command}":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker onchain action metadata.
+    get:
+      tags:
+      - connectors
+      operationId: onchain_action_get
+      parameters:
+      - "$ref": "#/components/parameters/ConnectorIdPath"
+      - "$ref": "#/components/parameters/CommandPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/onchain/{connectorId}/execute/{command}":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker onchain execution.
+    post:
+      tags:
+      - connectors
+      operationId: onchain_action_execute
+      parameters:
+      - "$ref": "#/components/parameters/ConnectorIdPath"
+      - "$ref": "#/components/parameters/CommandPath"
+      requestBody:
+        "$ref": "#/components/requestBodies/ActionExecuteRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP catalog.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_list
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/search":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP semantic search.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_search
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/categories":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP categories.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_categories_list
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/tags":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP tags.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_tags_list
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/meta":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP metadata.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_meta_get
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/{serverId}":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP server card.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_get
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/{serverId}/actions":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP action listing.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_actions_list
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/{serverId}/spawn":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP spawn config.
+    get:
+      tags:
+      - connectors
+      operationId: mcp_spawn_get
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/{serverId}/execute/{command}":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP action execution.
+    post:
+      tags:
+      - connectors
+      operationId: mcp_action_execute
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      - "$ref": "#/components/parameters/CommandPath"
+      requestBody:
+        "$ref": "#/components/requestBodies/ActionExecuteRequest"
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+  "/mcps/{serverId}/inspect":
+    servers:
+    - url: https://connectors.compose.market
+      x-speakeasy-server-id: connectors
+      description: Production connectors Worker MCP candidate inspection.
+    post:
+      tags:
+      - connectors
+      operationId: mcp_inspect
+      parameters:
+      - "$ref": "#/components/parameters/ServerIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - candidates
+              properties:
+                candidates:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                deadlineMs:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          "$ref": "#/components/responses/JsonObjectResponse"
+components:
+  headers:
+    RunId:
+      description: Runtime run identifier.
+      schema:
+        type: string
+  parameters:
+    WalletAddressPath:
+      name: walletAddress
+      in: path
+      required: true
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    RunIdPath:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+    ConnectorIdPath:
+      name: connectorId
+      in: path
+      required: true
+      schema:
+        type: string
+    ServerIdPath:
+      name: serverId
+      in: path
+      required: true
+      schema:
+        type: string
+    CommandPath:
+      name: command
+      in: path
+      required: true
+      schema:
+        type: string
+    SessionUserAddressHeaderOptional:
+      name: x-session-user-address
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/WalletAddress"
+    SessionActiveHeader:
+      name: x-session-active
+      in: header
+      required: false
+      schema:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+    SessionBudgetRemainingHeader:
+      name: x-session-budget-remaining
+      in: header
+      required: false
+      schema:
+        "$ref": "#/components/schemas/AtomicAmount"
+  requestBodies:
+    JsonObjectRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    ActionExecuteRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              args:
+                type: object
+                additionalProperties: true
+  responses:
+    ErrorResponse:
+      description: Runtime error response.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    JsonObjectResponse:
+      description: JSON object response.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+  schemas:
+    WalletAddress:
+      type: string
+      pattern: "^0x[a-fA-F0-9]{40}$"
+    AtomicAmount:
+      type: string
+      pattern: "^[0-9]+$"
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          oneOf:
+          - type: string
+          - type: object
+            additionalProperties: true
+        code:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+    Attachment:
+      type: object
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+          description: Advisory attachment kind. Agents and workflows pass attachments through without model-capability gating.
+          enum:
+          - image
+          - audio
+          - video
+          - pdf
+          - file
+          - text
+          - json
+          - url
+        url:
+          type: string
+        uri:
+          type: string
+        data:
+          type: string
+        base64:
+          type: string
+        mimeType:
+          type: string
+        contentType:
+          type: string
+        name:
+          type: string
+        filename:
+          type: string
+        text:
+          type: string
+        content:
+          type: string
+        detail:
+          type: string
+          enum:
+          - auto
+          - low
+          - high
+        metadata:
+          type: object
+          additionalProperties: true
+    AttachmentInput:
+      oneOf:
+      - "$ref": "#/components/schemas/Attachment"
+      - type: string
+    Attachments:
+      type: array
+      items:
+        "$ref": "#/components/schemas/AttachmentInput"
+    AgentStreamRequest:
+      type: object
+      required:
+      - message
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+          minLength: 1
+        threadId:
+          type: string
+        runId:
+          type: string
+        workflowWallet:
+          "$ref": "#/components/schemas/WalletAddress"
+        userAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        attachment:
+          "$ref": "#/components/schemas/AttachmentInput"
+        attachments:
+          "$ref": "#/components/schemas/Attachments"
+        sessionGrants:
+          type: array
+          items:
+            type: string
+        cloudPermissions:
+          type: array
+          items:
+            type: string
+        backpackAccounts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    AgentEventStream:
+      description: SSE frames for `thinking_start`, `thinking_end`, OpenAI-style text
+        chunks, `tool_start`, `tool_end`, `error`, and `done`.
+      type: string
+    WorkflowExecutePayload:
+      type: object
+      required:
+      - walletAddress
+      additionalProperties: true
+      properties:
+        walletAddress:
+          "$ref": "#/components/schemas/WalletAddress"
+        id:
+          type: string
+        input: {}
+        message:
+          type: string
+        threadId:
+          type: string
+    WorkflowStreamRequest:
+      type: object
+      required:
+      - message
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+        threadId:
+          type: string
+        image:
+          type: string
+        audio:
+          type: string
+        attachment:
+          "$ref": "#/components/schemas/AttachmentInput"
+        attachments:
+          "$ref": "#/components/schemas/Attachments"
+        continuous:
+          type: boolean
+        runId:
+          type: string
+        lastEventIndex:
+          type: integer
+    WorkflowEventStream:
+      description: SSE frames named `start`, `step`, `agent`, `progress`, `tool_start`,
+        `tool_end`, `result`, `error`, `complete`, and `done`.
+      type: string

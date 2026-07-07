@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "tools",
+    "inference",
+    "memory",
+    "manowar",
+    "channels",
+    "x402",
+    "sdk",
+]
+
+[workspace.package]
+version = "0.8.9"
+edition = "2021"
+license = "MIT"
+authors = ["Compose.Market"]
+homepage = "https://compose.market"
+repository = "https://github.com/compose-market/sdk"
+
+[workspace.dependencies]
+base64 = "0.22"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"], default-features = false }
+futures-core = "0.3"
+openapiv3 = "2.2"
+prettyplease = "0.2"
+progenitor = "0.14"
+progenitor-client = "0.14"
+rand = "0.9"
+regress = "0.10"
+reqwest = { version = "0.13", features = ["json", "stream"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_urlencoded = "0.7"
+serde_yaml = "0.9"
+syn = { version = "2", features = ["full"] }
+uuid = { version = "1", features = ["serde", "v4"] }
