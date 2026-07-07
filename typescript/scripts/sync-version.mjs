@@ -1,0 +1,236 @@
+#!/usr/bin/env node
+/**
+ * Synchronize every package/spec version from the single source of truth
+ * (package.json).
+ *
+ * Runs before every build and every test. Nothing else in the tree hand-writes
+ * a version constant or contract/package metadata; this script owns the
+ * invariant that local builds cannot publish mixed root/generated/spec
+ * versions after package.json changes.
+ */
+
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, relative } from "node:path";
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const typescriptDir = join(scriptDir, "..");
+const repoDir = join(typescriptDir, "..");
+const sharedDir = join(repoDir, "shared");
+const rustDir = join(repoDir, "rust");
+const specDir = join(sharedDir, "specs");
+
+const pkgPath = join(typescriptDir, "package.json");
+
+const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+const version = pkg.version;
+if (typeof version !== "string" || version.length === 0) {
+    console.error("[version] package.json is missing a `version` field");
+    process.exit(1);
+}
+
+const generatedTargets = ["manowar", "inference", "memory", "x402", "channels"];
+const rustCrates = ["core", "inference", "x402", "memory", "manowar", "channels", "tools", "sdk"];
+
+function readUtf8(path) {
+    return readFileSync(path, "utf-8");
+}
+
+function writeIfChanged(path, contents) {
+    if (!existsSync(path)) {
+        writeFileSync(path, contents, "utf-8");
+        return true;
+    }
+
+    const previous = readUtf8(path);
+    if (previous === contents) {
+        return false;
+    }
+
+    writeFileSync(path, contents, "utf-8");
+    return true;
+}
+
+function updateJson(path, updater) {
+    if (!existsSync(path)) {
+        return false;
+    }
+
+    const value = JSON.parse(readUtf8(path));
+    updater(value);
+    return writeIfChanged(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function replaceRequired(path, pattern, replacement, label) {
+    if (!existsSync(path)) {
+        return false;
+    }
+
+    const previous = readUtf8(path);
+    if (!pattern.test(previous)) {
+        throw new Error(`[version] ${label} was not found in ${path}`);
+    }
+
+    const next = previous.replace(pattern, replacement);
+    return writeIfChanged(path, next);
+}
+
+function updateInfoVersion(path) {
+    return replaceRequired(
+        path,
+        /(^info:\n(?:[ \t].*\n)*?[ \t]+version:[ \t]*).+$/m,
+        `$1${version}`,
+        "info.version",
+    );
+}
+function updateRustWorkspaceVersion(path) {
+    if (!existsSync(path)) {
+        return false;
+    }
+
+    const previous = readUtf8(path);
+    if (!/^\[workspace\.package\]$/m.test(previous)) {
+        throw new Error(`[version] [workspace.package] was not found in ${path}`);
+    }
+
+    const next = previous.replace(
+        /(^\[workspace\.package\]\n)(?:version[ \t]*=[ \t]*"[^"]+"[ \t]*\n)?/m,
+        `$1version = "${version}"\n`,
+    );
+    return writeIfChanged(path, next);
+}
+
+function updateRustCrateManifest(path) {
+    if (!existsSync(path)) {
+        return false;
+    }
+
+    let next = readUtf8(path);
+    if (!/^\[package\]$/m.test(next)) {
+        throw new Error(`[version] [package] was not found in ${path}`);
+    }
+    if (!/^version(?:\.workspace)?[ \t]*=/m.test(next)) {
+        throw new Error(`[version] package.version was not found in ${path}`);
+    }
+
+    next = next.replace(
+        /^version(?:\.workspace)?[ \t]*=[ \t]*(?:"[^"]+"|true)[ \t]*$/m,
+        "version.workspace = true",
+    );
+    next = next.replace(
+        /(compose-[A-Za-z0-9_-]+[ \t]*=[ \t]*\{[^}\n]*\bversion[ \t]*=[ \t]*")[^"]+("[^}\n]*\})/g,
+        `$1${version}$2`,
+    );
+
+    return writeIfChanged(path, next);
+}
+
+const changed = new Set();
+
+function track(path, didChange) {
+    if (didChange) {
+        changed.add(relative(repoDir, path));
+    }
+}
+
+track(join(typescriptDir, "package-lock.json"), updateJson(join(typescriptDir, "package-lock.json"), (lock) => {
+    lock.version = version;
+    if (lock.packages?.[""]) {
+        lock.packages[""].version = version;
+    }
+}));
+
+for (const spec of ["manowar.openapi.yaml", "inference.openapi.yaml", "memory.openapi.yaml", "x402.openapi.yaml", "channels.openapi.yaml"]) {
+    const path = join(specDir, spec);
+    track(path, updateInfoVersion(path));
+}
+
+for (const arazzo of ["tests.arazzo.yaml", "memory.arazzo.yaml", "inference.arazzo.yaml", "a2a.arazzo.yaml", "commands.arazzo.yaml"]) {
+    const path = join(sharedDir, ".speakeasy", arazzo);
+    track(path, updateInfoVersion(path));
+}
+
+track(join(sharedDir, ".speakeasy", "gen.yaml"), replaceRequired(
+    join(sharedDir, ".speakeasy", "gen.yaml"),
+    /(^typescript:\n(?:[ \t].*\n)*?[ \t]+version:[ \t]*).+$/m,
+    `$1${version}`,
+    "typescript.version",
+));
+
+track(join(rustDir, "Cargo.toml"), updateRustWorkspaceVersion(join(rustDir, "Cargo.toml")));
+for (const crate of rustCrates) {
+    track(join(rustDir, crate, "Cargo.toml"), updateRustCrateManifest(join(rustDir, crate, "Cargo.toml")));
+}
+for (const spec of ["manowar", "inference", "memory", "x402", "channels"]) {
+    track(join(rustDir, spec, "spec.yaml"), updateInfoVersion(join(rustDir, spec, "spec.yaml")));
+}
+
+for (const target of generatedTargets) {
+    const targetDir = join(typescriptDir, "generated", target);
+    track(join(targetDir, "package.json"), updateJson(join(targetDir, "package.json"), (generatedPkg) => {
+        generatedPkg.version = version;
+    }));
+    track(join(targetDir, "jsr.json"), updateJson(join(targetDir, "jsr.json"), (jsr) => {
+        jsr.version = version;
+    }));
+    track(join(targetDir, "package-lock.json"), updateJson(join(targetDir, "package-lock.json"), (lock) => {
+        lock.version = version;
+        if (lock.packages?.[""]) {
+            lock.packages[""].version = version;
+        }
+    }));
+    track(join(targetDir, "examples", "package-lock.json"), updateJson(join(targetDir, "examples", "package-lock.json"), (lock) => {
+        if (lock.packages?.[".."]) {
+            lock.packages[".."].version = version;
+        }
+    }));
+
+    const genLock = join(targetDir, ".speakeasy", "gen.lock");
+    if (existsSync(genLock)) {
+        track(genLock, replaceRequired(genLock, /(^  docVersion:[ \t]*).+$/m, `$1${version}`, "management.docVersion"));
+        track(genLock, replaceRequired(genLock, /(^  releaseVersion:[ \t]*).+$/m, `$1${version}`, "management.releaseVersion"));
+    }
+
+    const generatedConfig = join(targetDir, "src", "lib", "config.ts");
+    if (existsSync(generatedConfig)) {
+        track(generatedConfig, replaceRequired(
+            generatedConfig,
+            /(\bopenapiDocVersion:\s*")[^"]+(")/,
+            `$1${version}$2`,
+            "SDK_METADATA.openapiDocVersion",
+        ));
+        track(generatedConfig, replaceRequired(
+            generatedConfig,
+            /(\bsdkVersion:\s*")[^"]+(")/,
+            `$1${version}$2`,
+            "SDK_METADATA.sdkVersion",
+        ));
+        track(generatedConfig, replaceRequired(
+            generatedConfig,
+            /(\buserAgent:\s*"speakeasy-sdk\/typescript\s+)[^ ]+(\s+)/,
+            `$1${version}$2`,
+            "SDK_METADATA.userAgent sdkVersion",
+        ));
+    }
+}
+
+const versionPath = join(typescriptDir, "src", "version.ts");
+const contents = `/**
+ * GENERATED FILE - DO NOT EDIT.
+ *
+ * The canonical SDK version string. Regenerated from \`package.json\` before
+ * every build and every test by \`scripts/sync-version.mjs\`. The only place
+ * to change the version is \`package.json\`.
+ */
+
+export const SDK_VERSION = "${version}" as const;
+`;
+
+track(versionPath, writeIfChanged(versionPath, contents));
+
+if (changed.size === 0) {
+    console.log(`[version] all package/spec versions already ${version}`);
+} else {
+    const changedFiles = Array.from(changed);
+    console.log(`[version] synced ${changedFiles.length} file(s) to ${version}: ${changedFiles.join(", ")}`);
+}

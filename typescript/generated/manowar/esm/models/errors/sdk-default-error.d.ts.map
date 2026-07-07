@@ -1,0 +1,1 @@
+{"version":3,"file":"sdk-default-error.d.ts","sourceRoot":"","sources":["../../../src/models/errors/sdk-default-error.ts"],"names":[],"mappings":"AAIA,OAAO,EAAE,QAAQ,EAAE,MAAM,gBAAgB,CAAC;AAE1C,0EAA0E;AAC1E,qBAAa,eAAgB,SAAQ,QAAQ;IAC3C,YACE,OAAO,EAAE,MAAM,EACf,QAAQ,EAAE;QACR,QAAQ,EAAE,QAAQ,CAAC;QACnB,OAAO,EAAE,OAAO,CAAC;QACjB,IAAI,EAAE,MAAM,CAAC;KACd,EAwBF;CACF"}
